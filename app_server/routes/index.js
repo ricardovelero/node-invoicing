@@ -29,4 +29,7 @@ router.get("/taxes", ctrlTaxes.listTaxes);
 router.get("/tax", ctrlTaxes.taxDetails);
 router.get("/tax/add", ctrlTaxes.addTax);
 
+/* Other pages */
+router.get("/about", ctrlOthers.about);
+
 module.exports = router;
