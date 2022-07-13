@@ -6,8 +6,9 @@ const ctrlClients = require("../controllers/clients");
 const ctrlItems = require("../controllers/items");
 const ctrlPayments = require("../controllers/payments");
 const ctrlTaxes = require("../controllers/taxes");
+const ctrlOthers = require("../controllers/others");
 
-router.get("/", ctrlDashboard.homelist);
+router.get("/", ctrlDashboard.index);
 
 router.get("/invoices", ctrlInvoices.listInvoices);
 router.get("/invoice", ctrlInvoices.invoiceDetails);
