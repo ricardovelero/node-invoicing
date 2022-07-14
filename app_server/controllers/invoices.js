@@ -1,13 +1,13 @@
 const listInvoices = (req, res) => {
-  res.render("index", { title: "Listado de Facturas" });
+  res.render("listinvoices", { title: "Listado de Facturas" });
 };
 
 const invoiceDetails = (req, res) => {
-  res.render("index", { title: "Detalle de Factura" });
+  res.render("invoice", { title: "Detalle de Factura" });
 };
 
 const addInvoice = (req, res) => {
-  res.render("index", { title: "Facturar" });
+  res.render("addinvoice", { title: "Facturar" });
 };
 
 module.exports = {
