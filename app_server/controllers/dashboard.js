@@ -1,7 +1,7 @@
-const index = (req, res) => {
-  res.render("index", { title: "Tablero" });
+const dashboard = (req, res) => {
+  res.render("dashboard", { title: "Tablero" });
 };
 
 module.exports = {
-  index,
+  dashboard,
 };

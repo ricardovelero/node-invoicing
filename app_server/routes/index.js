@@ -8,7 +8,7 @@ const ctrlPayments = require("../controllers/payments");
 const ctrlTaxes = require("../controllers/taxes");
 const ctrlOthers = require("../controllers/others");
 
-router.get("/", ctrlDashboard.index);
+router.get("/", ctrlDashboard.dashboard);
 
 router.get("/invoices", ctrlInvoices.listInvoices);
 router.get("/invoice", ctrlInvoices.invoiceDetails);
