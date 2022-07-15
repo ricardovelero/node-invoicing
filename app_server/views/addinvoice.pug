@@ -4,7 +4,7 @@ block content
     section.text-gray-600.body-font
         div(class='max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8')
             div(class='max-w-3xl mx-auto')
-                h1(class="title-font sm:text-4xl text-3xl mb-4 font-medium text-gray-900 text-center") Crear Factura
+                h1(class="title-font sm:text-4xl text-3xl mb-4 font-medium text-gray-900 text-center") Nueva Factura
                 p.mt-1.text-sm.text-gray-500.text-center Completa toda la información para crear una nueva Factura.
                 form.space-y-8.divide-y.divide-gray-200
                     .space-y-8.divide-y.divide-gray-200
@@ -18,10 +18,8 @@ block content
                                             option Ricardo Rodriguez
                                             option Benjamin Rodriguez
                                 div(class='sm:col-span-3')
-                                    .mt-8.space-y-4
-                                        .flex.items-center
-                                            input#recurrent.h-4.w-4.text-indigo-600.border-gray-300(name='recurrent' type='checkbox' class='focus:ring-indigo-500')
-                                            label.ml-3.block.text-sm.font-medium.text-gray-700(for='push-everything') ¿Es Recurrente?
+                                  .mt-4(class='sm:mt-5 sm:ml-16')
+                                    button.float-right.inline-flex.items-center.justify-center.rounded-md.border.border-transparent.bg-indigo-600.px-4.py-2.text-sm.font-medium.text-white.shadow-sm(type='button' class='hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto') Nuevo Cliente
                                 div(class='sm:col-span-3')
                                     label.block.text-sm.font-medium.text-gray-700(for='date')  Fecha
                                     .mt-1
@@ -30,6 +28,11 @@ block content
                                     label.block.text-sm.font-medium.text-gray-700(for='due-date')  Fecha Vencimiento 
                                     .mt-1
                                         input#email.shadow-sm.block.w-full.border-gray-300.rounded-md(name='due-date' type='date' autocomplete='due-date' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
+                                div(class='sm:col-span-3')
+                                    .mt-1
+                                        .flex.items-center
+                                            input#recurrent.h-4.w-4.text-indigo-600.border-gray-300(name='recurrent' type='checkbox' class='focus:ring-indigo-500')
+                                            label.ml-3.block.text-sm.font-medium.text-gray-700(for='push-everything') ¿Es Recurrente?
                         .pt-8
                           // This example requires Tailwind CSS v2.0+
                           div(class='sm:flex sm:items-center')
@@ -38,7 +41,7 @@ block content
                               p.mt-2.text-sm.text-gray-700
                                 | Puedes agregar un ítem pinchando en el botón sin perder los datos de la factura.
                             .mt-4(class='sm:mt-0 sm:ml-16 sm:flex-none')
-                              button.inline-flex.items-center.justify-center.rounded-md.border.border-transparent.bg-indigo-600.px-4.py-2.text-sm.font-medium.text-white.shadow-sm(type='button' class='hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto') Agregar ítem
+                              button.inline-flex.items-center.justify-center.rounded-md.border.border-transparent.bg-indigo-600.px-4.py-2.text-sm.font-medium.text-white.shadow-sm(type='button' class='hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto') Nuevo ítem
                           .mt-8.flex.flex-col
                             .-my-2.-mx-4.overflow-x-auto(class='sm:-mx-6 lg:-mx-8')
                               .inline-block.min-w-full.py-2.align-middle(class='md:px-6 lg:px-8')
