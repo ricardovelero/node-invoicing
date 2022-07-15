@@ -7,7 +7,8 @@ block content
         h1(class="title-font sm:text-4xl text-3xl mb-4 font-medium text-gray-900")= pageHeader.title
         p(class="hidden lg:inline-block")= pageHeader.strapline
         hr.my-5
-        .p-5.bg-red-600.text-white= message
+        if message 
+          .p-5.bg-red-600.text-white= message
         .flex.justify-center
           .grid-flow-col.gap-4.grid-rows-3
             .grid.grid-cols-3.gap-4
