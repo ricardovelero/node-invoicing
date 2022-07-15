@@ -11,24 +11,24 @@ const ctrlOthers = require("../controllers/others");
 router.get("/", ctrlDashboard.dashboard);
 
 router.get("/invoices", ctrlInvoices.listInvoices);
-router.get("/invoice", ctrlInvoices.invoiceDetails);
+router.get("/invoices/:id", ctrlInvoices.invoiceDetails);
 router.get("/invoice/add", ctrlInvoices.addInvoice);
 
 router.get("/clients", ctrlClients.listClients);
-router.get("/client", ctrlClients.clientDetails);
-router.get("/client/add", ctrlClients.addClient);
+router.get("/clients/:id", ctrlClients.clientDetails);
+router.get("/clients/add", ctrlClients.addClient);
 
 router.get("/items", ctrlItems.listItems);
-router.get("/item", ctrlItems.itemDetails);
-router.get("/item/add", ctrlItems.addItem);
+router.get("/items/:id", ctrlItems.itemDetails);
+router.get("/items/add", ctrlItems.addItem);
 
 router.get("/payments", ctrlPayments.listPayments);
-router.get("/payment", ctrlPayments.paymentDetails);
-router.get("/payment/add", ctrlPayments.addPayment);
+router.get("/payments/:id", ctrlPayments.paymentDetails);
+router.get("/payments/add", ctrlPayments.addPayment);
 
 router.get("/taxes", ctrlTaxes.listTaxes);
-router.get("/tax", ctrlTaxes.taxDetails);
-router.get("/tax/add", ctrlTaxes.addTax);
+router.get("/taxes/:id", ctrlTaxes.taxDetails);
+router.get("/taxes/add", ctrlTaxes.addTax);
 
 /* Other pages */
 router.get("/about", ctrlOthers.about);
