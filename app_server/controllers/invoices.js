@@ -40,11 +40,27 @@ const listInvoices = (req, res) => {
   });
 };
 
+const renderInvoiceDetails = (req, res, responseBody) => {
+  res.render("invoice", {
+    title: `Detalle de Factura ${responseBody.invoice_number} - FacturaZen`,
+    invoice: responseBody,
+  });
+};
+
 const invoiceDetails = (req, res) => {
-  res.render("invoice", { title: "Detalle de Factura" });
+  const path = `/api/invoices/${req.params.id}`;
+  const requestOptions = {
+    url: `${apiOptions.server}${path}`,
+    method: "GET",
+    json: {},
+  };
+  request(requestOptions, (err, response, body) => {
+    renderInvoiceDetails(req, res, body);
+  });
 };
 
 const addInvoice = (req, res) => {
+  console.log("Hello");
   res.render("addinvoice", { title: "Facturar" });
 };
 

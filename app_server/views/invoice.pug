@@ -5,10 +5,11 @@ block content
         div(class="my-10 px-4 sm:px-6 lg:px-8")
             div(class="sm:flex sm:items-center")
                 div(class="sm:flex-auto")
-                    h1.text-xl.font-semibold.text-gray-900 Factura Nº ABC2022
+                    h1.text-xl.font-semibold.text-gray-900 Factura Nº #{invoice.invoice_number}
                     p.mt-2.text-sm.text-gray-700
-                        | Por curso de JS 
-                        time(datetime='2022-07-11') 7 de Julio de 2022
+                        | Fecha Emitida: #{moment(invoice.invoice_date).format('LL')}
+                    p.mt-2.text-sm.text-gray-700
+                        | Fecha Vencimiento: #{moment(invoice.due_date).format('LL')}
                 div(class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none")
                     button(class="inline-flex items-center justify-center rounded-md border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto" type="button") Imprimir
             div("-mx-4 mt-8 flex flex-col sm:-mx-6 md:mx-0")
@@ -20,24 +21,28 @@ block content
                             th(class="hidden py-3 5 px-3 text-right text-sm font-semibold text-gray-900 sm:table-cell" scope="col") Costo Unitario
                             th(class="py-3 5 pl-3 pr-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 md:pr-0" scope="col") Precio
                     tbody
-                        tr.border-b.border-gray-200
-                            td(class="py-4 pl-4 pr-3 text-sm sm:pl-6 md:pl-0")
-                                .font-medium.text-gray-900 Curso de JavaScript
-                                div("mt-0.5 text-gray-500 sm:hidden") Conocimiento sobre JavaScript
-                            td(class="hidden py-4 px-3 text-right text-sm text-gray-500 sm:table-cell") 2
-                            td(class="hidden py-4 px-3 text-right text-sm text-gray-500 sm:table-cell") $100.00
-                            td(class="py-4 pl-3 pr-4 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") $200.00
-                        //  More projects... 
+                        each item in invoice.items 
+                            tr.border-b.border-gray-200
+                                td(class="py-4 pl-4 pr-3 text-sm sm:pl-6 md:pl-0")
+                                    .font-medium.text-gray-900= item.item_name
+                                    div("mt-0.5 text-gray-500 sm:hidden") Aquí va la descricpion del item 
+                                td(class="hidden py-4 px-3 text-right text-sm text-gray-500 sm:table-cell") 2
+                                td(class="hidden py-4 px-3 text-right text-sm text-gray-500 sm:table-cell") €100.00
+                                td(class="py-4 pl-3 pr-4 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") €200.00
+                            //  More projects... 
                     tfoot
                         tr
                             th(class="hidden pl-6 pr-3 pt-6 text-right text-sm font-normal text-gray-500 sm:table-cell md:pl-0" scope="row" colspan="3") Subtotal
                             th(class="pl-4 pr-3 pt-6 text-left text-sm font-normal text-gray-500 sm:hidden" scope='row') Subtotal
-                            td(class="pl-3 pr-4 pt-6 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") $200
+                            td(class="pl-3 pr-4 pt-6 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") €#{invoice.subtotal}
                         tr
                             th(class="hidden pl-6 pr-3 pt-4 text-right text-sm font-normal text-gray-500 sm:table-cell md:pl-0" scope="row" colspan="3") IVA
                             th(class="pl-4 pr-3 pt-4 text-left text-sm font-normal text-gray-500 sm:hidden" scope='row') IVA
-                            td(class="pl-3 pr-4 pt-4 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") $20
+                            if invoice.tax
+                                td(class="pl-3 pr-4 pt-4 text-right text-sm text-gray-500 sm:pr-6 md:pr-0") €#{invoice.tax}
                         tr
                             th(class="hidden pl-6 pr-3 pt-4 text-right text-sm font-semibold text-gray-900 sm:table-cell md:pl-0" scope="row" colspan="3") Total
                             th(class="pl-4 pr-3 pt-4 text-left text-sm font-semibold text-gray-900 sm:hidden" scope='row') Total
-                            td(class="pl-3 pr-4 pt-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 md:pr-0") $220
+                            td(class="pl-3 pr-4 pt-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 md:pr-0") €#{invoice.total}
+                p.mt-2.text-sm.text-gray-700
+                    | #{invoice.invoice_notes}
