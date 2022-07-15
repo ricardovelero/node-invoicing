@@ -13,7 +13,7 @@ block content
           .grid-flow-col.gap-4.grid-rows-3
             .grid.grid-cols-3.gap-4
               each invoice in invoices
-                a(href=`/invoice/${invoice.id}` class="")
+                a(href=`/invoices/${invoice.id}` class="")
                   div(class="block p-6 rounded-lg shadow-lg  max-w-sm transition ease-in-out delay-150 bg-white hover:-translate-y-0.5 hover:scale-110 hover:shadow-2xl duration-300")
                     h5.text-gray-900.text-xl.leading-tight.font-medium.mb-2 Vanessa Archila
                     p(class="text-gray-700.text-base.mb-4.space-y-0.5") Nº: #{invoice.invoice_number}, #{moment(invoice.invoice_date).format('LL')}
