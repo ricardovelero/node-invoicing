@@ -59,13 +59,44 @@ const invoiceDetails = (req, res) => {
   });
 };
 
+const getClientList = (req, res, callback) => {
+  const path = "/api/clients/";
+  const requestOptions = {
+    url: `${apiOptions.server}${path}`,
+    method: "GET",
+    json: {},
+  };
+  request(requestOptions, (err, { statusCode }, body) => {
+    let data = body;
+    if (statusCode === 200) {
+      callback(req, res, data);
+    } else {
+      showError(req, res, statusCode);
+    }
+  });
+};
+
 const addInvoice = (req, res) => {
-  console.log("Hello");
-  res.render("addinvoice", { title: "Facturar" });
+  getClientList(req, res, (req, res, responseData) =>
+    renderAddInvoiceForm(req, res, responseData)
+  );
+};
+
+const renderAddInvoiceForm = function (req, res, data) {
+  res.render("addinvoice", {
+    title: "Facturar - FacturaZen",
+    pageHeader: { title: "Facturar" },
+    clients: data,
+  });
+};
+
+const doAddInvoice = (req, res) => {
+  const clientId = req.params.clientId;
 };
 
 module.exports = {
   listInvoices,
   invoiceDetails,
   addInvoice,
+  doAddInvoice,
 };

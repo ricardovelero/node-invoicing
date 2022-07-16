@@ -6,24 +6,23 @@ block content
             div(class='max-w-3xl mx-auto')
                 h1(class="title-font sm:text-4xl text-3xl mb-4 font-medium text-gray-900 text-center") Nueva Factura
                 p.mt-1.text-sm.text-gray-500.text-center Completa toda la información para crear una nueva Factura.
-                form.space-y-8.divide-y.divide-gray-200
+                form.space-y-8.divide-y.divide-gray-200(method='POST')
                     .space-y-8.divide-y.divide-gray-200
                         .pt-8
                             .mt-6.grid.grid-cols-1.gap-y-6.gap-x-4(class='sm:grid-cols-6')
                                 div(class='sm:col-span-3')
-                                    label.block.text-sm.font-medium.text-gray-700(for='client')  Cliente 
+                                    label.block.text-sm.font-medium.text-gray-700(for='clientId')  Cliente 
                                     .mt-1
-                                        select#country.shadow-sm.block.w-full.border-gray-300.rounded-md(name='client' autocomplete='client-name' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
-                                            option Vanessa Archila
-                                            option Ricardo Rodriguez
-                                            option Benjamin Rodriguez
+                                        select#country.shadow-sm.block.w-full.border-gray-300.rounded-md(name='clientId' autocomplete='client-name' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
+                                            each client in clients
+                                              option(value=client.id)= client.name
                                 div(class='sm:col-span-3')
                                   .mt-4(class='sm:mt-5 sm:ml-16')
                                     button.float-right.inline-flex.items-center.justify-center.rounded-md.border.border-transparent.bg-indigo-600.px-4.py-2.text-sm.font-medium.text-white.shadow-sm(type='button' class='hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto') Nuevo Cliente
                                 div(class='sm:col-span-3')
-                                    label.block.text-sm.font-medium.text-gray-700(for='date')  Fecha
+                                    label.block.text-sm.font-medium.text-gray-700(for='invoice_date')  Fecha
                                     .mt-1
-                                        input#last-name.shadow-sm.block.w-full.border-gray-300.rounded-md(type='date' name='date' autocomplete='date' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
+                                        input#last-name.shadow-sm.block.w-full.border-gray-300.rounded-md(type='date' name='invoice_date' autocomplete='invoice_date' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
                                 div(class='sm:col-span-3')
                                     label.block.text-sm.font-medium.text-gray-700(for='due-date')  Fecha Vencimiento 
                                     .mt-1
@@ -31,8 +30,8 @@ block content
                                 div(class='sm:col-span-3')
                                     .mt-1
                                         .flex.items-center
-                                            input#recurrent.h-4.w-4.text-indigo-600.border-gray-300(name='recurrent' type='checkbox' class='focus:ring-indigo-500')
-                                            label.ml-3.block.text-sm.font-medium.text-gray-700(for='push-everything') ¿Es Recurrente?
+                                            input#recurrent.h-4.w-4.text-indigo-600.border-gray-300(name='is_recurrent' type='checkbox' class='focus:ring-indigo-500')
+                                            label.ml-3.block.text-sm.font-medium.text-gray-700(for='is_recurrent') ¿Es Recurrente?
                         .pt-8
                           // This example requires Tailwind CSS v2.0+
                           div(class='sm:flex sm:items-center')
@@ -71,13 +70,13 @@ block content
 
                         .pt-8
                             div(class='sm:col-span-6')
-                                label.block.text-sm.font-medium.text-gray-700(for='about')  Notas 
+                                label.block.text-sm.font-medium.text-gray-700(for='invoice_notes')  Notas 
                                     .mt-1
-                                        textarea#about.shadow-sm.block.w-full.border.border-gray-300.rounded-md(name='about' rows='3' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
+                                        textarea#about.shadow-sm.block.w-full.border.border-gray-300.rounded-md(name='invoice_notes' rows='3' class='focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm')
                                         p.mt-2.text-sm.text-gray-500 Condiciones de venta o alguna observación.
                     .pt-5
                         .flex.justify-end
                             a(href="/invoices" class="")
                                 button.bg-white.py-2.px-4.border.border-gray-300.rounded-md.shadow-sm.text-sm.font-medium.text-gray-700(type='button' class='hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500') Cancelar 
-                            a(href="/invoices" class="")
+                            a(href="/invoices/add" class="")
                                 button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600(type='submit' class='hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500') Crear 

@@ -12,7 +12,10 @@ router.get("/", ctrlDashboard.dashboard);
 
 router.get("/invoices", ctrlInvoices.listInvoices);
 router.get("/invoices/:id", ctrlInvoices.invoiceDetails);
-router.get("/invoice/add", ctrlInvoices.addInvoice);
+router
+  .route("/invoice/add")
+  .get(ctrlInvoices.addInvoice)
+  .post(ctrlInvoices.doAddInvoice);
 
 router.get("/clients", ctrlClients.listClients);
 router.get("/clients/:id", ctrlClients.clientDetails);
