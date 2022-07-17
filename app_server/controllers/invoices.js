@@ -1,4 +1,3 @@
-const { response } = require("express");
 const request = require("request");
 const apiOptions = {
   server: "http://localhost:8080",
@@ -59,35 +58,24 @@ const invoiceDetails = (req, res) => {
   });
 };
 
-const getClientList = (req, res, callback) => {
-  const path = "/api/clients/";
-  const requestOptions = {
-    url: `${apiOptions.server}${path}`,
-    method: "GET",
-    json: {},
-  };
-  request(requestOptions, (err, { statusCode }, body) => {
-    let data = body;
-    if (statusCode === 200) {
-      callback(req, res, data);
-    } else {
-      showError(req, res, statusCode);
-    }
-  });
-};
-
 const addInvoice = (req, res) => {
-  getClientList(req, res, (req, res, responseData) =>
-    renderAddInvoiceForm(req, res, responseData)
+  request.get(
+    { url: `${apiOptions.server}/api/clients`, json: true },
+    (e, r, allClients) => {
+      request.get(
+        { url: `${apiOptions.server}/api/items`, json: true },
+        (e, r, allItems) => {
+          console.log(allItems);
+          console.log(allClients);
+          res.render("addinvoice", {
+            title: "Agregar Factura - FacturaZen",
+            clients: allClients,
+            items: allItems,
+          });
+        }
+      );
+    }
   );
-};
-
-const renderAddInvoiceForm = function (req, res, data) {
-  res.render("addinvoice", {
-    title: "Facturar - FacturaZen",
-    pageHeader: { title: "Facturar" },
-    clients: data,
-  });
 };
 
 const doAddInvoice = (req, res) => {
