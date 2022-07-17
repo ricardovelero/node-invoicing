@@ -91,7 +91,42 @@ const renderAddInvoiceForm = function (req, res, data) {
 };
 
 const doAddInvoice = (req, res) => {
-  const clientId = req.params.clientId;
+  const path = "/api/invoices";
+  const postdata = {
+    clientId: req.body.clientId,
+    invoice_date: req.body.invoice_date,
+    due_date: req.body.due_date,
+    invoice_notes: req.body.invoice_notes,
+  };
+  const requestOptions = {
+    url: `${apiOptions.server}${path}`,
+    method: "POST",
+    json: postdata,
+  };
+  request(requestOptions, (err, { statusCode }, body) => {
+    if (statusCode === 201) {
+      res.redirect(`/invoices/${id}`);
+    } else {
+      showError(req, res, statusCode);
+    }
+  });
+};
+
+const showError = (req, res, status) => {
+  let title = "";
+  let content = "";
+  if (status === 404) {
+    title = "404, page not found";
+    content = "Oh dear. Looks like you can't find this page. Sorry.";
+  } else {
+    title = `${status}, something's gone wrong`;
+    content = "Something, somewhere, has gone just a little bit wrong.";
+  }
+  res.status(status);
+  res.render("index", {
+    title,
+    content,
+  });
 };
 
 module.exports = {
