@@ -56,18 +56,21 @@ block content
                                         th.px-3.text-left.text-sm.font-semibold.text-gray-900(scope='col' class='py-3.5') Cantidad 
                                         th.px-3.text-left.text-sm.font-semibold.text-gray-900(scope='col' class='py-3.5') Precio 
                                     tbody.divide-y.divide-gray-200.bg-white
-                                      tr
-                                        td.whitespace-nowrap.pl-3.py-1.text-sm.text-gray-500
-                                          a.text-indigo-600(href='#' class='hover:text-indigo-900')
-                                            svg.h-6.w-6(xmlns='http://www.w3.org/2000/svg' fill='none' viewbox='0 0 24 24' stroke='currentColor' stroke-width='2')
-                                              path(stroke-linecap='round' stroke-linejoin='round' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z')
-                                        td.whitespace-nowrap.pr-3.text-sm.font-medium.text-gray-900(class='sm:pl-6') Curso JS
-                                        td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 Curso completo de JavaScript
-                                        td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 $100
-                                        td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 2
-                                        td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 $200
-                                      // More items...
-
+                                      each item in items
+                                        tr
+                                          td.whitespace-nowrap.pl-3.py-1.text-sm.text-gray-500
+                                            a.text-indigo-600(href='#' class='hover:text-indigo-900')
+                                              svg.h-6.w-6(xmlns='http://www.w3.org/2000/svg' fill='none' viewbox='0 0 24 24' stroke='currentColor' stroke-width='2')
+                                                path(stroke-linecap='round' stroke-linejoin='round' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z')
+                                          td.whitespace-nowrap.pr-3.text-sm.font-medium.text-gray-900(class='sm:pl-6')= item.item_name
+                                          td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500= item.description
+                                          td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500= item.unit_cost 
+                                          td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 1
+                                          td.whitespace-nowrap.px-3.py-4.text-sm.text-gray-500 xxx
+                                p Subtotal
+                                p Descuento 
+                                p Impuestos 
+                                p Total
                         .pt-8
                             div(class='sm:col-span-6')
                                 label.block.text-sm.font-medium.text-gray-700(for='invoice_notes')  Notas 
