@@ -9,15 +9,19 @@ block content
         hr.my-5
         if message 
           .p-5.bg-red-600.text-white= message
-        .flex.justify-center
-          .grid-flow-col.gap-4.grid-rows-3
-            .grid.grid-cols-3.gap-4
-              each invoice in invoices
-                a(href=`/invoices/${invoice.id}` class="")
-                  div(class="block p-6 rounded-lg shadow-lg  max-w-sm transition ease-in-out delay-150 bg-white hover:-translate-y-0.5 hover:scale-110 hover:shadow-2xl duration-300")
-                    h5.text-gray-900.text-xl.leading-tight.font-medium.mb-2 #{invoice.clientId}
-                    p(class="text-gray-700.text-base.mb-4.space-y-0.5") Nº: #{invoice.invoice_number}, #{moment(invoice.invoice_date).format('LL')}
-                    p(class="text-gray-700.text-base.mb-4.space-y-0.5") vencimiento: #{moment(invoice.due_date).format('LL')}
-                    p(class="text-gray-700.text-base.mb-4.space-y-0.5") Total: €#{invoice.total}
-                    p(class="text-gray-700.text-base.mb-4.space-y-0.5")
-                                          
+        app-invoice-list
+        //- .flex.justify-center
+        //-   .grid-flow-col.gap-4.grid-rows-3
+        //-     .grid.grid-cols-3.gap-4
+        //-       each invoice in invoices
+        //-         a(href=`/invoices/${invoice.id}` class="")
+        //-           div(class="block p-6 rounded-lg shadow-lg  max-w-sm transition ease-in-out delay-150 bg-white hover:-translate-y-0.5 hover:scale-110 hover:shadow-2xl duration-300")
+        //-             h5.text-gray-900.text-xl.leading-tight.font-medium.mb-2 #{invoice.clientId}
+        //-             p(class="text-gray-700.text-base.mb-4.space-y-0.5") Nº: #{invoice.invoice_number}, #{moment(invoice.invoice_date).format('LL')}
+        //-             p(class="text-gray-700.text-base.mb-4.space-y-0.5") vencimiento: #{moment(invoice.due_date).format('LL')}
+        //-             p(class="text-gray-700.text-base.mb-4.space-y-0.5") Total: €#{invoice.total}
+        //-             p(class="text-gray-700.text-base.mb-4.space-y-0.5")
+block scripts
+  script(src='/build/runtime.3903af5941f1efe6.js')
+  script(src='/build/polyfills.0d7504118a55a01d.js')
+  script(src='/build/main.f5de636a3ca7f31f.js')                                          

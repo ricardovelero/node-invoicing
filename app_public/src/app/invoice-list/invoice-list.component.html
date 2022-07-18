@@ -1,1 +1,26 @@
-<p>invoice-list works!</p>
+<div class="flex justify-center">
+  <div class="grid-flow-col gap-4 grid-rows-3">
+    <div class="grid grid-cols-3 gap-4">
+      <ng-container *ngFor="let invoice of invoices">
+        <a href="/invoices/{{ invoice.id }}"
+          ><div
+            class="block p-6 rounded-lg shadow-lg max-w-sm transition ease-in-out delay-150 bg-white hover:-translate-y-0.5 hover:scale-110 hover:shadow-2xl duration-300"
+          >
+            <h5 class="text-gray-900 text-xl leading-tight font-medium mb-2">
+              {{ invoice.clientId }}
+            </h5>
+            <p class="text-gray-700.text-base.mb-4.space-y-0.5">
+              Nº: {{ invoice.invoice_number }},
+              {{ invoice.invoice_date | date: "longDate" }}
+            </p>
+            <p class="text-gray-700.text-base.mb-4.space-y-0.5">
+              Vencimiento: {{ invoice.due_date | date: "longDate" }}
+            </p>
+            <p class="text-gray-700.text-base.mb-4.space-y-0.5">
+              Total: {{ invoice.total }}
+            </p>
+            <p class="text-gray-700.text-base.mb-4.space-y-0.5"></p></div></a
+      ></ng-container>
+    </div>
+  </div>
+</div>
