@@ -61,3 +61,5 @@ typings/
 .next
 
 app-public
+
+.DS_Store
