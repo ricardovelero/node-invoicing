@@ -9,7 +9,7 @@
   {% if customers.length %}
     <form method="post" action="/invoices" data-invoice-form class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
       <div>
-        <label for="customerId">Customer</label>
+        <label for="customerId">Customer <span aria-hidden="true">*</span></label>
         <select id="customerId" name="customerId">
           <option value="">Choose a customer</option>
           {% for customer in customers %}
@@ -21,40 +21,103 @@
 
       <div class="grid gap-5 sm:grid-cols-2">
         <div>
-          <label for="issueDate">Issue date</label>
-          <input id="issueDate" name="issueDate" type="date" value="{{ values.issueDate or '' }}">
+          <label for="issueDate">Issue date <span aria-hidden="true">*</span></label>
+          <input id="issueDate" name="issueDate" type="date" value="{{ values.issueDate or '' }}" data-invoice-issue-date>
           {% if errors.issueDate %}<p class="mt-1 text-sm text-red-700">{{ errors.issueDate[0] }}</p>{% endif %}
         </div>
         <div>
-          <label for="dueDate">Due date</label>
-          <input id="dueDate" name="dueDate" type="date" value="{{ values.dueDate or '' }}">
-          {% if errors.dueDate %}<p class="mt-1 text-sm text-red-700">{{ errors.dueDate[0] }}</p>{% endif %}
+          <label for="dueDate">Due date <span aria-hidden="true">*</span></label>
+          <input id="dueDate" name="dueDate" type="date" value="{{ values.dueDate or '' }}" aria-describedby="dueDate-error" data-invoice-due-date>
+          <p id="dueDate-error" data-invoice-due-date-error class="mt-1 {{ 'hidden' if not errors.dueDate }} text-sm text-red-700">{{ errors.dueDate[0] if errors.dueDate }}</p>
         </div>
       </div>
 
       <div class="rounded-md border border-line">
-        <div class="grid gap-3 border-b border-line bg-panel px-4 py-3 text-sm font-medium text-muted sm:grid-cols-[1fr_100px_140px_120px]">
-          <span>Description</span>
-          <span>Quantity</span>
-          <span>Unit price</span>
-          <span class="text-right">Total</span>
+        <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
+          <h2 class="text-sm font-semibold">Line items</h2>
+          <button class="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm hover:bg-panel" type="button" data-invoice-add-line>
+            <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M12 5v14"></path>
+            </svg>
+            Add line
+          </button>
         </div>
-        <div class="grid gap-3 p-4 sm:grid-cols-[1fr_100px_140px_120px] sm:items-start">
-          <div>
-            <input name="lineDescription" value="{{ values.lineDescription or '' }}" placeholder="Consulting services">
-            {% if errors.lineDescription %}<p class="mt-1 text-sm text-red-700">{{ errors.lineDescription[0] }}</p>{% endif %}
+        {% if errors.lineItems %}<p class="px-4 pt-4 text-sm text-red-700">{{ errors.lineItems[0] }}</p>{% endif %}
+        {% set lineItems = values.lines if values.lines and values.lines.length else [{ description: '', quantity: '1', unitPrice: '0' }] %}
+        <div class="hidden border-b border-line px-4 py-3 text-xs font-semibold uppercase tracking-normal text-muted sm:grid sm:grid-cols-[1fr_100px_140px_120px_40px] sm:gap-3">
+          <span>Description <span aria-hidden="true">*</span></span>
+          <span>Quantity <span aria-hidden="true">*</span></span>
+          <span>Unit price <span aria-hidden="true">*</span></span>
+          <span class="text-right">Line total</span>
+          <span class="sr-only">Actions</span>
+        </div>
+        <div data-invoice-lines>
+          {% for line in lineItems %}
+            {% set lineErrors = errors.lines[loop.index0] if errors.lines and errors.lines[loop.index0] else {} %}
+            <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[1fr_100px_140px_120px_40px] sm:items-start" data-invoice-line>
+              <div>
+                <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
+                <input name="lineDescription" value="{{ line.description or '' }}" placeholder="Consulting services" data-invoice-description>
+                {% if lineErrors.description %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.description[0] }}</p>{% endif %}
+              </div>
+              <div>
+                <label class="sm:sr-only">Quantity <span aria-hidden="true">*</span></label>
+                <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="{{ line.quantity or 1 }}">
+                {% if lineErrors.quantity %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.quantity[0] }}</p>{% endif %}
+              </div>
+              <div>
+                <label class="sm:sr-only">Unit price <span aria-hidden="true">*</span></label>
+                <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ line.unitPrice or 0 }}">
+                {% if lineErrors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.unitPrice[0] }}</p>{% endif %}
+              </div>
+              <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
+              <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
+                <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M8 6V4h8v2"></path>
+                  <path d="M19 6l-1 14H6L5 6"></path>
+                  <path d="M10 11v6"></path>
+                  <path d="M14 11v6"></path>
+                </svg>
+              </button>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="flex justify-end border-t border-line bg-panel px-4 py-4">
+          <div class="grid min-w-60 grid-cols-2 gap-4 text-sm">
+            <span class="font-medium text-muted">Total</span>
+            <span class="text-right font-semibold" data-invoice-total>€0.00</span>
           </div>
-          <div>
-            <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="{{ values.quantity or 1 }}">
-            {% if errors.quantity %}<p class="mt-1 text-sm text-red-700">{{ errors.quantity[0] }}</p>{% endif %}
-          </div>
-          <div>
-            <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ values.unitPrice or 0 }}">
-            {% if errors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ errors.unitPrice[0] }}</p>{% endif %}
-          </div>
-          <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-total>€0.00</div>
         </div>
       </div>
+
+      <template data-invoice-line-template>
+        <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[1fr_100px_140px_120px_40px] sm:items-start" data-invoice-line>
+          <div>
+            <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
+            <input name="lineDescription" value="" placeholder="Consulting services" data-invoice-description>
+          </div>
+          <div>
+            <label class="sm:sr-only">Quantity <span aria-hidden="true">*</span></label>
+            <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="1">
+          </div>
+          <div>
+            <label class="sm:sr-only">Unit price <span aria-hidden="true">*</span></label>
+            <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="0">
+          </div>
+          <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
+          <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
+            <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M8 6V4h8v2"></path>
+              <path d="M19 6l-1 14H6L5 6"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+            </svg>
+          </button>
+        </div>
+      </template>
 
       <div class="flex items-center gap-3 pt-2">
         <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Create invoice</button>

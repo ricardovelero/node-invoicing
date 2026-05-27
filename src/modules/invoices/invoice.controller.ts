@@ -1,5 +1,10 @@
 import type { RequestHandler } from "express";
-import { invoiceFormSchema } from "./invoice.schema";
+import {
+  createInvoiceFormValues,
+  formatInvoiceFormErrors,
+  invoiceFormSchema,
+  normalizeInvoiceFormValues,
+} from "./invoice.schema";
 import { createInvoiceRecord, getInvoiceFormOptions, getInvoices } from "./invoice.service";
 
 export const listInvoices: RequestHandler = async (req, res) => {
@@ -17,9 +22,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
   res.render("pages/invoices/form.njk", {
     title: "New invoice",
     customers,
-    values: {
-      issueDate: new Date().toISOString().slice(0, 10),
-    },
+    values: createInvoiceFormValues(),
     errors: {},
   });
 };
@@ -33,8 +36,8 @@ export const createInvoice: RequestHandler = async (req, res) => {
     return res.status(422).render("pages/invoices/form.njk", {
       title: "New invoice",
       customers,
-      values: req.body,
-      errors: result.error.flatten().fieldErrors,
+      values: normalizeInvoiceFormValues(req.body),
+      errors: formatInvoiceFormErrors(result.error),
     });
   }
 
@@ -44,7 +47,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
     return res.status(422).render("pages/invoices/form.njk", {
       title: "New invoice",
       customers,
-      values: req.body,
+      values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: ["Choose a customer."] },
     });
   }

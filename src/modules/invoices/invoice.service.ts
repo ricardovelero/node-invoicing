@@ -29,8 +29,18 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
     return null;
   }
 
-  const unitPriceCents = Math.round(data.unitPrice * 100);
-  const totalCents = lineTotalCents(data.quantity, unitPriceCents);
+  const lines = data.lines.map((line) => {
+    const unitPriceCents = Math.round(line.unitPrice * 100);
+    const totalCents = lineTotalCents(line.quantity, unitPriceCents);
+
+    return {
+      description: line.description,
+      quantity: line.quantity,
+      unitPriceCents,
+      totalCents,
+    };
+  });
+  const subtotalCents = lines.reduce((total, line) => total + line.totalCents, 0);
   const number = await nextInvoiceNumber(organizationId);
 
   return prisma.invoice.create({
@@ -40,16 +50,11 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
       customerId: data.customerId,
       issueDate: data.issueDate,
       dueDate: data.dueDate,
-      subtotalCents: totalCents,
+      subtotalCents,
       taxCents: 0,
-      totalCents,
+      totalCents: subtotalCents,
       lines: {
-        create: {
-          description: data.lineDescription,
-          quantity: data.quantity,
-          unitPriceCents,
-          totalCents,
-        },
+        create: lines,
       },
     },
   });
