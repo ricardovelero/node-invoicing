@@ -2,58 +2,12 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import type { Request, RequestHandler } from 'express';
 import { prisma } from '../../db/prisma';
-
-type RegisterValues = {
-  name: string;
-  email: string;
-  organizationName: string;
-};
-
-type RegisterErrors = Partial<Record<'email' | 'password' | 'organizationName', string[]>>;
-
-const passwordRequirementsMessage =
-  'Use at least 8 characters with uppercase, lowercase and a number.';
-
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-const isStrongPassword = (password: string) =>
-  password.length >= 8 &&
-  /[a-z]/.test(password) &&
-  /[A-Z]/.test(password) &&
-  /\d/.test(password);
-
-const getRegisterValues = (body: Request['body']): RegisterValues => ({
-  name: typeof body.name === 'string' ? body.name.trim() : '',
-  email: typeof body.email === 'string' ? body.email.trim().toLowerCase() : '',
-  organizationName:
-    typeof body.organizationName === 'string' ? body.organizationName.trim() : '',
-});
-
-const validateRegisterRequest = (body: Request['body']) => {
-  const values = getRegisterValues(body);
-  const password = typeof body.password === 'string' ? body.password : '';
-  const errors: RegisterErrors = {};
-
-  if (!values.email) {
-    errors.email = ['Enter your email address.'];
-  } else if (!isValidEmail(values.email)) {
-    errors.email = ['Enter a valid email address.'];
-  }
-
-  if (!password) {
-    errors.password = ['Enter your password.'];
-  } else if (!isStrongPassword(password)) {
-    errors.password = [passwordRequirementsMessage];
-  }
-
-  if (!values.organizationName) {
-    errors.organizationName = ['Enter your organization name.'];
-  }
-
-  return { values, password, errors };
-};
-
-const hasRegisterErrors = (errors: RegisterErrors) => Object.keys(errors).length > 0;
+import {
+  type RegisterErrors,
+  type RegisterValues,
+  registerSchema,
+  registerValuesSchema,
+} from './auth.schema';
 
 const renderRegisterForm = (
   res: Parameters<RequestHandler>[1],
@@ -112,26 +66,27 @@ export const renderLogin: RequestHandler = (req, res) => {
 
 export const registerUser: RequestHandler = async (req, res, next) => {
   try {
-    const { values, password, errors } = validateRegisterRequest(req.body);
+    const result = registerSchema.safeParse(req.body);
+    const values = registerValuesSchema.parse(req.body);
 
-    if (hasRegisterErrors(errors)) {
-      return renderRegisterForm(res, values, errors, 422);
+    if (!result.success) {
+      return renderRegisterForm(res, values, result.error.flatten().fieldErrors, 422);
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(result.data.password, 12);
 
     const sessionUser = await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
           name: values.name || null,
-          email: values.email,
+          email: result.data.email,
           passwordHash,
         },
       });
 
       const organization = await tx.organization.create({
         data: {
-          name: values.organizationName,
+          name: result.data.organizationName,
         },
       });
 
@@ -164,7 +119,7 @@ export const registerUser: RequestHandler = async (req, res, next) => {
     ) {
       return renderRegisterForm(
         res,
-        getRegisterValues(req.body),
+        registerValuesSchema.parse(req.body),
         { email: ['An account with this email already exists.'] },
         409,
       );
