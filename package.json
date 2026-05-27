@@ -1,16 +1,50 @@
 {
-  "name": "loc8r",
-  "version": "0.0.0",
+  "name": "node-invoicing",
+  "version": "0.1.0",
   "private": true,
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node ./bin/www"
+    "dev": "concurrently -k -n css,js,server \"pnpm dev:css\" \"pnpm dev:js\" \"pnpm dev:server\"",
+    "dev:css": "tailwindcss -i ./src/public/css/app.css -o ./public/assets/app.css --watch",
+    "dev:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --sourcemap --watch",
+    "dev:server": "tsx watch src/server.ts",
+    "build": "pnpm build:css && pnpm build:js && tsc",
+    "build:css": "tailwindcss -i ./src/public/css/app.css -o ./public/assets/app.css --minify",
+    "build:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --minify",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "cookie-parser": "~1.4.4",
-    "debug": "~2.6.9",
-    "express": "~4.18.2",
-    "http-errors": "~1.6.3",
+    "@prisma/client": "^6.19.3",
+    "alpinejs": "^3.15.12",
+    "compression": "^1.8.1",
+    "connect-flash": "^0.1.1",
+    "cookie-parser": "~1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "~5.2.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.2.0",
     "morgan": "~1.9.1",
-    "pug": "^3.0.2"
+    "nunjucks": "^3.2.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "@types/compression": "^1.8.1",
+    "@types/connect-flash": "^0.0.40",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.9.1",
+    "@types/nunjucks": "^3.2.6",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.28.0",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
   }
 }

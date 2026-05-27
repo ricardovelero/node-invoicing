@@ -1,0 +1,11 @@
+{% if flash.success.length %}
+  <div class="mb-6 rounded-md border border-action/25 bg-action/10 px-4 py-3 text-sm text-action-dark">
+    {{ flash.success[0] }}
+  </div>
+{% endif %}
+
+{% if flash.error.length %}
+  <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {{ flash.error[0] }}
+  </div>
+{% endif %}

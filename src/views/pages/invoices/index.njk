@@ -1,0 +1,40 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-sm font-medium text-muted">Billing</p>
+      <h1 class="mt-1 text-3xl font-semibold">Invoices</h1>
+    </div>
+    <a href="/invoices/new" class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark">New invoice</a>
+  </div>
+
+  <div class="overflow-hidden rounded-lg border border-line bg-white">
+    <table class="min-w-full divide-y divide-line text-sm">
+      <thead class="bg-panel text-left text-muted">
+        <tr>
+          <th class="px-4 py-3 font-medium">Number</th>
+          <th class="px-4 py-3 font-medium">Customer</th>
+          <th class="px-4 py-3 font-medium">Due</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+          <th class="px-4 py-3 text-right font-medium">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for invoice in invoices %}
+          <tr>
+            <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
+            <td class="px-4 py-3 text-muted">{{ invoice.customer.name }}</td>
+            <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
+            <td class="px-4 py-3">{{ invoice.status }}</td>
+            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td class="px-4 py-6 text-muted" colspan="5">No invoices yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

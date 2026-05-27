@@ -1,0 +1,45 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8">
+    <p class="text-sm font-medium text-muted">Directory</p>
+    <h1 class="mt-1 text-3xl font-semibold">New customer</h1>
+  </div>
+
+  <form method="post" action="/customers" class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
+    <div>
+      <label for="name">Name</label>
+      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="organization">
+      {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="{{ values.email or '' }}" autocomplete="email">
+        {% if errors.email %}<p class="mt-1 text-sm text-red-700">{{ errors.email[0] }}</p>{% endif %}
+      </div>
+      <div>
+        <label for="taxId">Tax ID</label>
+        <input id="taxId" name="taxId" value="{{ values.taxId or '' }}">
+      </div>
+    </div>
+    <div>
+      <label for="addressLine1">Address</label>
+      <input id="addressLine1" name="addressLine1" value="{{ values.addressLine1 or '' }}" autocomplete="street-address">
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="city">City</label>
+        <input id="city" name="city" value="{{ values.city or '' }}" autocomplete="address-level2">
+      </div>
+      <div>
+        <label for="country">Country</label>
+        <input id="country" name="country" value="{{ values.country or '' }}" autocomplete="country-name">
+      </div>
+    </div>
+    <div class="flex items-center gap-3 pt-2">
+      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Create customer</button>
+      <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

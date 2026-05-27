@@ -1,0 +1,9 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="rounded-lg border border-line bg-white p-8">
+    <p class="text-sm font-medium text-muted">404</p>
+    <h1 class="mt-1 text-2xl font-semibold">Page not found</h1>
+    <p class="mt-3 text-sm text-muted">{{ path }} does not exist.</p>
+  </div>
+{% endblock %}

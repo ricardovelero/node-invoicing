@@ -1,0 +1,11 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="rounded-lg border border-line bg-white p-8">
+    <p class="text-sm font-medium text-muted">Error</p>
+    <h1 class="mt-1 text-2xl font-semibold">{{ message }}</h1>
+    {% if error and error.stack %}
+      <pre class="mt-6 overflow-auto rounded-md bg-panel p-4 text-xs text-muted">{{ error.stack }}</pre>
+    {% endif %}
+  </div>
+{% endblock %}

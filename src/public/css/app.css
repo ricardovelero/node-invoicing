@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@source "../../views/**/*.njk";
+@source "../js/**/*.ts";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #17211d;
+  --color-muted: #66706b;
+  --color-panel: #f6f7f2;
+  --color-line: #d9ddd3;
+  --color-action: #1f7a5c;
+  --color-action-dark: #165c45;
+}
+
+@layer base {
+  body {
+    @apply bg-panel text-ink antialiased;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-action focus:ring-2 focus:ring-action/20;
+  }
+
+  label {
+    @apply text-sm font-medium text-ink;
+  }
+}
