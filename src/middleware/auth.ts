@@ -85,8 +85,8 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
 
 export const requireAuth: RequestHandler = (req, res, next) => {
   if (!req.auth) {
-    req.flash("error", "Please create an account to continue.");
-    return res.redirect("/auth/register");
+    req.flash("error", "Please log in to continue.");
+    return res.redirect("/auth/login");
   }
 
   return next();
