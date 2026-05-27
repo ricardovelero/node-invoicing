@@ -12,6 +12,7 @@
     "build:css": "tailwindcss -i ./src/public/css/app.css -o ./public/assets/app.css --minify",
     "build:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --minify",
     "start": "node dist/server.js",
+    "test": "NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm build && NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test node --test dist/**/*.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
