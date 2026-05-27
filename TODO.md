@@ -2,8 +2,10 @@
 
 ## Product foundation
 
-- Add organization settings: legal name, address, tax ID, default currency, payment instructions.
 - Add authentication and user roles before exposing the app beyond local development.
+- Add organization model and membership relationship.
+- Add organization settings: legal name, address, tax ID, default currency, payment instructions.
+- Scope customers and invoices by organization.
 - Add CSRF protection for all form posts.
 - Add invoice detail pages with status transitions: draft, sent, paid, overdue, void.
 - Add editable multi-line invoice forms with discounts, tax rates, and notes.
