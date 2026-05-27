@@ -8,7 +8,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 import nunjucks from "nunjucks";
 import { env } from "./config/env";
+import { loadAuthContext, requireAuth } from "./middleware/auth";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
+import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { customerRouter } from "./modules/customers/customer.routes";
 import { invoiceRouter } from "./modules/invoices/invoice.routes";
@@ -60,6 +62,7 @@ export const createApp = () => {
   );
   app.use(flash());
   app.use("/assets", express.static(path.join(process.cwd(), "public", "assets")));
+  app.use(loadAuthContext);
 
   app.use((req, res, next) => {
     res.locals.flash = {
@@ -70,6 +73,8 @@ export const createApp = () => {
     next();
   });
 
+  app.use("/auth", authRouter);
+  app.use(requireAuth);
   app.use("/", dashboardRouter);
   app.use("/customers", customerRouter);
   app.use("/invoices", invoiceRouter);

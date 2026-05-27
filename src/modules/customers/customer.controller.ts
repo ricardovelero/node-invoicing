@@ -2,8 +2,8 @@ import type { RequestHandler } from "express";
 import { customerFormSchema } from "./customer.schema";
 import { createCustomerRecord, getCustomers } from "./customer.service";
 
-export const listCustomers: RequestHandler = async (_req, res) => {
-  const customers = await getCustomers();
+export const listCustomers: RequestHandler = async (req, res) => {
+  const customers = await getCustomers(req.auth!.organization.id);
 
   res.render("pages/customers/index.njk", {
     title: "Customers",
@@ -30,7 +30,7 @@ export const createCustomer: RequestHandler = async (req, res) => {
     });
   }
 
-  await createCustomerRecord(result.data);
+  await createCustomerRecord(req.auth!.organization.id, result.data);
   req.flash("success", "Customer created.");
   res.redirect("/customers");
 };

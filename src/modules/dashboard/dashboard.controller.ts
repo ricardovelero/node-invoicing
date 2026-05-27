@@ -1,15 +1,21 @@
 import type { RequestHandler } from "express";
 import { prisma } from "../../db/prisma";
 
-export const renderDashboard: RequestHandler = async (_req, res) => {
+export const renderDashboard: RequestHandler = async (req, res) => {
+  const organizationId = req.auth!.organization.id;
+
   const [customerCount, invoiceCount, openInvoices, latestInvoices] = await Promise.all([
-    prisma.customer.count(),
-    prisma.invoice.count(),
+    prisma.customer.count({ where: { organizationId } }),
+    prisma.invoice.count({ where: { organizationId } }),
     prisma.invoice.aggregate({
-      where: { status: { in: ["DRAFT", "SENT", "OVERDUE"] } },
+      where: {
+        organizationId,
+        status: { in: ["DRAFT", "SENT", "OVERDUE"] },
+      },
       _sum: { totalCents: true },
     }),
     prisma.invoice.findMany({
+      where: { organizationId },
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       take: 5,
