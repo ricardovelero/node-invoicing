@@ -15,6 +15,18 @@ const regenerateSession = (req: Request) =>
     });
   });
 
+const destroySession = (req: Request) =>
+  new Promise<void>((resolve, reject) => {
+    req.session.destroy((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+
 export const renderRegister: RequestHandler = (req, res) => {
   if (req.auth) {
     return res.redirect('/');
@@ -142,6 +154,17 @@ export const loginUser: RequestHandler = async (req, res, next) => {
     req.session.organizationId = membership.organizationId;
 
     return res.redirect('/');
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const logoutUser: RequestHandler = async (req, res, next) => {
+  try {
+    await destroySession(req);
+    res.clearCookie('invoice.sid');
+
+    return res.redirect('/auth/login');
   } catch (error) {
     return next(error);
   }

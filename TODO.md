@@ -2,8 +2,6 @@
 
 ## Product foundation
 
-- Add authentication and user roles before exposing the app beyond local development.
-- Add organization model and membership relationship.
 - Add organization settings: legal name, address, tax ID, default currency, payment instructions.
 - Scope customers and invoices by organization.
 - Add CSRF protection for all form posts.
