@@ -42,5 +42,78 @@ const setupFlashMessages = () => {
   });
 };
 
+const getEmailValidationMessage = (input: HTMLInputElement) => {
+  if (!input.value.trim()) {
+    return "Enter your email address.";
+  }
+
+  if (!input.validity.valid) {
+    return "Enter a valid email address.";
+  }
+
+  return "";
+};
+
+const setupRegisterForms = () => {
+  document.querySelectorAll<HTMLFormElement>("[data-register-form]").forEach((form) => {
+    const email = form.querySelector<HTMLInputElement>("[data-register-email]");
+    const emailError = form.querySelector<HTMLElement>("[data-register-email-error]");
+
+    if (!email || !emailError) {
+      return;
+    }
+
+    const validateEmail = () => {
+      const message = getEmailValidationMessage(email);
+
+      email.setCustomValidity(message);
+      emailError.textContent = message;
+      emailError.classList.toggle("hidden", !message);
+      email.classList.toggle("border-red-500", Boolean(message));
+
+      return !message;
+    };
+
+    email.addEventListener("blur", validateEmail);
+    email.addEventListener("input", () => {
+      if (!emailError.classList.contains("hidden")) {
+        validateEmail();
+      }
+    });
+
+    form.addEventListener("submit", (event) => {
+      validateEmail();
+
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        form.reportValidity();
+      }
+    });
+  });
+};
+
+const setupPasswordToggles = () => {
+  document.querySelectorAll<HTMLButtonElement>("[data-password-toggle]").forEach((button) => {
+    const field = button.parentElement?.querySelector<HTMLInputElement>("[data-password-input]");
+    const eyeOpen = button.querySelector<SVGElement>("[data-eye-open]");
+    const eyeClosed = button.querySelector<SVGElement>("[data-eye-closed]");
+
+    if (!field || !eyeOpen || !eyeClosed) {
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      const isPasswordVisible = field.type === "text";
+
+      field.type = isPasswordVisible ? "password" : "text";
+      button.setAttribute("aria-label", isPasswordVisible ? "Show password" : "Hide password");
+      eyeOpen.classList.toggle("hidden", !isPasswordVisible);
+      eyeClosed.classList.toggle("hidden", isPasswordVisible);
+    });
+  });
+};
+
 setupInvoiceForms();
 setupFlashMessages();
+setupRegisterForms();
+setupPasswordToggles();
