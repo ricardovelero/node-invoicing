@@ -7,7 +7,7 @@
   </div>
 
   {% if customers.length %}
-    <form method="post" action="/invoices" x-data="invoiceForm()" class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <form method="post" action="/invoices" data-invoice-form class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
       <div>
         <label for="customerId">Customer</label>
         <select id="customerId" name="customerId">
@@ -45,14 +45,14 @@
             {% if errors.lineDescription %}<p class="mt-1 text-sm text-red-700">{{ errors.lineDescription[0] }}</p>{% endif %}
           </div>
           <div>
-            <input name="quantity" type="number" min="0.01" step="0.01" x-model.number="quantity" value="{{ values.quantity or 1 }}">
+            <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="{{ values.quantity or 1 }}">
             {% if errors.quantity %}<p class="mt-1 text-sm text-red-700">{{ errors.quantity[0] }}</p>{% endif %}
           </div>
           <div>
-            <input name="unitPrice" type="number" min="0" step="0.01" x-model.number="unitPrice" value="{{ values.unitPrice or 0 }}">
+            <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ values.unitPrice or 0 }}">
             {% if errors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ errors.unitPrice[0] }}</p>{% endif %}
           </div>
-          <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" x-text="total">€0.00</div>
+          <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-total>€0.00</div>
         </div>
       </div>
 

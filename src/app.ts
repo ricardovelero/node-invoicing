@@ -37,7 +37,7 @@ export const createApp = () => {
     helmet({
       contentSecurityPolicy: {
         directives: {
-          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
         },
       },
     }),
