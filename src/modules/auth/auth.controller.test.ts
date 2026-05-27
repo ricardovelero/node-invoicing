@@ -21,6 +21,7 @@ type MockRequest = Request & {
 };
 
 type MockResponse = Response & {
+  statusCode?: number;
   redirectedTo?: string;
   renderedView?: string;
   renderedData?: unknown;
@@ -75,14 +76,20 @@ const createRequest = (body: Record<string, unknown> = {}) => {
 const createResponse = () => {
   const res: {
     redirectedTo?: string;
+    statusCode?: number;
     renderedView?: string;
     renderedData?: unknown;
     clearedCookies: string[];
+    status?: (statusCode: number) => MockResponse;
     redirect?: (path: string) => MockResponse;
     render?: (view: string, data: unknown) => MockResponse;
     clearCookie?: (name: string) => MockResponse;
   } = {
     clearedCookies: [],
+  };
+  res.status = (statusCode: number) => {
+    res.statusCode = statusCode;
+    return res as unknown as MockResponse;
   };
   res.redirect = (path: string) => {
     res.redirectedTo = path;
@@ -150,7 +157,7 @@ test("registerUser creates the account, organization, owner membership, and sess
   const req = createRequest({
     name: " Ada Lovelace ",
     email: " ADA@example.COM ",
-    password: "correct-password",
+    password: "CorrectPassword1",
     organizationName: " Analytical Engines ",
   });
   const res = createResponse();
@@ -173,6 +180,43 @@ test("registerUser creates the account, organization, owner membership, and sess
   assert.equal(req.session.organizationId, "org_1");
   assert.deepEqual(req.flashMessages.success, ["Account created successfully."]);
   assert.equal(res.redirectedTo, "/");
+});
+
+test("registerUser rejects weak passwords and missing organization before creating records", async () => {
+  let transactionCalls = 0;
+
+  prismaMock.$transaction = async () => {
+    transactionCalls += 1;
+  };
+
+  const req = createRequest({
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    password: "weak",
+    organizationName: " ",
+  });
+  const res = createResponse();
+  const next = createNext();
+
+  await registerUser(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(transactionCalls, 0);
+  assert.equal(req.session.regenerateCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/auth/register.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Create account",
+    values: {
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      organizationName: "",
+    },
+    errors: {
+      password: ["Use at least 8 characters with uppercase, lowercase and a number."],
+      organizationName: ["Enter your organization name."],
+    },
+  });
 });
 
 test("loginUser verifies credentials and stores the first organization in session", async () => {
