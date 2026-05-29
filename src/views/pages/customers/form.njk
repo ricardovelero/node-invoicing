@@ -3,10 +3,10 @@
 {% block content %}
   <div class="mb-8">
     <p class="text-sm font-medium text-muted">Directory</p>
-    <h1 class="mt-1 text-3xl font-semibold">New customer</h1>
+    <h1 class="mt-1 text-3xl font-semibold">{{ heading or 'New customer' }}</h1>
   </div>
 
-  <form method="post" action="/customers" class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
+  <form method="post" action="{{ formAction or '/customers' }}" class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
       <label for="name">Name</label>
@@ -39,8 +39,8 @@
       </div>
     </div>
     <div class="flex items-center gap-3 pt-2">
-      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Create customer</button>
-      <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">Cancel</a>
+      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create customer' }}</button>
+      <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/customers' }}">Cancel</a>
     </div>
   </form>
 {% endblock %}
