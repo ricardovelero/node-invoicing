@@ -4,6 +4,9 @@ import {
   dueDateBeforeIssueDateMessage,
   formatInvoiceFormErrors,
   invoiceFormSchema,
+  invoiceStatusActionSchema,
+  paidAtInvalidMessage,
+  paidAtRequiredMessage,
 } from "./invoice.schema";
 
 const validInvoiceForm = {
@@ -169,5 +172,61 @@ describe("invoiceFormSchema", () => {
     assert.deepEqual(formatInvoiceFormErrors(result.error).invoiceDiscountValue, [
       "Invoice discount cannot exceed the subtotal after line discounts.",
     ]);
+  });
+});
+
+describe("invoiceStatusActionSchema", () => {
+  test("accepts valid non-payment status actions", () => {
+    const result = invoiceStatusActionSchema.safeParse({
+      action: "send",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      action: "send",
+      paidAt: undefined,
+      reference: "",
+    });
+  });
+
+  test("normalizes paid action values", () => {
+    const result = invoiceStatusActionSchema.safeParse({
+      action: "markPaid",
+      paidAt: "2026-05-29",
+      reference: "  BANK-123  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      action: "markPaid",
+      paidAt: new Date("2026-05-29T00:00:00.000Z"),
+      reference: "BANK-123",
+    });
+  });
+
+  test("rejects invalid action values", () => {
+    const result = invoiceStatusActionSchema.safeParse({
+      action: "restore",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.action, [
+      "Choose a valid invoice status action.",
+    ]);
+  });
+
+  test("requires a valid paid date for paid actions", () => {
+    const missingDate = invoiceStatusActionSchema.safeParse({
+      action: "markPaid",
+    });
+    const invalidDate = invoiceStatusActionSchema.safeParse({
+      action: "markPaid",
+      paidAt: "not-a-date",
+    });
+
+    assert.equal(missingDate.success, false);
+    assert.deepEqual(missingDate.error.flatten().fieldErrors.paidAt, [paidAtRequiredMessage]);
+    assert.equal(invalidDate.success, false);
+    assert.deepEqual(invalidDate.error.flatten().fieldErrors.paidAt, [paidAtInvalidMessage]);
   });
 });

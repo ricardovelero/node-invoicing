@@ -1,8 +1,16 @@
 import { Router } from "express";
-import { createInvoice, listInvoices, renderNewInvoice } from "./invoice.controller";
+import {
+  createInvoice,
+  listInvoices,
+  renderNewInvoice,
+  showInvoice,
+  updateInvoiceStatusController,
+} from "./invoice.controller";
 
 export const invoiceRouter = Router();
 
 invoiceRouter.get("/", listInvoices);
 invoiceRouter.get("/new", renderNewInvoice);
 invoiceRouter.post("/", createInvoice);
+invoiceRouter.get("/:invoiceId", showInvoice);
+invoiceRouter.post("/:invoiceId/status", updateInvoiceStatusController);

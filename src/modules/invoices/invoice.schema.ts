@@ -7,6 +7,8 @@ import {
 } from "../../lib/money";
 
 export const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
+export const paidAtRequiredMessage = "Enter a paid date.";
+export const paidAtInvalidMessage = "Enter a valid paid date.";
 
 const asFormRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -37,6 +39,9 @@ const dateInput = (requiredMessage: string, invalidMessage: string) =>
 const discountTypeSchema = z.enum(["amount", "percent"]);
 
 const discountValueSchema = z.coerce.number().nonnegative("Discount cannot be negative.");
+const statusActionSchema = z.enum(["send", "markOverdue", "markPaid", "void"], {
+  error: "Choose a valid invoice status action.",
+});
 
 const lineItemSchema = z.object({
   description: z.string().trim().min(1, "Line description is required."),
@@ -159,6 +164,53 @@ export const invoiceFormSchema = z.preprocess((value) => {
 
 export type InvoiceForm = z.infer<typeof invoiceFormSchema>;
 export type InvoiceLineForm = InvoiceForm["lines"][number];
+
+export const invoiceStatusActionSchema = z.preprocess((value) => {
+  const form = asFormRecord(value);
+
+  return {
+    action: form.action,
+    paidAt: form.paidAt,
+    reference: form.reference,
+  };
+}, z
+  .object({
+    action: statusActionSchema,
+    paidAt: z.preprocess(
+      (value) => (typeof value === "string" ? value : ""),
+      z.string().trim().optional(),
+    ),
+    reference: z.string().trim().max(200, "Reference must be 200 characters or fewer.").default(""),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action !== "markPaid") {
+      return;
+    }
+
+    if (!value.paidAt) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paidAt"],
+        message: paidAtRequiredMessage,
+      });
+      return;
+    }
+
+    if (Number.isNaN(Date.parse(value.paidAt))) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paidAt"],
+        message: paidAtInvalidMessage,
+      });
+    }
+  })
+  .transform((value) => ({
+    action: value.action,
+    paidAt: value.action === "markPaid" ? new Date(`${value.paidAt}T00:00:00.000Z`) : undefined,
+    reference: value.reference,
+  })));
+
+export type InvoiceStatusActionForm = z.infer<typeof invoiceStatusActionSchema>;
 
 export type InvoiceLineValues = {
   description: string;

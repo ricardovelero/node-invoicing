@@ -23,7 +23,9 @@
       <tbody class="divide-y divide-line">
         {% for invoice in invoices %}
           <tr>
-            <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
+            <td class="px-4 py-3 font-medium">
+              <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
+            </td>
             <td class="px-4 py-3 text-muted">{{ invoice.customer.name }}</td>
             <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
             <td class="px-4 py-3">{{ invoice.status }}</td>
