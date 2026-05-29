@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { test } from "node:test";
+
+test("customer index links customer names to detail pages", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "customers", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /href="\/customers\/{{ customer\.id }}"/);
+});

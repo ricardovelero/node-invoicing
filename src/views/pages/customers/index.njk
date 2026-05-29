@@ -22,7 +22,9 @@
       <tbody class="divide-y divide-line">
         {% for customer in customers %}
           <tr>
-            <td class="px-4 py-3 font-medium">{{ customer.name }}</td>
+            <td class="px-4 py-3 font-medium">
+              <a class="text-action hover:text-action-dark" href="/customers/{{ customer.id }}">{{ customer.name }}</a>
+            </td>
             <td class="px-4 py-3 text-muted">{{ customer.email or '—' }}</td>
             <td class="px-4 py-3 text-muted">{{ customer.city or '' }}{% if customer.city and customer.country %}, {% endif %}{{ customer.country or '' }}</td>
             <td class="px-4 py-3 text-muted">{{ customer.createdAt | date }}</td>

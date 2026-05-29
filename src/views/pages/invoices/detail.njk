@@ -5,7 +5,9 @@
     <div>
       <p class="text-sm font-medium text-muted">Invoice</p>
       <h1 class="mt-1 text-3xl font-semibold">{{ invoice.number }}</h1>
-      <p class="mt-2 text-sm text-muted">{{ invoice.customer.name }}</p>
+      <p class="mt-2 text-sm text-muted">
+        <a class="text-action hover:text-action-dark" href="/customers/{{ invoice.customer.id }}">{{ invoice.customer.name }}</a>
+      </p>
     </div>
     <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">Back to invoices</a>
   </div>

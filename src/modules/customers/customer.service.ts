@@ -7,6 +7,24 @@ export const getCustomers = (organizationId: string) =>
     orderBy: { createdAt: "desc" },
   });
 
+export const getCustomerDetails = (organizationId: string, customerId: string) =>
+  prisma.customer.findFirst({
+    where: {
+      id: customerId,
+      organizationId,
+    },
+    include: {
+      invoices: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          payments: {
+            orderBy: { paidAt: "desc" },
+          },
+        },
+      },
+    },
+  });
+
 export const createCustomerRecord = (organizationId: string, data: CustomerForm) =>
   prisma.customer.create({
     data: {

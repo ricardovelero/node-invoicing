@@ -1,0 +1,125 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p class="text-sm font-medium text-muted">Customer</p>
+      <h1 class="mt-1 text-3xl font-semibold">{{ customer.name }}</h1>
+      <p class="mt-2 text-sm text-muted">{{ customer.email or 'No email on file' }}</p>
+    </div>
+    <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">Back to customers</a>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[320px_1fr]">
+    <aside class="space-y-6">
+      <div class="rounded-lg border border-line bg-white p-6">
+        <h2 class="text-lg font-semibold">Profile</h2>
+        <dl class="mt-4 space-y-3 text-sm">
+          <div>
+            <dt class="text-muted">Tax ID</dt>
+            <dd class="mt-1 font-medium">{{ customer.taxId or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-muted">Address</dt>
+            <dd class="mt-1 font-medium">
+              {% if customer.addressLine1 or customer.city or customer.country %}
+                {{ customer.addressLine1 or '' }}
+                {% if customer.addressLine1 and (customer.city or customer.country) %}<br>{% endif %}
+                {{ customer.city or '' }}{% if customer.city and customer.country %}, {% endif %}{{ customer.country or '' }}
+              {% else %}
+                —
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-muted">Created</dt>
+            <dd class="mt-1 font-medium">{{ customer.createdAt | date }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white p-6">
+        <h2 class="text-lg font-semibold">Totals</h2>
+        <div class="mt-4 space-y-3 text-sm">
+          <div class="flex justify-between gap-4">
+            <span class="text-muted">Invoices</span>
+            <span class="font-medium">{{ customer.invoices.length }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-muted">Payments</span>
+            <span class="font-medium">{{ payments.length }}</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="space-y-6">
+      <div class="rounded-lg border border-line bg-white p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Invoices</h2>
+          <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices/new">New invoice</a>
+        </div>
+        <div class="overflow-hidden rounded-md border border-line">
+          <table class="min-w-full divide-y divide-line text-sm">
+            <thead class="bg-panel text-left text-muted">
+              <tr>
+                <th class="px-4 py-3 font-medium">Number</th>
+                <th class="px-4 py-3 font-medium">Due</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+                <th class="px-4 py-3 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {% for invoice in customer.invoices %}
+                <tr>
+                  <td class="px-4 py-3 font-medium">
+                    <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
+                  </td>
+                  <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
+                  <td class="px-4 py-3">{{ invoice.status }}</td>
+                  <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(currentOrganization.currency) }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td class="px-4 py-6 text-muted" colspan="4">No invoices for this customer yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white p-6">
+        <h2 class="text-lg font-semibold">Payments</h2>
+        <div class="mt-4 overflow-hidden rounded-md border border-line">
+          <table class="min-w-full divide-y divide-line text-sm">
+            <thead class="bg-panel text-left text-muted">
+              <tr>
+                <th class="px-4 py-3 font-medium">Paid</th>
+                <th class="px-4 py-3 font-medium">Invoice</th>
+                <th class="px-4 py-3 font-medium">Reference</th>
+                <th class="px-4 py-3 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {% for payment in payments %}
+                <tr>
+                  <td class="px-4 py-3">{{ payment.paidAt | date }}</td>
+                  <td class="px-4 py-3">
+                    <a class="font-medium text-action hover:text-action-dark" href="/invoices/{{ payment.invoice.id }}">{{ payment.invoice.number }}</a>
+                  </td>
+                  <td class="px-4 py-3 text-muted">{{ payment.reference or '—' }}</td>
+                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(currentOrganization.currency) }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td class="px-4 py-6 text-muted" colspan="4">No payments recorded for this customer.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+{% endblock %}

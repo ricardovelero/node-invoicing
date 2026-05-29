@@ -2,9 +2,6 @@
 
 ## Product foundation
 
-- Add invoice detail pages with status transitions: draft, sent, paid, overdue, void.
-- Add customer detail pages with invoice/payment history.
-
 ## Billing correctness
 
 - Move invoice numbering to a transactional sequence table to avoid duplicate numbers under concurrent creates.
