@@ -1,4 +1,5 @@
 import { setFieldError } from "./form-errors";
+import { calculateInvoiceTotals, type DiscountType } from "../../lib/money";
 
 const currencyFormatter = new Intl.NumberFormat("en-GB", {
   style: "currency",
@@ -13,11 +14,28 @@ const parseNumberInput = (input: HTMLInputElement) => {
   return Number.isFinite(value) ? value : 0;
 };
 
+const parseDiscountType = (select: HTMLSelectElement): DiscountType =>
+  select.value === "percent" ? "percent" : "amount";
+
+const formatCents = (amountCents: number) => currencyFormatter.format(amountCents / 100);
+const formatDiscountCents = (amountCents: number) =>
+  amountCents > 0 ? `-${formatCents(amountCents)}` : formatCents(0);
+
 export const setupInvoiceForms = () => {
   document.querySelectorAll<HTMLFormElement>("[data-invoice-form]").forEach((form) => {
     const linesContainer = form.querySelector<HTMLElement>("[data-invoice-lines]");
     const lineTemplate = form.querySelector<HTMLTemplateElement>("[data-invoice-line-template]");
+    const invoiceSubtotal = form.querySelector<HTMLElement>("[data-invoice-subtotal]");
+    const lineDiscountTotal = form.querySelector<HTMLElement>("[data-invoice-line-discount]");
+    const invoiceDiscountTotal = form.querySelector<HTMLElement>("[data-invoice-discount]");
+    const invoiceTax = form.querySelector<HTMLElement>("[data-invoice-tax]");
     const invoiceTotal = form.querySelector<HTMLElement>("[data-invoice-total]");
+    const invoiceDiscountType = form.querySelector<HTMLSelectElement>(
+      "[data-invoice-discount-type]",
+    );
+    const invoiceDiscountValue = form.querySelector<HTMLInputElement>(
+      "[data-invoice-discount-value]",
+    );
     const issueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-issue-date]");
     const dueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-due-date]");
     const dueDateError = form.querySelector<HTMLElement>("[data-invoice-due-date-error]");
@@ -25,7 +43,13 @@ export const setupInvoiceForms = () => {
     if (
       !linesContainer ||
       !lineTemplate ||
+      !invoiceSubtotal ||
+      !lineDiscountTotal ||
+      !invoiceDiscountTotal ||
+      !invoiceTax ||
       !invoiceTotal ||
+      !invoiceDiscountType ||
+      !invoiceDiscountValue ||
       !issueDateInput ||
       !dueDateInput ||
       !dueDateError
@@ -36,20 +60,33 @@ export const setupInvoiceForms = () => {
     const getRows = () =>
       Array.from(linesContainer.querySelectorAll<HTMLElement>("[data-invoice-line]"));
 
-    const calculateRowTotal = (row: HTMLElement) => {
+    const readLineInput = (row: HTMLElement) => {
       const quantityInput = row.querySelector<HTMLInputElement>("[data-invoice-quantity]");
       const unitPriceInput = row.querySelector<HTMLInputElement>("[data-invoice-unit-price]");
-      const lineTotal = row.querySelector<HTMLElement>("[data-invoice-line-total]");
+      const discountType = row.querySelector<HTMLSelectElement>("[data-invoice-line-discount-type]");
+      const discountValue = row.querySelector<HTMLInputElement>(
+        "[data-invoice-line-discount-value]",
+      );
+      const taxRate = row.querySelector<HTMLInputElement>("[data-invoice-tax-rate]");
 
-      if (!quantityInput || !unitPriceInput || !lineTotal) {
-        return 0;
+      if (!quantityInput || !unitPriceInput || !discountType || !discountValue || !taxRate) {
+        return {
+          quantity: 0,
+          unitPrice: 0,
+          discount: { type: "amount" as const, value: 0 },
+          taxRate: 0,
+        };
       }
 
-      const total = parseNumberInput(quantityInput) * parseNumberInput(unitPriceInput);
-
-      lineTotal.textContent = currencyFormatter.format(total);
-
-      return total;
+      return {
+        quantity: parseNumberInput(quantityInput),
+        unitPrice: parseNumberInput(unitPriceInput),
+        discount: {
+          type: parseDiscountType(discountType),
+          value: parseNumberInput(discountValue),
+        },
+        taxRate: parseNumberInput(taxRate),
+      };
     };
 
     const updateRemoveButtons = (rows: HTMLElement[]) => {
@@ -66,9 +103,24 @@ export const setupInvoiceForms = () => {
 
     const updateTotals = () => {
       const rows = getRows();
-      const total = rows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+      const totals = calculateInvoiceTotals(rows.map(readLineInput), {
+        type: parseDiscountType(invoiceDiscountType),
+        value: parseNumberInput(invoiceDiscountValue),
+      });
 
-      invoiceTotal.textContent = currencyFormatter.format(total);
+      rows.forEach((row, index) => {
+        const lineTotal = row.querySelector<HTMLElement>("[data-invoice-line-total]");
+
+        if (lineTotal) {
+          lineTotal.textContent = formatCents(totals.lines[index]?.totalCents ?? 0);
+        }
+      });
+
+      invoiceSubtotal.textContent = formatCents(totals.subtotalCents);
+      lineDiscountTotal.textContent = formatDiscountCents(totals.lineDiscountCents);
+      invoiceDiscountTotal.textContent = formatDiscountCents(totals.discountCents);
+      invoiceTax.textContent = formatCents(totals.taxCents);
+      invoiceTotal.textContent = formatCents(totals.totalCents);
       updateRemoveButtons(rows);
     };
 
@@ -110,7 +162,23 @@ export const setupInvoiceForms = () => {
 
       if (
         event.target.matches("[data-invoice-quantity]") ||
-        event.target.matches("[data-invoice-unit-price]")
+        event.target.matches("[data-invoice-unit-price]") ||
+        event.target.matches("[data-invoice-line-discount-value]") ||
+        event.target.matches("[data-invoice-tax-rate]") ||
+        event.target.matches("[data-invoice-discount-value]")
+      ) {
+        updateTotals();
+      }
+    });
+
+    form.addEventListener("change", (event) => {
+      if (!(event.target instanceof HTMLSelectElement)) {
+        return;
+      }
+
+      if (
+        event.target.matches("[data-invoice-line-discount-type]") ||
+        event.target.matches("[data-invoice-discount-type]")
       ) {
         updateTotals();
       }

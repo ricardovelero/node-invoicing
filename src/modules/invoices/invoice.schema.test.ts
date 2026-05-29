@@ -59,6 +59,9 @@ describe("invoiceFormSchema", () => {
       lineDescription: ["Consulting services", "Support"],
       quantity: ["2", "1.5"],
       unitPrice: ["100", "75"],
+      lineDiscountType: ["amount", "percent"],
+      lineDiscountValue: ["10", "5"],
+      taxRate: ["21", "10"],
     });
 
     assert.equal(result.success, true);
@@ -67,13 +70,33 @@ describe("invoiceFormSchema", () => {
         description: "Consulting services",
         quantity: 2,
         unitPrice: 100,
+        discountType: "amount",
+        discountValue: 10,
+        taxRate: 21,
       },
       {
         description: "Support",
         quantity: 1.5,
         unitPrice: 75,
+        discountType: "percent",
+        discountValue: 5,
+        taxRate: 10,
       },
     ]);
+  });
+
+  test("normalizes invoice discount and notes", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      invoiceDiscountType: "percent",
+      invoiceDiscountValue: "12.5",
+      notes: "  Pay within 14 days.  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.invoiceDiscountType, "percent");
+    assert.equal(result.data.invoiceDiscountValue, 12.5);
+    assert.equal(result.data.notes, "Pay within 14 days.");
   });
 
   test("rejects submissions without line items", () => {
@@ -95,6 +118,8 @@ describe("invoiceFormSchema", () => {
       lineDescription: ["Consulting services", ""],
       quantity: ["2", "0"],
       unitPrice: ["100", "-1"],
+      lineDiscountValue: ["0", "-1"],
+      taxRate: ["21", "-1"],
     });
 
     assert.equal(result.success, false);
@@ -105,6 +130,44 @@ describe("invoiceFormSchema", () => {
       description: ["Line description is required."],
       quantity: ["Quantity must be greater than zero."],
       unitPrice: ["Unit price cannot be negative."],
+      discountValue: ["Discount cannot be negative."],
+      taxRate: ["Tax rate cannot be negative."],
     });
+  });
+
+  test("rejects discounts that exceed their bases", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      quantity: "1",
+      unitPrice: "100",
+      lineDiscountType: "amount",
+      lineDiscountValue: "120",
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: "1",
+    });
+
+    assert.equal(result.success, false);
+    const errors = formatInvoiceFormErrors(result.error);
+
+    assert.deepEqual(errors.lines?.[0], {
+      discountValue: ["Line discount cannot exceed the line subtotal."],
+    });
+  });
+
+  test("rejects invoice discount amounts above the subtotal after line discounts", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      quantity: "1",
+      unitPrice: "100",
+      lineDiscountType: "amount",
+      lineDiscountValue: "25",
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: "80",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(formatInvoiceFormErrors(result.error).invoiceDiscountValue, [
+      "Invoice discount cannot exceed the subtotal after line discounts.",
+    ]);
   });
 });

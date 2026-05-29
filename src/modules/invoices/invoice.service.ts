@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma";
-import { lineTotalCents } from "../../lib/money";
+import { calculateInvoiceTotals } from "../../lib/money";
 import type { InvoiceForm } from "./invoice.schema";
 import { nextInvoiceNumber } from "./invoice-numbering";
 
@@ -29,18 +29,21 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
     return null;
   }
 
-  const lines = data.lines.map((line) => {
-    const unitPriceCents = Math.round(line.unitPrice * 100);
-    const totalCents = lineTotalCents(line.quantity, unitPriceCents);
-
-    return {
-      description: line.description,
+  const totals = calculateInvoiceTotals(
+    data.lines.map((line) => ({
       quantity: line.quantity,
-      unitPriceCents,
-      totalCents,
-    };
-  });
-  const subtotalCents = lines.reduce((total, line) => total + line.totalCents, 0);
+      unitPrice: line.unitPrice,
+      discount: {
+        type: line.discountType,
+        value: line.discountValue,
+      },
+      taxRate: line.taxRate,
+    })),
+    {
+      type: data.invoiceDiscountType,
+      value: data.invoiceDiscountValue,
+    },
+  );
   const number = await nextInvoiceNumber(organizationId);
 
   return prisma.invoice.create({
@@ -50,11 +53,26 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
       customerId: data.customerId,
       issueDate: data.issueDate,
       dueDate: data.dueDate,
-      subtotalCents,
-      taxCents: 0,
-      totalCents: subtotalCents,
+      subtotalCents: totals.subtotalCents,
+      discountCents: totals.discountCents,
+      taxCents: totals.taxCents,
+      totalCents: totals.totalCents,
+      notes: data.notes || null,
       lines: {
-        create: lines,
+        create: data.lines.map((line, index) => {
+          const calculatedLine = totals.lines[index];
+
+          return {
+            description: line.description,
+            quantity: line.quantity,
+            unitPriceCents: calculatedLine.unitPriceCents,
+            discountCents: calculatedLine.discountCents,
+            invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
+            taxRateBps: calculatedLine.taxRateBps,
+            taxCents: calculatedLine.taxCents,
+            totalCents: calculatedLine.totalCents,
+          };
+        }),
       },
     },
   });
