@@ -2,11 +2,7 @@
 
 ## Product foundation
 
-- Add organization settings: legal name, address, tax ID, default currency, payment instructions.
-- Scope customers and invoices by organization.
-- Add CSRF protection for all form posts.
 - Add invoice detail pages with status transitions: draft, sent, paid, overdue, void.
-- Add editable multi-line invoice forms with discounts, tax rates, and notes.
 - Add customer detail pages with invoice/payment history.
 
 ## Billing correctness

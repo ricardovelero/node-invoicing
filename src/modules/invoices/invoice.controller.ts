@@ -22,7 +22,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
   res.render("pages/invoices/form.njk", {
     title: "New invoice",
     customers,
-    values: createInvoiceFormValues(),
+    values: createInvoiceFormValues(req.auth!.organization.paymentInstructions ?? ""),
     errors: {},
   });
 };

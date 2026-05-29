@@ -1,10 +1,5 @@
-import { setFieldError } from "./form-errors";
 import { calculateInvoiceTotals, type DiscountType } from "../../lib/money";
-
-const currencyFormatter = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "EUR",
-});
+import { setFieldError } from "./form-errors";
 
 const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
 
@@ -17,12 +12,15 @@ const parseNumberInput = (input: HTMLInputElement) => {
 const parseDiscountType = (select: HTMLSelectElement): DiscountType =>
   select.value === "percent" ? "percent" : "amount";
 
-const formatCents = (amountCents: number) => currencyFormatter.format(amountCents / 100);
-const formatDiscountCents = (amountCents: number) =>
-  amountCents > 0 ? `-${formatCents(amountCents)}` : formatCents(0);
-
 export const setupInvoiceForms = () => {
   document.querySelectorAll<HTMLFormElement>("[data-invoice-form]").forEach((form) => {
+    const currencyFormatter = new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: form.dataset.currency || "EUR",
+    });
+    const formatCents = (amountCents: number) => currencyFormatter.format(amountCents / 100);
+    const formatDiscountCents = (amountCents: number) =>
+      amountCents > 0 ? `-${formatCents(amountCents)}` : formatCents(0);
     const linesContainer = form.querySelector<HTMLElement>("[data-invoice-lines]");
     const lineTemplate = form.querySelector<HTMLTemplateElement>("[data-invoice-line-template]");
     const invoiceSubtotal = form.querySelector<HTMLElement>("[data-invoice-subtotal]");

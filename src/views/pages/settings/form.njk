@@ -1,0 +1,65 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8">
+    <p class="text-sm font-medium text-muted">Organization</p>
+    <h1 class="mt-1 text-3xl font-semibold">Settings</h1>
+  </div>
+
+  <form method="post" action="/settings" class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <div>
+      <label for="legalName">Legal name</label>
+      <input id="legalName" name="legalName" value="{{ values.legalName or '' }}" autocomplete="organization">
+      {% if errors.legalName %}<p class="mt-1 text-sm text-red-700">{{ errors.legalName[0] }}</p>{% endif %}
+    </div>
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="taxId">Tax ID</label>
+        <input id="taxId" name="taxId" value="{{ values.taxId or '' }}">
+        {% if errors.taxId %}<p class="mt-1 text-sm text-red-700">{{ errors.taxId[0] }}</p>{% endif %}
+      </div>
+      <div>
+        <label for="currency">Default currency <span aria-hidden="true">*</span></label>
+        <select id="currency" name="currency" required>
+          {% for currency in ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] %}
+            <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div>
+      <label for="addressLine1">Address</label>
+      <input id="addressLine1" name="addressLine1" value="{{ values.addressLine1 or '' }}" autocomplete="street-address">
+      {% if errors.addressLine1 %}<p class="mt-1 text-sm text-red-700">{{ errors.addressLine1[0] }}</p>{% endif %}
+    </div>
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="city">City</label>
+        <input id="city" name="city" value="{{ values.city or '' }}" autocomplete="address-level2">
+        {% if errors.city %}<p class="mt-1 text-sm text-red-700">{{ errors.city[0] }}</p>{% endif %}
+      </div>
+      <div>
+        <label for="country">Country</label>
+        <input id="country" name="country" value="{{ values.country or '' }}" autocomplete="country-name">
+        {% if errors.country %}<p class="mt-1 text-sm text-red-700">{{ errors.country[0] }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div>
+      <label for="paymentInstructions">Payment instructions</label>
+      <textarea id="paymentInstructions" name="paymentInstructions" rows="5" maxlength="2000" placeholder="Bank transfer details, payment terms, or customer-facing instructions">{{ values.paymentInstructions or '' }}</textarea>
+      {% if errors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ errors.paymentInstructions[0] }}</p>{% endif %}
+    </div>
+
+    <div class="flex items-center gap-3 pt-2">
+      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Save settings</button>
+      <a class="text-sm font-medium text-muted hover:text-ink" href="/">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

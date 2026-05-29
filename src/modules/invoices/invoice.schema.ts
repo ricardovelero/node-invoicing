@@ -189,11 +189,11 @@ export type InvoiceFormErrors = Partial<
   lines?: InvoiceLineErrors[];
 };
 
-export const createInvoiceFormValues = (): InvoiceFormValues => ({
+export const createInvoiceFormValues = (notes = ""): InvoiceFormValues => ({
   issueDate: new Date().toISOString().slice(0, 10),
   invoiceDiscountType: "amount",
   invoiceDiscountValue: "0",
-  notes: "",
+  notes,
   lines: [
     {
       description: "",

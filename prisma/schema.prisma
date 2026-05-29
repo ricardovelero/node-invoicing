@@ -40,6 +40,7 @@ model Organization {
   city        String?
   country     String?
   currency    String   @default("EUR")
+  paymentInstructions String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

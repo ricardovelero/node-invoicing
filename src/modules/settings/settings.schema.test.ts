@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import { organizationSettingsSchema } from "./settings.schema";
+
+describe("organizationSettingsSchema", () => {
+  test("trims valid settings values", () => {
+    const result = organizationSettingsSchema.safeParse({
+      legalName: "  Analytical Engines Ltd  ",
+      taxId: "  VAT123  ",
+      addressLine1: "  1 Example Street  ",
+      city: "  London  ",
+      country: "  United Kingdom  ",
+      currency: "GBP",
+      paymentInstructions: "  Pay by bank transfer.  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      legalName: "Analytical Engines Ltd",
+      taxId: "VAT123",
+      addressLine1: "1 Example Street",
+      city: "London",
+      country: "United Kingdom",
+      currency: "GBP",
+      paymentInstructions: "Pay by bank transfer.",
+    });
+  });
+
+  test("rejects unsupported currencies", () => {
+    const result = organizationSettingsSchema.safeParse({
+      currency: "JPY",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.currency, [
+      "Choose a supported currency.",
+    ]);
+  });
+
+  test("rejects payment instructions over 2,000 characters", () => {
+    const result = organizationSettingsSchema.safeParse({
+      currency: "EUR",
+      paymentInstructions: "x".repeat(2001),
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.paymentInstructions, [
+      "Payment instructions must be 2,000 characters or fewer.",
+    ]);
+  });
+});

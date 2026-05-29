@@ -27,7 +27,7 @@
             <td class="px-4 py-3 text-muted">{{ invoice.customer.name }}</td>
             <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
             <td class="px-4 py-3">{{ invoice.status }}</td>
-            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money }}</td>
+            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(currentOrganization.currency) }}</td>
           </tr>
         {% else %}
           <tr>

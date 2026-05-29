@@ -15,6 +15,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { customerRouter } from "./modules/customers/customer.routes";
 import { invoiceRouter } from "./modules/invoices/invoice.routes";
+import { settingsRouter } from "./modules/settings/settings.routes";
 import { formatDate } from "./lib/dates";
 import { formatMoney } from "./lib/money";
 
@@ -79,6 +80,7 @@ export const createApp = () => {
   app.use("/auth", authRouter);
   app.use(requireAuth);
   app.use("/", dashboardRouter);
+  app.use("/settings", settingsRouter);
   app.use("/customers", customerRouter);
   app.use("/invoices", invoiceRouter);
 
