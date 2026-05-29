@@ -78,6 +78,7 @@ model Customer {
   addressLine1 String?
   city         String?
   country      String?
+  archivedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

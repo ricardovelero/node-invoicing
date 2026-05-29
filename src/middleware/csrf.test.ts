@@ -125,6 +125,7 @@ test("all server-rendered POST forms include a CSRF field", () => {
     "layouts/app.njk",
     "pages/auth/login.njk",
     "pages/auth/register.njk",
+    "pages/customers/detail.njk",
     "pages/customers/form.njk",
     "pages/invoices/detail.njk",
     "pages/invoices/form.njk",

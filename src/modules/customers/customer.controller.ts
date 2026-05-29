@@ -2,10 +2,13 @@ import type { RequestHandler } from 'express';
 import type { CustomerForm } from './customer.schema';
 import { customerFormSchema } from './customer.schema';
 import {
+  archiveCustomerRecord,
   createCustomerRecord,
+  deleteCustomerRecord,
   getCustomerDetails,
   getCustomerForEdit,
   getCustomers,
+  restoreCustomerRecord,
   updateCustomerRecord,
 } from './customer.service';
 
@@ -33,11 +36,15 @@ const renderCustomerForm = (
 };
 
 export const listCustomers: RequestHandler = async (req, res) => {
-  const customers = await getCustomers(req.auth!.organization.id);
+  const showingArchived = req.query.archived === '1';
+  const customers = await getCustomers(req.auth!.organization.id, {
+    archived: showingArchived,
+  });
 
   res.render('pages/customers/index.njk', {
-    title: 'Customers',
+    title: showingArchived ? 'Archived customers' : 'Customers',
     customers,
+    showingArchived,
   });
 };
 
@@ -189,4 +196,54 @@ export const showCustomer: RequestHandler = async (req, res) => {
     customer,
     payments,
   });
+};
+
+export const deleteCustomer: RequestHandler = async (req, res) => {
+  const customerId = String(req.params.customerId);
+  const result = await deleteCustomerRecord(req.auth!.organization.id, customerId);
+
+  if (result === 'notFound') {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  if (result === 'hasInvoices') {
+    req.flash('error', 'Customers with invoices cannot be deleted. Archive this customer instead.');
+    return res.redirect(`/customers/${customerId}`);
+  }
+
+  req.flash('success', 'Customer deleted.');
+  res.redirect('/customers');
+};
+
+export const archiveCustomer: RequestHandler = async (req, res) => {
+  const customerId = String(req.params.customerId);
+  const updated = await archiveCustomerRecord(req.auth!.organization.id, customerId);
+
+  if (updated.count === 0) {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  req.flash('success', 'Customer archived.');
+  res.redirect(`/customers/${customerId}`);
+};
+
+export const restoreCustomer: RequestHandler = async (req, res) => {
+  const customerId = String(req.params.customerId);
+  const updated = await restoreCustomerRecord(req.auth!.organization.id, customerId);
+
+  if (updated.count === 0) {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  req.flash('success', 'Customer restored.');
+  res.redirect(`/customers/${customerId}`);
 };

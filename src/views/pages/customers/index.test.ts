@@ -11,3 +11,15 @@ test("customer index links customer names to detail pages", () => {
 
   assert.match(template, /href="\/customers\/{{ customer\.id }}"/);
 });
+
+test("customer index includes active and archived customer toggles", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "customers", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /href="\/customers\?archived=1"/);
+  assert.match(template, /href="\/customers"/);
+  assert.match(template, /Archived customers/);
+  assert.match(template, /customer\.archivedAt/);
+});

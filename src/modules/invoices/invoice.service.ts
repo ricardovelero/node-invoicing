@@ -51,7 +51,10 @@ export const getInvoices = (organizationId: string) =>
 
 export const getInvoiceFormOptions = (organizationId: string) =>
   prisma.customer.findMany({
-    where: { organizationId },
+    where: {
+      organizationId,
+      archivedAt: null,
+    },
     orderBy: { name: "asc" },
   });
 
@@ -77,6 +80,7 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
     where: {
       id: data.customerId,
       organizationId,
+      archivedAt: null,
     },
     select: { id: true },
   });

@@ -1,9 +1,14 @@
 import { prisma } from "../../db/prisma";
 import type { CustomerForm } from "./customer.schema";
 
-export const getCustomers = (organizationId: string) =>
+export type CustomerDeleteResult = "deleted" | "hasInvoices" | "notFound";
+
+export const getCustomers = (organizationId: string, options?: { archived?: boolean }) =>
   prisma.customer.findMany({
-    where: { organizationId },
+    where: {
+      organizationId,
+      archivedAt: options?.archived ? { not: null } : null,
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -72,5 +77,63 @@ export const updateCustomerRecord = (
       addressLine1: data.addressLine1 || null,
       city: data.city || null,
       country: data.country || null,
+    },
+  });
+
+export const deleteCustomerRecord = async (
+  organizationId: string,
+  customerId: string,
+): Promise<CustomerDeleteResult> => {
+  const customer = await prisma.customer.findFirst({
+    where: {
+      id: customerId,
+      organizationId,
+    },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          invoices: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    return "notFound";
+  }
+
+  if (customer._count.invoices > 0) {
+    return "hasInvoices";
+  }
+
+  await prisma.customer.delete({
+    where: {
+      id: customer.id,
+    },
+  });
+
+  return "deleted";
+};
+
+export const archiveCustomerRecord = (organizationId: string, customerId: string) =>
+  prisma.customer.updateMany({
+    where: {
+      id: customerId,
+      organizationId,
+    },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
+
+export const restoreCustomerRecord = (organizationId: string, customerId: string) =>
+  prisma.customer.updateMany({
+    where: {
+      id: customerId,
+      organizationId,
+    },
+    data: {
+      archivedAt: null,
     },
   });

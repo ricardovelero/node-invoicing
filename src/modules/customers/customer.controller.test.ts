@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
-import { renderEditCustomer, showCustomer, updateCustomer } from "./customer.controller";
+import {
+  archiveCustomer,
+  deleteCustomer,
+  renderEditCustomer,
+  restoreCustomer,
+  showCustomer,
+  updateCustomer,
+} from "./customer.controller";
 
 type MockRequest = Request & {
   params: Record<string, string>;
@@ -21,15 +28,18 @@ type MockResponse = Response & {
 
 const prismaMock = prisma as unknown as {
   customer: {
+    delete: unknown;
     findFirst: unknown;
     updateMany: unknown;
   };
 };
 
+const originalDelete = prismaMock.customer.delete;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalUpdateMany = prismaMock.customer.updateMany;
 
 afterEach(() => {
+  prismaMock.customer.delete = originalDelete;
   prismaMock.customer.findFirst = originalFindFirst;
   prismaMock.customer.updateMany = originalUpdateMany;
 });
@@ -259,4 +269,110 @@ test("updateCustomer updates and redirects to customer detail", async () => {
 
   assert.deepEqual(flashes, [["success", "Customer updated."]]);
   assert.equal(res.redirectPath, "/customers/59cad9c9-16c1-4c85-83e1-6630514781a0");
+});
+
+test("deleteCustomer deletes customers without invoices and redirects to customers", async () => {
+  const flashes: Array<[string, string]> = [];
+  prismaMock.customer.findFirst = async () => ({
+    id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    _count: { invoices: 0 },
+  });
+  prismaMock.customer.delete = async () => undefined;
+  const req = createRequest();
+  req.flash = ((type: string, message: string) => {
+    flashes.push([type, message]);
+    return 1;
+  }) as Request["flash"];
+  const res = createResponse();
+
+  await deleteCustomer(req, res, () => undefined);
+
+  assert.deepEqual(flashes, [["success", "Customer deleted."]]);
+  assert.equal(res.redirectPath, "/customers");
+});
+
+test("deleteCustomer redirects with an error when invoices exist", async () => {
+  const flashes: Array<[string, string]> = [];
+  prismaMock.customer.findFirst = async () => ({
+    id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    _count: { invoices: 1 },
+  });
+  const req = createRequest();
+  req.flash = ((type: string, message: string) => {
+    flashes.push([type, message]);
+    return 1;
+  }) as Request["flash"];
+  const res = createResponse();
+
+  await deleteCustomer(req, res, () => undefined);
+
+  assert.deepEqual(flashes, [
+    ["error", "Customers with invoices cannot be deleted. Archive this customer instead."],
+  ]);
+  assert.equal(res.redirectPath, "/customers/59cad9c9-16c1-4c85-83e1-6630514781a0");
+});
+
+test("deleteCustomer renders not found for missing customers", async () => {
+  prismaMock.customer.findFirst = async () => null;
+  const req = createRequest();
+  const res = createResponse();
+
+  await deleteCustomer(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
+});
+
+test("archiveCustomer archives and redirects to customer detail", async () => {
+  const flashes: Array<[string, string]> = [];
+  prismaMock.customer.updateMany = async () => ({ count: 1 });
+  const req = createRequest();
+  req.flash = ((type: string, message: string) => {
+    flashes.push([type, message]);
+    return 1;
+  }) as Request["flash"];
+  const res = createResponse();
+
+  await archiveCustomer(req, res, () => undefined);
+
+  assert.deepEqual(flashes, [["success", "Customer archived."]]);
+  assert.equal(res.redirectPath, "/customers/59cad9c9-16c1-4c85-83e1-6630514781a0");
+});
+
+test("archiveCustomer renders not found for missing customers", async () => {
+  prismaMock.customer.updateMany = async () => ({ count: 0 });
+  const req = createRequest();
+  const res = createResponse();
+
+  await archiveCustomer(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
+});
+
+test("restoreCustomer restores and redirects to customer detail", async () => {
+  const flashes: Array<[string, string]> = [];
+  prismaMock.customer.updateMany = async () => ({ count: 1 });
+  const req = createRequest();
+  req.flash = ((type: string, message: string) => {
+    flashes.push([type, message]);
+    return 1;
+  }) as Request["flash"];
+  const res = createResponse();
+
+  await restoreCustomer(req, res, () => undefined);
+
+  assert.deepEqual(flashes, [["success", "Customer restored."]]);
+  assert.equal(res.redirectPath, "/customers/59cad9c9-16c1-4c85-83e1-6630514781a0");
+});
+
+test("restoreCustomer renders not found for missing customers", async () => {
+  prismaMock.customer.updateMany = async () => ({ count: 0 });
+  const req = createRequest();
+  const res = createResponse();
+
+  await restoreCustomer(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
 });

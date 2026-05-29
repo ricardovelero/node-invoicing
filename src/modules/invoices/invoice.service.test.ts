@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma";
 import {
   createInvoiceRecord,
   getInvoiceDetails,
+  getInvoiceFormOptions,
   updateInvoiceStatus,
 } from "./invoice.service";
 
@@ -11,6 +12,7 @@ const prismaMock = prisma as unknown as {
   $transaction: unknown;
   customer: {
     findFirst: unknown;
+    findMany: unknown;
   };
   invoice: {
     count: unknown;
@@ -23,6 +25,7 @@ const prismaMock = prisma as unknown as {
 
 const originalTransaction = prismaMock.$transaction;
 const originalFindFirst = prismaMock.customer.findFirst;
+const originalCustomerFindMany = prismaMock.customer.findMany;
 const originalCount = prismaMock.invoice.count;
 const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
@@ -32,6 +35,7 @@ const originalInvoiceUpdate = prismaMock.invoice.update;
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findFirst = originalFindFirst;
+  prismaMock.customer.findMany = originalCustomerFindMany;
   prismaMock.invoice.count = originalCount;
   prismaMock.invoice.create = originalCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
@@ -39,10 +43,33 @@ afterEach(() => {
   prismaMock.invoice.update = originalInvoiceUpdate;
 });
 
+test("getInvoiceFormOptions excludes archived customers", async () => {
+  let findManyArgs: unknown;
+  prismaMock.customer.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [];
+  };
+
+  const customers = await getInvoiceFormOptions("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+
+  assert.deepEqual(customers, []);
+  assert.deepEqual(findManyArgs, {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+    orderBy: { name: "asc" },
+  });
+});
+
 test("createInvoiceRecord creates multiple lines and sums invoice totals", async () => {
   let createdInvoiceData: unknown;
+  let customerFindFirstArgs: unknown;
 
-  prismaMock.customer.findFirst = async () => ({ id: "customer_1" });
+  prismaMock.customer.findFirst = async (args: unknown) => {
+    customerFindFirstArgs = args;
+    return { id: "customer_1" };
+  };
   prismaMock.invoice.count = async () => 0;
   prismaMock.invoice.create = async (args: { data: unknown }) => {
     createdInvoiceData = args.data;
@@ -82,6 +109,14 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
   const year = new Date().getFullYear();
 
   assert.deepEqual(invoice, { id: "invoice_1" });
+  assert.deepEqual(customerFindFirstArgs, {
+    where: {
+      id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+    select: { id: true },
+  });
   assert.deepEqual(createdInvoiceData, {
     organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     number: `INV-${year}-0001`,
@@ -118,6 +153,37 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
       ],
     },
   });
+});
+
+test("createInvoiceRecord rejects archived customers", async () => {
+  let invoiceCreateCalls = 0;
+
+  prismaMock.customer.findFirst = async () => null;
+  prismaMock.invoice.create = async () => {
+    invoiceCreateCalls += 1;
+  };
+
+  const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "percent",
+    invoiceDiscountValue: 0,
+    notes: "",
+    lines: [
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPrice: 100,
+        discountType: "percent",
+        discountValue: 0,
+        taxRate: 0,
+      },
+    ],
+  });
+
+  assert.equal(invoice, null);
+  assert.equal(invoiceCreateCalls, 0);
 });
 
 test("getInvoiceDetails scopes invoice lookup by organization", async () => {
