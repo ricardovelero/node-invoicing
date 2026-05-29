@@ -8,6 +8,7 @@
 
   {% if customers.length %}
     <form method="post" action="/invoices" data-invoice-form class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div>
         <label for="customerId">Customer <span aria-hidden="true">*</span></label>
         <select id="customerId" name="customerId">

@@ -9,6 +9,7 @@ import morgan from "morgan";
 import nunjucks from "nunjucks";
 import { env } from "./config/env";
 import { loadAuthContext, requireAuth } from "./middleware/auth";
+import { csrfProtection } from "./middleware/csrf";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
@@ -61,6 +62,7 @@ export const createApp = () => {
     }),
   );
   app.use(flash());
+  app.use(csrfProtection);
   app.use("/assets", express.static(path.join(process.cwd(), "src", "public", "assets")));
   app.use("/assets", express.static(path.join(process.cwd(), "public", "assets")));
   app.use(loadAuthContext);

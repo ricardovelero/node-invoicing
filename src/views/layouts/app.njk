@@ -19,6 +19,7 @@
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">Customers</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/invoices') else 'text-muted hover:text-ink' }}" href="/invoices">Invoices</a>
               <form method="post" action="/auth/logout">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <button class="rounded-md px-3 py-2 font-medium text-muted hover:text-ink" type="submit">Log out</button>
               </form>
             </nav>
