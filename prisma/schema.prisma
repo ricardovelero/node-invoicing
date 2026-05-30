@@ -45,9 +45,10 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  memberships OrganizationMembership[]
-  customers   Customer[]
-  invoices    Invoice[]
+  memberships            OrganizationMembership[]
+  customers              Customer[]
+  invoices               Invoice[]
+  invoiceNumberSequences InvoiceNumberSequence[]
 
   @@index([name])
 }
@@ -113,6 +114,18 @@ model Invoice {
   @@index([customerId])
   @@index([status])
   @@index([dueDate])
+}
+
+model InvoiceNumberSequence {
+  organizationId String       @db.Uuid
+  year           Int
+  nextValue      Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, year])
+  @@index([organizationId])
 }
 
 model InvoiceLine {

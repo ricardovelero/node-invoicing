@@ -76,19 +76,6 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
   });
 
 export const createInvoiceRecord = async (organizationId: string, data: InvoiceForm) => {
-  const customer = await prisma.customer.findFirst({
-    where: {
-      id: data.customerId,
-      organizationId,
-      archivedAt: null,
-    },
-    select: { id: true },
-  });
-
-  if (!customer) {
-    return null;
-  }
-
   const totals = calculateInvoiceTotals(
     data.lines.map((line) => ({
       quantity: line.quantity,
@@ -104,37 +91,53 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
       value: data.invoiceDiscountValue,
     },
   );
-  const number = await nextInvoiceNumber(organizationId);
 
-  return prisma.invoice.create({
-    data: {
-      organizationId,
-      number,
-      customerId: data.customerId,
-      issueDate: data.issueDate,
-      dueDate: data.dueDate,
-      subtotalCents: totals.subtotalCents,
-      discountCents: totals.discountCents,
-      taxCents: totals.taxCents,
-      totalCents: totals.totalCents,
-      notes: data.notes || null,
-      lines: {
-        create: data.lines.map((line, index) => {
-          const calculatedLine = totals.lines[index];
-
-          return {
-            description: line.description,
-            quantity: line.quantity,
-            unitPriceCents: calculatedLine.unitPriceCents,
-            discountCents: calculatedLine.discountCents,
-            invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
-            taxRateBps: calculatedLine.taxRateBps,
-            taxCents: calculatedLine.taxCents,
-            totalCents: calculatedLine.totalCents,
-          };
-        }),
+  return prisma.$transaction(async (tx) => {
+    const customer = await tx.customer.findFirst({
+      where: {
+        id: data.customerId,
+        organizationId,
+        archivedAt: null,
       },
-    },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      return null;
+    }
+
+    const number = await nextInvoiceNumber(tx, organizationId);
+
+    return tx.invoice.create({
+      data: {
+        organizationId,
+        number,
+        customerId: data.customerId,
+        issueDate: data.issueDate,
+        dueDate: data.dueDate,
+        subtotalCents: totals.subtotalCents,
+        discountCents: totals.discountCents,
+        taxCents: totals.taxCents,
+        totalCents: totals.totalCents,
+        notes: data.notes || null,
+        lines: {
+          create: data.lines.map((line, index) => {
+            const calculatedLine = totals.lines[index];
+
+            return {
+              description: line.description,
+              quantity: line.quantity,
+              unitPriceCents: calculatedLine.unitPriceCents,
+              discountCents: calculatedLine.discountCents,
+              invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
+              taxRateBps: calculatedLine.taxRateBps,
+              taxCents: calculatedLine.taxCents,
+              totalCents: calculatedLine.totalCents,
+            };
+          }),
+        },
+      },
+    });
   });
 };
 

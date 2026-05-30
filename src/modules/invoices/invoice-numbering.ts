@@ -1,15 +1,28 @@
-import { prisma } from "../../db/prisma";
+import type { Prisma } from "@prisma/client";
 
-export const nextInvoiceNumber = async (organizationId: string) => {
+type InvoiceNumberSequenceRow = {
+  reservedValue: bigint | number;
+};
+
+export const nextInvoiceNumber = async (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+) => {
   const year = new Date().getFullYear();
-  const count = await prisma.invoice.count({
-    where: {
-      organizationId,
-      number: {
-        startsWith: `INV-${year}-`,
-      },
-    },
-  });
+  const rows = await tx.$queryRaw<InvoiceNumberSequenceRow[]>`
+    INSERT INTO "InvoiceNumberSequence" ("organizationId", "year", "nextValue")
+    VALUES (${organizationId}::uuid, ${year}, 2)
+    ON CONFLICT ("organizationId", "year")
+    DO UPDATE SET
+      "nextValue" = "InvoiceNumberSequence"."nextValue" + 1,
+      "updatedAt" = CURRENT_TIMESTAMP
+    RETURNING "nextValue" - 1 AS "reservedValue"
+  `;
+  const reservedValue = rows[0]?.reservedValue;
 
-  return `INV-${year}-${String(count + 1).padStart(4, "0")}`;
+  if (reservedValue === undefined) {
+    throw new Error("Unable to reserve invoice number.");
+  }
+
+  return `INV-${year}-${String(Number(reservedValue)).padStart(4, "0")}`;
 };

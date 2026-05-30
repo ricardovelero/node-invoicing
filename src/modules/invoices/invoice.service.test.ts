@@ -15,7 +15,6 @@ const prismaMock = prisma as unknown as {
     findMany: unknown;
   };
   invoice: {
-    count: unknown;
     create: unknown;
     findFirst: unknown;
     findMany: unknown;
@@ -23,10 +22,22 @@ const prismaMock = prisma as unknown as {
   };
 };
 
+type InvoiceCreateTransactionMock = {
+  $queryRaw: (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Array<{ reservedValue: bigint | number }>>;
+  customer: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
+  invoice: {
+    create: (args: { data: unknown }) => Promise<unknown>;
+  };
+};
+
 const originalTransaction = prismaMock.$transaction;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalCustomerFindMany = prismaMock.customer.findMany;
-const originalCount = prismaMock.invoice.count;
 const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
@@ -36,7 +47,6 @@ afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findFirst = originalFindFirst;
   prismaMock.customer.findMany = originalCustomerFindMany;
-  prismaMock.invoice.count = originalCount;
   prismaMock.invoice.create = originalCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
@@ -65,16 +75,29 @@ test("getInvoiceFormOptions excludes archived customers", async () => {
 test("createInvoiceRecord creates multiple lines and sums invoice totals", async () => {
   let createdInvoiceData: unknown;
   let customerFindFirstArgs: unknown;
+  let reservedNumberOrganizationId: unknown;
 
-  prismaMock.customer.findFirst = async (args: unknown) => {
-    customerFindFirstArgs = args;
-    return { id: "customer_1" };
-  };
-  prismaMock.invoice.count = async () => 0;
-  prismaMock.invoice.create = async (args: { data: unknown }) => {
-    createdInvoiceData = args.data;
-    return { id: "invoice_1" };
-  };
+  prismaMock.$transaction = async (
+    callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async (_strings, organizationId) => {
+        reservedNumberOrganizationId = organizationId;
+        return [{ reservedValue: 1 }];
+      },
+      customer: {
+        async findFirst(args) {
+          customerFindFirstArgs = args;
+          return { id: "customer_1" };
+        },
+      },
+      invoice: {
+        async create(args) {
+          createdInvoiceData = args.data;
+          return { id: "invoice_1" };
+        },
+      },
+    });
 
   const issueDate = new Date("2026-05-27T00:00:00.000Z");
   const dueDate = new Date("2026-06-27T00:00:00.000Z");
@@ -109,6 +132,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
   const year = new Date().getFullYear();
 
   assert.deepEqual(invoice, { id: "invoice_1" });
+  assert.equal(reservedNumberOrganizationId, "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
   assert.deepEqual(customerFindFirstArgs, {
     where: {
       id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
@@ -157,11 +181,28 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
 
 test("createInvoiceRecord rejects archived customers", async () => {
   let invoiceCreateCalls = 0;
+  let invoiceNumberReservationCalls = 0;
 
-  prismaMock.customer.findFirst = async () => null;
-  prismaMock.invoice.create = async () => {
-    invoiceCreateCalls += 1;
-  };
+  prismaMock.$transaction = async (
+    callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => {
+        invoiceNumberReservationCalls += 1;
+        return [{ reservedValue: 1 }];
+      },
+      customer: {
+        async findFirst() {
+          return null;
+        },
+      },
+      invoice: {
+        async create() {
+          invoiceCreateCalls += 1;
+          return { id: "invoice_1" };
+        },
+      },
+    });
 
   const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
@@ -184,6 +225,7 @@ test("createInvoiceRecord rejects archived customers", async () => {
 
   assert.equal(invoice, null);
   assert.equal(invoiceCreateCalls, 0);
+  assert.equal(invoiceNumberReservationCalls, 0);
 });
 
 test("getInvoiceDetails scopes invoice lookup by organization", async () => {
