@@ -13,6 +13,16 @@ test("customer detail profile card links to edit customer", () => {
   assert.match(template, /aria-label="Edit customer"/);
 });
 
+test("customer detail actions include a primary edit customer button", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /href="\/customers\/{{ customer\.id }}\/edit">Edit customer<\/a>/);
+  assert.match(template, /bg-action px-4 py-2 text-sm font-semibold text-white/);
+});
+
 test("customer detail includes archive delete and restore action forms", () => {
   const template = readFileSync(
     path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),

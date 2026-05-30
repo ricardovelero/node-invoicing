@@ -72,6 +72,8 @@
       <div class="rounded-lg border border-line bg-white p-6">
         <h2 class="text-lg font-semibold">Actions</h2>
         <div class="mt-4 space-y-3">
+          <a class="flex w-full items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" href="/customers/{{ customer.id }}/edit">Edit customer</a>
+
           {% if customer.archivedAt %}
             <form method="post" action="/customers/{{ customer.id }}/restore">
               <input type="hidden" name="_csrf" value="{{ csrfToken }}">
