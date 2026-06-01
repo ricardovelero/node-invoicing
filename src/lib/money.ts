@@ -1,8 +1,15 @@
-export const formatMoney = (amountCents: number, currency = "EUR") =>
-  new Intl.NumberFormat("en-GB", {
+export const defaultCurrency = "EUR";
+export const defaultLocale = "en-GB";
+
+export const formatMoney = (
+  amountMinorUnits: number,
+  currency = defaultCurrency,
+  locale = defaultLocale,
+) =>
+  new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-  }).format(amountCents / 100);
+  }).format(amountMinorUnits / 100);
 
 export const lineTotalCents = (quantity: number, unitPriceCents: number) =>
   Math.round(quantity * unitPriceCents);

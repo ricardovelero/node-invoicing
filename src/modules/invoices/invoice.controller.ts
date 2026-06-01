@@ -29,21 +29,19 @@ const centsToAmountInput = (amountCents: number) => (amountCents / 100).toFixed(
 
 export const createInvoiceDisplay = (
   invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
-  organizationCurrency: string,
 ) => {
   const snapshot = invoice.status !== "DRAFT" ? invoice.snapshot : null;
 
   return {
     customerName: snapshot?.customerName ?? invoice.customer.name,
     customerHref: snapshot ? null : `/customers/${invoice.customer.id}`,
-    currency: snapshot?.currency ?? organizationCurrency,
+    currency: invoice.currency,
     snapshot,
   };
 };
 
 const invoiceDetailView = (
   invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
-  organizationCurrency: string,
   paymentValues?: InvoicePaymentValues,
   paymentErrors: InvoicePaymentErrors = {},
 ) => {
@@ -52,7 +50,7 @@ const invoiceDetailView = (
   return {
     title: invoice.number,
     invoice,
-    invoiceDisplay: createInvoiceDisplay(invoice, organizationCurrency),
+    invoiceDisplay: createInvoiceDisplay(invoice),
     allowedActions: getAllowedInvoiceStatusActions(invoice.status),
     canRecordPayment: canRecordInvoicePayment(invoice.status) && paymentSummary.outstandingCents > 0,
     isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
@@ -78,7 +76,10 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
   res.render("pages/invoices/form.njk", {
     title: "New invoice",
     customers,
-    values: createInvoiceFormValues(req.auth!.organization.paymentInstructions ?? ""),
+    values: createInvoiceFormValues(
+      req.auth!.organization.paymentInstructions ?? "",
+      req.auth!.organization.currency,
+    ),
     errors: {},
   });
 };
@@ -123,7 +124,7 @@ export const showInvoice: RequestHandler = async (req, res) => {
     });
   }
 
-  res.render("pages/invoices/detail.njk", invoiceDetailView(invoice, req.auth!.organization.currency));
+  res.render("pages/invoices/detail.njk", invoiceDetailView(invoice));
 };
 
 export const updateInvoiceStatusController: RequestHandler = async (req, res) => {
@@ -178,7 +179,6 @@ export const recordInvoicePaymentController: RequestHandler = async (req, res) =
       "pages/invoices/detail.njk",
       invoiceDetailView(
         invoice,
-        req.auth!.organization.currency,
         normalizeInvoicePaymentValues(req.body),
         formatInvoicePaymentErrors(result.error),
       ),
@@ -208,7 +208,6 @@ export const recordInvoicePaymentController: RequestHandler = async (req, res) =
       "pages/invoices/detail.njk",
       invoiceDetailView(
         invoice,
-        req.auth!.organization.currency,
         normalizeInvoicePaymentValues(req.body),
         {
           amount: ["Payment cannot exceed the outstanding balance."],

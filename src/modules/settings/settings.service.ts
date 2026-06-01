@@ -16,6 +16,7 @@ export const updateOrganizationSettings = (
       city: emptyToNull(data.city),
       country: emptyToNull(data.country),
       currency: data.currency,
+      locale: data.locale,
       paymentInstructions: emptyToNull(data.paymentInstructions),
     },
   });

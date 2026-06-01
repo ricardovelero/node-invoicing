@@ -41,6 +41,7 @@ model Organization {
   city        String?
   country     String?
   currency    String   @default("EUR")
+  locale      String   @default("en-GB")
   paymentInstructions String?
 
   createdAt   DateTime @default(now())
@@ -102,6 +103,7 @@ model Invoice {
   discountCents  Int           @default(0)
   taxCents       Int           @default(0)
   totalCents     Int
+  currency       String
   notes          String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -144,7 +146,6 @@ model InvoiceSnapshot {
   sellerAddressLine1   String?
   sellerCity           String?
   sellerCountry        String?
-  currency             String
   paymentInstructions  String?
   subtotalCents        Int
   discountCents        Int

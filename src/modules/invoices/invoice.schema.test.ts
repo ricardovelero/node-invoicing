@@ -14,6 +14,7 @@ import {
 
 const validInvoiceForm = {
   customerId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+  currency: "EUR",
   issueDate: "2026-05-27",
   dueDate: "2026-06-27",
   lineDescription: "Consulting services",
@@ -71,6 +72,7 @@ describe("invoiceFormSchema", () => {
     });
 
     assert.equal(result.success, true);
+    assert.equal(result.data.currency, "EUR");
     assert.deepEqual(result.data.lines, [
       {
         description: "Consulting services",
@@ -88,6 +90,18 @@ describe("invoiceFormSchema", () => {
         discountValue: 5,
         taxRate: 10,
       },
+    ]);
+  });
+
+  test("rejects unsupported currencies", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      currency: "JPY",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.currency, [
+      "Choose a supported currency.",
     ]);
   });
 

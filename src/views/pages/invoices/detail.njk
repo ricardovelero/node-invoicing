@@ -63,7 +63,7 @@
                 {% if invoiceDisplay.snapshot.sellerCity or invoiceDisplay.snapshot.sellerCountry %}
                   <p>{{ invoiceDisplay.snapshot.sellerCity or '' }}{% if invoiceDisplay.snapshot.sellerCity and invoiceDisplay.snapshot.sellerCountry %}, {% endif %}{{ invoiceDisplay.snapshot.sellerCountry or '' }}</p>
                 {% endif %}
-                <p>Currency: {{ invoiceDisplay.snapshot.currency }}</p>
+                <p>Currency: {{ invoiceDisplay.currency }}</p>
               </div>
             </div>
           </div>
@@ -93,10 +93,10 @@
               <tr>
                 <td class="px-4 py-3 font-medium">{{ line.description }}</td>
                 <td class="px-4 py-3 text-right text-muted">{{ line.quantity }}</td>
-                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency) }}</td>
-                <td class="px-4 py-3 text-right font-medium">{{ line.totalCents | money(invoiceDisplay.currency) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right font-medium">{{ line.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -126,7 +126,7 @@
                 <tr>
                   <td class="px-4 py-3">{{ payment.paidAt | date }}</td>
                   <td class="px-4 py-3 text-muted">{{ payment.reference or '—' }}</td>
-                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(invoiceDisplay.currency) }}</td>
+                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
                 </tr>
               {% else %}
                 <tr>
@@ -145,27 +145,27 @@
         <div class="mt-4 space-y-3 text-sm">
           <div class="flex justify-between gap-4">
             <span class="text-muted">Subtotal</span>
-            <span class="font-medium">{{ invoice.subtotalCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-medium">{{ invoice.subtotalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Invoice discount</span>
-            <span class="font-medium">-{{ invoice.discountCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-medium">-{{ invoice.discountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Tax</span>
-            <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
           <div class="flex justify-between gap-4 border-t border-line pt-3 text-base">
             <span class="font-semibold">Total</span>
-            <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Paid</span>
-            <span class="font-medium">{{ paymentSummary.paidCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-medium">{{ paymentSummary.paidCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
           <div class="flex justify-between gap-4 text-base">
             <span class="font-semibold">Outstanding</span>
-            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency) }}</span>
+            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
           </div>
         </div>
       </div>

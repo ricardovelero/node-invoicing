@@ -4,10 +4,11 @@ import { prisma } from "../../db/prisma";
 export const renderDashboard: RequestHandler = async (req, res) => {
   const organizationId = req.auth!.organization.id;
 
-  const [customerCount, invoiceCount, openInvoices, latestInvoices] = await Promise.all([
+  const [customerCount, invoiceCount, openBalances, latestInvoices] = await Promise.all([
     prisma.customer.count({ where: { organizationId } }),
     prisma.invoice.count({ where: { organizationId } }),
-    prisma.invoice.aggregate({
+    prisma.invoice.groupBy({
+      by: ["currency"],
       where: {
         organizationId,
         status: { in: ["DRAFT", "SENT", "PARTIALLY_PAID", "OVERDUE"] },
@@ -27,7 +28,9 @@ export const renderDashboard: RequestHandler = async (req, res) => {
     metrics: {
       customerCount,
       invoiceCount,
-      openBalanceCents: openInvoices._sum.totalCents ?? 0,
+      openBalanceCents: openBalances.length === 1 ? openBalances[0]._sum.totalCents ?? 0 : 0,
+      openBalanceCurrency: openBalances[0]?.currency ?? req.auth!.organization.currency,
+      openBalanceIsMixedCurrency: openBalances.length > 1,
     },
     latestInvoices,
   });

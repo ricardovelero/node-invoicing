@@ -5,8 +5,6 @@
 ## Billing correctness
 
 - Add tax rate models and country-specific tax behavior.
-- Add immutable invoice snapshots so issued invoices do not change if customer data changes later.
-- Add currency handling rules for formatting, rounding, and storage.
 
 ## Documents and delivery
 

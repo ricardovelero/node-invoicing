@@ -14,7 +14,8 @@ const parseDiscountType = (select: HTMLSelectElement): DiscountType =>
 
 export const setupInvoiceForms = () => {
   document.querySelectorAll<HTMLFormElement>("[data-invoice-form]").forEach((form) => {
-    const currencyFormatter = new Intl.NumberFormat("en-GB", {
+    const locale = form.dataset.locale || "en-GB";
+    let currencyFormatter = new Intl.NumberFormat(locale, {
       style: "currency",
       currency: form.dataset.currency || "EUR",
     });
@@ -34,6 +35,7 @@ export const setupInvoiceForms = () => {
     const invoiceDiscountValue = form.querySelector<HTMLInputElement>(
       "[data-invoice-discount-value]",
     );
+    const currencySelect = form.querySelector<HTMLSelectElement>("[data-invoice-currency-select]");
     const issueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-issue-date]");
     const dueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-due-date]");
     const dueDateError = form.querySelector<HTMLElement>("[data-invoice-due-date-error]");
@@ -48,6 +50,7 @@ export const setupInvoiceForms = () => {
       !invoiceTotal ||
       !invoiceDiscountType ||
       !invoiceDiscountValue ||
+      !currencySelect ||
       !issueDateInput ||
       !dueDateInput ||
       !dueDateError
@@ -57,6 +60,18 @@ export const setupInvoiceForms = () => {
 
     const getRows = () =>
       Array.from(linesContainer.querySelectorAll<HTMLElement>("[data-invoice-line]"));
+
+    const updateCurrency = () => {
+      const currency = currencySelect.value || "EUR";
+      form.dataset.currency = currency;
+      currencyFormatter = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+      });
+      form.querySelectorAll<HTMLOptionElement>("[data-invoice-currency-option]").forEach((option) => {
+        option.textContent = currency;
+      });
+    };
 
     const readLineInput = (row: HTMLElement) => {
       const quantityInput = row.querySelector<HTMLInputElement>("[data-invoice-quantity]");
@@ -176,8 +191,12 @@ export const setupInvoiceForms = () => {
 
       if (
         event.target.matches("[data-invoice-line-discount-type]") ||
-        event.target.matches("[data-invoice-discount-type]")
+        event.target.matches("[data-invoice-discount-type]") ||
+        event.target.matches("[data-invoice-currency-select]")
       ) {
+        if (event.target.matches("[data-invoice-currency-select]")) {
+          updateCurrency();
+        }
         updateTotals();
       }
     });
@@ -218,6 +237,7 @@ export const setupInvoiceForms = () => {
       }
     });
 
+    updateCurrency();
     updateTotals();
   });
 };

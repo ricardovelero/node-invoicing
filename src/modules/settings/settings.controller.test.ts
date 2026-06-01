@@ -50,6 +50,7 @@ const createRequest = (body: Record<string, unknown> = {}) =>
         city: "London",
         country: "United Kingdom",
         currency: "GBP",
+        locale: "es-ES",
         paymentInstructions: "Pay by bank transfer.",
       },
       role: "OWNER",
@@ -106,6 +107,7 @@ test("renderOrganizationSettings renders current organization values", () => {
       city: "London",
       country: "United Kingdom",
       currency: "GBP",
+      locale: "es-ES",
       paymentInstructions: "Pay by bank transfer.",
     },
     errors: {},
@@ -119,6 +121,7 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
   };
   const req = createRequest({
     currency: "JPY",
+    locale: "fr-FR",
     paymentInstructions: "x".repeat(2001),
   });
   const res = createResponse();
@@ -130,6 +133,7 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
   assert.equal(res.renderedView, "pages/settings/form.njk");
   assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
     currency: ["Choose a supported currency."],
+    locale: ["Choose a supported locale."],
     paymentInstructions: ["Payment instructions must be 2,000 characters or fewer."],
   });
 });
@@ -147,6 +151,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
     city: "  London  ",
     country: "  United Kingdom  ",
     currency: "GBP",
+    locale: "es-ES",
     paymentInstructions: "  Pay by bank transfer.  ",
   });
   const res = createResponse();
@@ -162,6 +167,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
       city: "London",
       country: "United Kingdom",
       currency: "GBP",
+      locale: "es-ES",
       paymentInstructions: "Pay by bank transfer.",
     },
   });

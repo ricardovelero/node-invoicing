@@ -139,6 +139,7 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
         discountCents: totals.discountCents,
         taxCents: totals.taxCents,
         totalCents: totals.totalCents,
+        currency: data.currency,
         notes: data.notes || null,
         lines: {
           create: data.lines.map((line, index) => {
@@ -182,7 +183,6 @@ type InvoiceSnapshotSource = {
     addressLine1: string | null;
     city: string | null;
     country: string | null;
-    currency: string;
     paymentInstructions: string | null;
   };
   snapshot: { invoiceId: string } | null;
@@ -211,7 +211,6 @@ export const captureInvoiceSnapshot = (
       sellerAddressLine1: invoice.organization.addressLine1,
       sellerCity: invoice.organization.city,
       sellerCountry: invoice.organization.country,
-      currency: invoice.organization.currency,
       paymentInstructions: invoice.organization.paymentInstructions,
       subtotalCents: invoice.subtotalCents,
       discountCents: invoice.discountCents,
@@ -257,7 +256,6 @@ export const updateInvoiceStatus = async (
             addressLine1: true,
             city: true,
             country: true,
-            currency: true,
             paymentInstructions: true,
           },
         },

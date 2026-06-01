@@ -20,7 +20,11 @@
     </div>
     <div class="rounded-lg border border-line bg-white p-5">
       <p class="text-sm text-muted">Open balance</p>
-      <p class="mt-3 text-3xl font-semibold">{{ metrics.openBalanceCents | money(currentOrganization.currency) }}</p>
+      {% if metrics.openBalanceIsMixedCurrency %}
+        <p class="mt-3 text-3xl font-semibold">Mixed currencies</p>
+      {% else %}
+        <p class="mt-3 text-3xl font-semibold">{{ metrics.openBalanceCents | money(metrics.openBalanceCurrency, currentOrganization.locale) }}</p>
+      {% endif %}
     </div>
   </section>
 
@@ -42,12 +46,11 @@
         <tbody class="divide-y divide-line">
           {% for invoice in latestInvoices %}
             {% set invoiceCustomerName = invoice.snapshot.customerName if invoice.status != 'DRAFT' and invoice.snapshot else invoice.customer.name %}
-            {% set invoiceCurrency = invoice.snapshot.currency if invoice.status != 'DRAFT' and invoice.snapshot else currentOrganization.currency %}
             <tr>
               <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
               <td class="px-4 py-3 text-muted">{{ invoiceCustomerName }}</td>
               <td class="px-4 py-3">{{ invoice.status }}</td>
-              <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoiceCurrency) }}</td>
+              <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
             </tr>
           {% else %}
             <tr>

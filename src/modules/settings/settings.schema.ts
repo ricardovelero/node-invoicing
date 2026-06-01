@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const supportedCurrencies = ["EUR", "USD", "GBP", "CAD", "AUD"] as const;
+export const supportedLocales = ["en-GB", "en-US", "es-ES"] as const;
 
 const optionalText = (maxLength: number, message: string) =>
   z.string().trim().max(maxLength, message).optional().default("");
@@ -12,6 +13,7 @@ export const organizationSettingsSchema = z.object({
   city: optionalText(120, "City must be 120 characters or fewer."),
   country: optionalText(120, "Country must be 120 characters or fewer."),
   currency: z.enum(supportedCurrencies, { error: "Choose a supported currency." }),
+  locale: z.enum(supportedLocales, { error: "Choose a supported locale." }),
   paymentInstructions: optionalText(
     2000,
     "Payment instructions must be 2,000 characters or fewer.",
@@ -39,5 +41,6 @@ export const createOrganizationSettingsValues = (
   city: organization.city ?? "",
   country: organization.country ?? "",
   currency: organization.currency ?? "EUR",
+  locale: organization.locale ?? "en-GB",
   paymentInstructions: organization.paymentInstructions ?? "",
 });

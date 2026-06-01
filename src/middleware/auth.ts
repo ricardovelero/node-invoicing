@@ -13,6 +13,7 @@ type CurrentOrganization = Pick<
   | "city"
   | "country"
   | "currency"
+  | "locale"
   | "paymentInstructions"
 >;
 
@@ -71,6 +72,7 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
             city: true,
             country: true,
             currency: true,
+            locale: true,
             paymentInstructions: true,
           },
         },

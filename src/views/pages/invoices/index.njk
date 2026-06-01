@@ -23,7 +23,6 @@
       <tbody class="divide-y divide-line">
         {% for invoice in invoices %}
           {% set invoiceCustomerName = invoice.snapshot.customerName if invoice.status != 'DRAFT' and invoice.snapshot else invoice.customer.name %}
-          {% set invoiceCurrency = invoice.snapshot.currency if invoice.status != 'DRAFT' and invoice.snapshot else currentOrganization.currency %}
           <tr>
             <td class="px-4 py-3 font-medium">
               <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
@@ -31,7 +30,7 @@
             <td class="px-4 py-3 text-muted">{{ invoiceCustomerName }}</td>
             <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
             <td class="px-4 py-3">{{ invoice.status }}</td>
-            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoiceCurrency) }}</td>
+            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
           </tr>
         {% else %}
           <tr>

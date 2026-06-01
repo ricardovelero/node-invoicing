@@ -115,6 +115,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
 
   const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "GBP",
     issueDate,
     dueDate,
     invoiceDiscountType: "percent",
@@ -162,6 +163,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
     discountCents: 2969,
     taxCents: 4553,
     totalCents: 31271,
+    currency: "GBP",
     notes: "Pay within 14 days.",
     lines: {
       create: [
@@ -217,6 +219,7 @@ test("createInvoiceRecord rejects archived customers", async () => {
 
   const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR",
     issueDate: new Date("2026-05-27T00:00:00.000Z"),
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     invoiceDiscountType: "percent",
@@ -287,6 +290,7 @@ const invoiceForStatusUpdate = {
   discountCents: 1000,
   taxCents: 1890,
   totalCents: 10890,
+  currency: "GBP",
   customer: {
     name: "Ada Co",
     email: "billing@ada.example",
@@ -302,7 +306,6 @@ const invoiceForStatusUpdate = {
     addressLine1: "1 Seller St",
     city: "Madrid",
     country: "ES",
-    currency: "GBP",
     paymentInstructions: "Pay by bank transfer.",
   },
   snapshot: null,
@@ -395,7 +398,6 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
           addressLine1: true,
           city: true,
           country: true,
-          currency: true,
           paymentInstructions: true,
         },
       },
@@ -421,7 +423,6 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
       sellerAddressLine1: "1 Seller St",
       sellerCity: "Madrid",
       sellerCountry: "ES",
-      currency: "GBP",
       paymentInstructions: "Pay by bank transfer.",
       subtotalCents: 10000,
       discountCents: 1000,
@@ -487,7 +488,6 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
         addressLine1: null,
         city: null,
         country: null,
-        currency: "EUR",
         paymentInstructions: null,
       },
     },
@@ -518,7 +518,6 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
       sellerAddressLine1: null,
       sellerCity: null,
       sellerCountry: null,
-      currency: "EUR",
       paymentInstructions: null,
       subtotalCents: 10000,
       discountCents: 1000,

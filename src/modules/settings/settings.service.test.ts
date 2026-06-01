@@ -30,6 +30,7 @@ test("updateOrganizationSettings updates the current organization and stores emp
     city: "",
     country: "United Kingdom",
     currency: "GBP",
+    locale: "es-ES",
     paymentInstructions: "",
   });
 
@@ -43,6 +44,7 @@ test("updateOrganizationSettings updates the current organization and stores emp
       city: null,
       country: "United Kingdom",
       currency: "GBP",
+      locale: "es-ES",
       paymentInstructions: null,
     },
   });

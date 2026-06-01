@@ -5,6 +5,7 @@ import {
   lineTotalCents,
   type DiscountType,
 } from "../../lib/money";
+import { supportedCurrencies } from "../settings/settings.schema";
 
 export const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
 export const paidAtRequiredMessage = "Enter a paid date.";
@@ -109,6 +110,7 @@ export const invoiceFormSchema = z.preprocess((value) => {
 
   return {
     customerId: form.customerId,
+    currency: form.currency,
     issueDate: form.issueDate,
     dueDate: form.dueDate,
     invoiceDiscountType: form.invoiceDiscountType,
@@ -119,6 +121,7 @@ export const invoiceFormSchema = z.preprocess((value) => {
 }, z
   .object({
     customerId: z.string().uuid("Choose a customer."),
+    currency: z.enum(supportedCurrencies, { error: "Choose a supported currency." }),
     issueDate: dateInput("Enter an issue date.", "Enter a valid issue date."),
     dueDate: dateInput("Enter a due date.", "Enter a valid due date."),
     invoiceDiscountType: discountTypeSchema.default("amount"),
@@ -259,6 +262,7 @@ export type InvoiceLineValues = {
 
 export type InvoiceFormValues = {
   customerId?: string;
+  currency: string;
   issueDate?: string;
   dueDate?: string;
   invoiceDiscountType: DiscountType;
@@ -270,14 +274,21 @@ export type InvoiceFormValues = {
 export type InvoiceLineErrors = Partial<Record<keyof InvoiceLineForm, string[]>>;
 export type InvoiceFormErrors = Partial<
   Record<
-    "customerId" | "issueDate" | "dueDate" | "invoiceDiscountValue" | "notes" | "lineItems",
+    | "customerId"
+    | "currency"
+    | "issueDate"
+    | "dueDate"
+    | "invoiceDiscountValue"
+    | "notes"
+    | "lineItems",
     string[]
   >
 > & {
   lines?: InvoiceLineErrors[];
 };
 
-export const createInvoiceFormValues = (notes = ""): InvoiceFormValues => ({
+export const createInvoiceFormValues = (notes = "", currency = "EUR"): InvoiceFormValues => ({
+  currency,
   issueDate: new Date().toISOString().slice(0, 10),
   invoiceDiscountType: "amount",
   invoiceDiscountValue: "0",
@@ -314,6 +325,7 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
 
   return {
     customerId: stringValue(form.customerId),
+    currency: stringValue(form.currency, "EUR"),
     issueDate: stringValue(form.issueDate),
     dueDate: stringValue(form.dueDate),
     invoiceDiscountType:

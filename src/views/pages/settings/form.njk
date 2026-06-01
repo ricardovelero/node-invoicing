@@ -30,6 +30,15 @@
         </select>
         {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
       </div>
+      <div>
+        <label for="locale">Locale <span aria-hidden="true">*</span></label>
+        <select id="locale" name="locale" required>
+          {% for locale in ['en-GB', 'en-US', 'es-ES'] %}
+            <option value="{{ locale }}" {{ 'selected' if values.locale == locale else '' }}>{{ locale }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.locale %}<p class="mt-1 text-sm text-red-700">{{ errors.locale[0] }}</p>{% endif %}
+      </div>
     </div>
 
     <div>

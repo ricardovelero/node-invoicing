@@ -7,17 +7,28 @@
   </div>
 
   {% if customers.length %}
-    <form method="post" action="/invoices" data-invoice-form data-currency="{{ currentOrganization.currency or 'EUR' }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <form method="post" action="/invoices" data-invoice-form data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentOrganization.locale or 'en-GB' }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-      <div>
-        <label for="customerId">Customer <span aria-hidden="true">*</span></label>
-        <select id="customerId" name="customerId">
-          <option value="">Choose a customer</option>
-          {% for customer in customers %}
-            <option value="{{ customer.id }}" {{ 'selected' if values.customerId == customer.id else '' }}>{{ customer.name }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.customerId %}<p class="mt-1 text-sm text-red-700">{{ errors.customerId[0] }}</p>{% endif %}
+      <div class="grid gap-5 sm:grid-cols-[1fr_180px]">
+        <div>
+          <label for="customerId">Customer <span aria-hidden="true">*</span></label>
+          <select id="customerId" name="customerId">
+            <option value="">Choose a customer</option>
+            {% for customer in customers %}
+              <option value="{{ customer.id }}" {{ 'selected' if values.customerId == customer.id else '' }}>{{ customer.name }}</option>
+            {% endfor %}
+          </select>
+          {% if errors.customerId %}<p class="mt-1 text-sm text-red-700">{{ errors.customerId[0] }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="currency">Currency <span aria-hidden="true">*</span></label>
+          <select id="currency" name="currency" required data-invoice-currency-select>
+            {% for currency in ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] %}
+              <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
+            {% endfor %}
+          </select>
+          {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
+        </div>
       </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
@@ -78,7 +89,7 @@
                 <label class="sm:sr-only">Discount</label>
                 <div class="grid grid-cols-[72px_1fr] gap-2">
                   <select name="lineDiscountType" data-invoice-line-discount-type aria-label="Line discount type">
-                    <option value="amount" {{ 'selected' if line.discountType != 'percent' else '' }}>{{ currentOrganization.currency or 'EUR' }}</option>
+                    <option value="amount" {{ 'selected' if line.discountType != 'percent' else '' }} data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
                     <option value="percent" {{ 'selected' if line.discountType == 'percent' else '' }}>%</option>
                   </select>
                   <input name="lineDiscountValue" type="number" min="0" step="0.01" data-invoice-line-discount-value value="{{ line.discountValue or 0 }}" aria-label="Line discount value">
@@ -117,7 +128,7 @@
               <label for="invoiceDiscountValue">Invoice discount</label>
               <div class="mt-2 grid grid-cols-[96px_1fr] gap-2">
                 <select id="invoiceDiscountType" name="invoiceDiscountType" data-invoice-discount-type aria-label="Invoice discount type">
-                  <option value="amount" {{ 'selected' if values.invoiceDiscountType != 'percent' else '' }}>{{ currentOrganization.currency or 'EUR' }}</option>
+                  <option value="amount" {{ 'selected' if values.invoiceDiscountType != 'percent' else '' }} data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
                   <option value="percent" {{ 'selected' if values.invoiceDiscountType == 'percent' else '' }}>%</option>
                 </select>
                 <input id="invoiceDiscountValue" name="invoiceDiscountValue" type="number" min="0" step="0.01" value="{{ values.invoiceDiscountValue or 0 }}" data-invoice-discount-value>
@@ -158,7 +169,7 @@
             <label class="sm:sr-only">Discount</label>
             <div class="grid grid-cols-[72px_1fr] gap-2">
               <select name="lineDiscountType" data-invoice-line-discount-type aria-label="Line discount type">
-                <option value="amount">{{ currentOrganization.currency or 'EUR' }}</option>
+                <option value="amount" data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
                 <option value="percent">%</option>
               </select>
               <input name="lineDiscountValue" type="number" min="0" step="0.01" data-invoice-line-discount-value value="0" aria-label="Line discount value">

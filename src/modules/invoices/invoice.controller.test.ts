@@ -69,6 +69,7 @@ const createRequest = (body: Record<string, unknown> = {}, params: Record<string
         city: null,
         country: null,
         currency: "EUR",
+        locale: "en-GB",
         paymentInstructions: "Pay by bank transfer.",
       },
       role: "OWNER",
@@ -116,6 +117,7 @@ const statusInvoice = {
   discountCents: 0,
   taxCents: 0,
   totalCents: 10000,
+  currency: "EUR",
   customer: {
     name: "Ada Co",
     email: null,
@@ -131,7 +133,6 @@ const statusInvoice = {
     addressLine1: null,
     city: null,
     country: null,
-    currency: "EUR",
     paymentInstructions: null,
   },
   snapshot: null,
@@ -189,6 +190,7 @@ test("renderNewInvoice defaults notes from organization payment instructions", a
       issueDate: new Date().toISOString().slice(0, 10),
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "0",
+      currency: "EUR",
       notes: "Pay by bank transfer.",
       lines: [
         {
@@ -234,6 +236,7 @@ test("showInvoice renders invoice details and available actions", async () => {
     status: "DRAFT",
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
+    currency: "EUR",
     customer: { id: "customer_1", name: "Ada Co" },
     snapshot: null,
     lines: [],
@@ -276,13 +279,12 @@ test("createInvoiceDisplay uses live customer and currency for drafts", () => {
   const display = createInvoiceDisplay(
     {
       status: "DRAFT",
+      currency: "EUR",
       customer: { id: "customer_1", name: "Live Ada Co" },
       snapshot: {
         customerName: "Snapshot Ada Co",
-        currency: "GBP",
       },
-    } as Parameters<typeof createInvoiceDisplay>[0],
-    "EUR",
+    } as unknown as Parameters<typeof createInvoiceDisplay>[0],
   );
 
   assert.deepEqual(display, {
@@ -296,15 +298,14 @@ test("createInvoiceDisplay uses live customer and currency for drafts", () => {
 test("createInvoiceDisplay uses snapshot customer and currency for issued invoices", () => {
   const snapshot = {
     customerName: "Snapshot Ada Co",
-    currency: "GBP",
   };
   const display = createInvoiceDisplay(
     {
       status: "SENT",
+      currency: "GBP",
       customer: { id: "customer_1", name: "Live Ada Co" },
       snapshot,
-    } as Parameters<typeof createInvoiceDisplay>[0],
-    "EUR",
+    } as unknown as Parameters<typeof createInvoiceDisplay>[0],
   );
 
   assert.deepEqual(display, {

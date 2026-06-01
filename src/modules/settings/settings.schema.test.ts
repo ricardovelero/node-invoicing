@@ -11,6 +11,7 @@ describe("organizationSettingsSchema", () => {
       city: "  London  ",
       country: "  United Kingdom  ",
       currency: "GBP",
+      locale: "es-ES",
       paymentInstructions: "  Pay by bank transfer.  ",
     });
 
@@ -22,6 +23,7 @@ describe("organizationSettingsSchema", () => {
       city: "London",
       country: "United Kingdom",
       currency: "GBP",
+      locale: "es-ES",
       paymentInstructions: "Pay by bank transfer.",
     });
   });
@@ -29,6 +31,7 @@ describe("organizationSettingsSchema", () => {
   test("rejects unsupported currencies", () => {
     const result = organizationSettingsSchema.safeParse({
       currency: "JPY",
+      locale: "en-GB",
     });
 
     assert.equal(result.success, false);
@@ -37,9 +40,22 @@ describe("organizationSettingsSchema", () => {
     ]);
   });
 
+  test("rejects unsupported locales", () => {
+    const result = organizationSettingsSchema.safeParse({
+      currency: "EUR",
+      locale: "fr-FR",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.locale, [
+      "Choose a supported locale.",
+    ]);
+  });
+
   test("rejects payment instructions over 2,000 characters", () => {
     const result = organizationSettingsSchema.safeParse({
       currency: "EUR",
+      locale: "en-GB",
       paymentInstructions: "x".repeat(2001),
     });
 
