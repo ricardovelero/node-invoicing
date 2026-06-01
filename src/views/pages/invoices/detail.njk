@@ -6,7 +6,11 @@
       <p class="text-sm font-medium text-muted">Invoice</p>
       <h1 class="mt-1 text-3xl font-semibold">{{ invoice.number }}</h1>
       <p class="mt-2 text-sm text-muted">
-        <a class="text-action hover:text-action-dark" href="/customers/{{ invoice.customer.id }}">{{ invoice.customer.name }}</a>
+        {% if invoiceDisplay.customerHref %}
+          <a class="text-action hover:text-action-dark" href="{{ invoiceDisplay.customerHref }}">{{ invoiceDisplay.customerName }}</a>
+        {% else %}
+          {{ invoiceDisplay.customerName }}
+        {% endif %}
       </p>
     </div>
     <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">Back to invoices</a>
@@ -34,6 +38,44 @@
         </div>
       </div>
 
+      {% if invoiceDisplay.snapshot %}
+        <div class="rounded-lg border border-line bg-white p-6">
+          <h2 class="text-lg font-semibold">Billing snapshot</h2>
+          <div class="mt-4 grid gap-6 text-sm sm:grid-cols-2">
+            <div>
+              <p class="font-medium">Billed to</p>
+              <div class="mt-2 space-y-1 text-muted">
+                <p class="font-medium text-ink">{{ invoiceDisplay.snapshot.customerName }}</p>
+                {% if invoiceDisplay.snapshot.customerEmail %}<p>{{ invoiceDisplay.snapshot.customerEmail }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.customerTaxId %}<p>Tax ID: {{ invoiceDisplay.snapshot.customerTaxId }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.customerAddressLine1 %}<p>{{ invoiceDisplay.snapshot.customerAddressLine1 }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.customerCity or invoiceDisplay.snapshot.customerCountry %}
+                  <p>{{ invoiceDisplay.snapshot.customerCity or '' }}{% if invoiceDisplay.snapshot.customerCity and invoiceDisplay.snapshot.customerCountry %}, {% endif %}{{ invoiceDisplay.snapshot.customerCountry or '' }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div>
+              <p class="font-medium">Seller</p>
+              <div class="mt-2 space-y-1 text-muted">
+                <p class="font-medium text-ink">{{ invoiceDisplay.snapshot.sellerLegalName or invoiceDisplay.snapshot.sellerName }}</p>
+                {% if invoiceDisplay.snapshot.sellerTaxId %}<p>Tax ID: {{ invoiceDisplay.snapshot.sellerTaxId }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.sellerAddressLine1 %}<p>{{ invoiceDisplay.snapshot.sellerAddressLine1 }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.sellerCity or invoiceDisplay.snapshot.sellerCountry %}
+                  <p>{{ invoiceDisplay.snapshot.sellerCity or '' }}{% if invoiceDisplay.snapshot.sellerCity and invoiceDisplay.snapshot.sellerCountry %}, {% endif %}{{ invoiceDisplay.snapshot.sellerCountry or '' }}</p>
+                {% endif %}
+                <p>Currency: {{ invoiceDisplay.snapshot.currency }}</p>
+              </div>
+            </div>
+          </div>
+          {% if invoiceDisplay.snapshot.paymentInstructions %}
+            <div class="mt-5 border-t border-line pt-4 text-sm">
+              <p class="font-medium">Payment instructions</p>
+              <p class="mt-2 whitespace-pre-line text-muted">{{ invoiceDisplay.snapshot.paymentInstructions }}</p>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
       <div class="overflow-hidden rounded-lg border border-line bg-white">
         <table class="min-w-full divide-y divide-line text-sm">
           <thead class="bg-panel text-left text-muted">
@@ -51,10 +93,10 @@
               <tr>
                 <td class="px-4 py-3 font-medium">{{ line.description }}</td>
                 <td class="px-4 py-3 text-right text-muted">{{ line.quantity }}</td>
-                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(currentOrganization.currency) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.discountCents | money(currentOrganization.currency) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.taxCents | money(currentOrganization.currency) }}</td>
-                <td class="px-4 py-3 text-right font-medium">{{ line.totalCents | money(currentOrganization.currency) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency) }}</td>
+                <td class="px-4 py-3 text-right font-medium">{{ line.totalCents | money(invoiceDisplay.currency) }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -84,7 +126,7 @@
                 <tr>
                   <td class="px-4 py-3">{{ payment.paidAt | date }}</td>
                   <td class="px-4 py-3 text-muted">{{ payment.reference or '—' }}</td>
-                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(currentOrganization.currency) }}</td>
+                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(invoiceDisplay.currency) }}</td>
                 </tr>
               {% else %}
                 <tr>
@@ -103,27 +145,27 @@
         <div class="mt-4 space-y-3 text-sm">
           <div class="flex justify-between gap-4">
             <span class="text-muted">Subtotal</span>
-            <span class="font-medium">{{ invoice.subtotalCents | money(currentOrganization.currency) }}</span>
+            <span class="font-medium">{{ invoice.subtotalCents | money(invoiceDisplay.currency) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Invoice discount</span>
-            <span class="font-medium">-{{ invoice.discountCents | money(currentOrganization.currency) }}</span>
+            <span class="font-medium">-{{ invoice.discountCents | money(invoiceDisplay.currency) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Tax</span>
-            <span class="font-medium">{{ invoice.taxCents | money(currentOrganization.currency) }}</span>
+            <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency) }}</span>
           </div>
           <div class="flex justify-between gap-4 border-t border-line pt-3 text-base">
             <span class="font-semibold">Total</span>
-            <span class="font-semibold">{{ invoice.totalCents | money(currentOrganization.currency) }}</span>
+            <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency) }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Paid</span>
-            <span class="font-medium">{{ paymentSummary.paidCents | money(currentOrganization.currency) }}</span>
+            <span class="font-medium">{{ paymentSummary.paidCents | money(invoiceDisplay.currency) }}</span>
           </div>
           <div class="flex justify-between gap-4 text-base">
             <span class="font-semibold">Outstanding</span>
-            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(currentOrganization.currency) }}</span>
+            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency) }}</span>
           </div>
         </div>
       </div>

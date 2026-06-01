@@ -27,8 +27,23 @@ import {
 
 const centsToAmountInput = (amountCents: number) => (amountCents / 100).toFixed(2);
 
+export const createInvoiceDisplay = (
+  invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
+  organizationCurrency: string,
+) => {
+  const snapshot = invoice.status !== "DRAFT" ? invoice.snapshot : null;
+
+  return {
+    customerName: snapshot?.customerName ?? invoice.customer.name,
+    customerHref: snapshot ? null : `/customers/${invoice.customer.id}`,
+    currency: snapshot?.currency ?? organizationCurrency,
+    snapshot,
+  };
+};
+
 const invoiceDetailView = (
   invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
+  organizationCurrency: string,
   paymentValues?: InvoicePaymentValues,
   paymentErrors: InvoicePaymentErrors = {},
 ) => {
@@ -37,6 +52,7 @@ const invoiceDetailView = (
   return {
     title: invoice.number,
     invoice,
+    invoiceDisplay: createInvoiceDisplay(invoice, organizationCurrency),
     allowedActions: getAllowedInvoiceStatusActions(invoice.status),
     canRecordPayment: canRecordInvoicePayment(invoice.status) && paymentSummary.outstandingCents > 0,
     isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
@@ -107,7 +123,7 @@ export const showInvoice: RequestHandler = async (req, res) => {
     });
   }
 
-  res.render("pages/invoices/detail.njk", invoiceDetailView(invoice));
+  res.render("pages/invoices/detail.njk", invoiceDetailView(invoice, req.auth!.organization.currency));
 };
 
 export const updateInvoiceStatusController: RequestHandler = async (req, res) => {
@@ -162,6 +178,7 @@ export const recordInvoicePaymentController: RequestHandler = async (req, res) =
       "pages/invoices/detail.njk",
       invoiceDetailView(
         invoice,
+        req.auth!.organization.currency,
         normalizeInvoicePaymentValues(req.body),
         formatInvoicePaymentErrors(result.error),
       ),
@@ -189,9 +206,14 @@ export const recordInvoicePaymentController: RequestHandler = async (req, res) =
 
     return res.status(422).render(
       "pages/invoices/detail.njk",
-      invoiceDetailView(invoice, normalizeInvoicePaymentValues(req.body), {
-        amount: ["Payment cannot exceed the outstanding balance."],
-      }),
+      invoiceDetailView(
+        invoice,
+        req.auth!.organization.currency,
+        normalizeInvoicePaymentValues(req.body),
+        {
+          amount: ["Payment cannot exceed the outstanding balance."],
+        },
+      ),
     );
   }
 

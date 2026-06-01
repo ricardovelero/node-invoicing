@@ -94,6 +94,7 @@ test("getCustomerDetails scopes customer lookup by organization and includes inv
       invoices: {
         orderBy: { createdAt: "desc" },
         include: {
+          snapshot: true,
           payments: {
             orderBy: { paidAt: "desc" },
           },

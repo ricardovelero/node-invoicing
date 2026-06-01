@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import {
+  createInvoiceDisplay,
   createInvoice,
   recordInvoicePaymentController,
   renderNewInvoice,
@@ -108,6 +109,70 @@ const createResponse = () => {
   return res as unknown as MockResponse;
 };
 
+const statusInvoice = {
+  id: "invoice_1",
+  status: "DRAFT",
+  subtotalCents: 10000,
+  discountCents: 0,
+  taxCents: 0,
+  totalCents: 10000,
+  customer: {
+    name: "Ada Co",
+    email: null,
+    taxId: null,
+    addressLine1: null,
+    city: null,
+    country: null,
+  },
+  organization: {
+    name: "Analytical Engines",
+    legalName: null,
+    taxId: null,
+    addressLine1: null,
+    city: null,
+    country: null,
+    currency: "EUR",
+    paymentInstructions: null,
+  },
+  snapshot: null,
+};
+
+const mockStatusTransaction = ({
+  invoice,
+  onInvoiceUpdate,
+}: {
+  invoice: unknown;
+  onInvoiceUpdate?: (args: unknown) => void;
+}) => {
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      invoice: {
+        findFirst: () => Promise<unknown>;
+        update: (args: unknown) => Promise<unknown>;
+      };
+      invoiceSnapshot: {
+        create: () => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return invoice;
+        },
+        async update(args) {
+          onInvoiceUpdate?.(args);
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async create() {
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+};
+
 test("renderNewInvoice defaults notes from organization payment instructions", async () => {
   const customers = [{ id: "customer_1", name: "Ada Co" }];
   prismaMock.customer.findMany = async () => customers;
@@ -170,6 +235,7 @@ test("showInvoice renders invoice details and available actions", async () => {
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
     customer: { id: "customer_1", name: "Ada Co" },
+    snapshot: null,
     lines: [],
     payments: [],
   };
@@ -183,6 +249,12 @@ test("showInvoice renders invoice details and available actions", async () => {
   assert.deepEqual(res.renderedData, {
     title: "INV-2026-0001",
     invoice,
+    invoiceDisplay: {
+      customerName: "Ada Co",
+      customerHref: "/customers/customer_1",
+      currency: "EUR",
+      snapshot: null,
+    },
     allowedActions: ["send", "void"],
     canRecordPayment: false,
     isEffectivelyOverdue: false,
@@ -200,6 +272,49 @@ test("showInvoice renders invoice details and available actions", async () => {
   });
 });
 
+test("createInvoiceDisplay uses live customer and currency for drafts", () => {
+  const display = createInvoiceDisplay(
+    {
+      status: "DRAFT",
+      customer: { id: "customer_1", name: "Live Ada Co" },
+      snapshot: {
+        customerName: "Snapshot Ada Co",
+        currency: "GBP",
+      },
+    } as Parameters<typeof createInvoiceDisplay>[0],
+    "EUR",
+  );
+
+  assert.deepEqual(display, {
+    customerName: "Live Ada Co",
+    customerHref: "/customers/customer_1",
+    currency: "EUR",
+    snapshot: null,
+  });
+});
+
+test("createInvoiceDisplay uses snapshot customer and currency for issued invoices", () => {
+  const snapshot = {
+    customerName: "Snapshot Ada Co",
+    currency: "GBP",
+  };
+  const display = createInvoiceDisplay(
+    {
+      status: "SENT",
+      customer: { id: "customer_1", name: "Live Ada Co" },
+      snapshot,
+    } as Parameters<typeof createInvoiceDisplay>[0],
+    "EUR",
+  );
+
+  assert.deepEqual(display, {
+    customerName: "Snapshot Ada Co",
+    customerHref: null,
+    currency: "GBP",
+    snapshot,
+  });
+});
+
 test("showInvoice renders not found for missing invoices", async () => {
   prismaMock.invoice.findFirst = async () => null;
   const req = createRequest({}, { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" });
@@ -212,10 +327,11 @@ test("showInvoice renders not found for missing invoices", async () => {
 });
 
 test("updateInvoiceStatusController redirects with flash error for invalid transitions", async () => {
-  prismaMock.invoice.findFirst = async () => ({
-    id: "invoice_1",
-    status: "PAID",
-    totalCents: 10000,
+  mockStatusTransaction({
+    invoice: {
+      ...statusInvoice,
+      status: "PAID",
+    },
   });
   const req = createRequest(
     { action: "void" },
@@ -231,14 +347,12 @@ test("updateInvoiceStatusController redirects with flash error for invalid trans
 
 test("updateInvoiceStatusController redirects with flash success for valid transitions", async () => {
   let updateArgs: unknown;
-  prismaMock.invoice.findFirst = async () => ({
-    id: "invoice_1",
-    status: "DRAFT",
-    totalCents: 10000,
+  mockStatusTransaction({
+    invoice: statusInvoice,
+    onInvoiceUpdate: (args) => {
+      updateArgs = args;
+    },
   });
-  prismaMock.invoice.update = async (args: unknown) => {
-    updateArgs = args;
-  };
   const req = createRequest(
     { action: "send" },
     { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },

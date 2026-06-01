@@ -41,11 +41,13 @@
         </thead>
         <tbody class="divide-y divide-line">
           {% for invoice in latestInvoices %}
+            {% set invoiceCustomerName = invoice.snapshot.customerName if invoice.status != 'DRAFT' and invoice.snapshot else invoice.customer.name %}
+            {% set invoiceCurrency = invoice.snapshot.currency if invoice.status != 'DRAFT' and invoice.snapshot else currentOrganization.currency %}
             <tr>
               <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
-              <td class="px-4 py-3 text-muted">{{ invoice.customer.name }}</td>
+              <td class="px-4 py-3 text-muted">{{ invoiceCustomerName }}</td>
               <td class="px-4 py-3">{{ invoice.status }}</td>
-              <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(currentOrganization.currency) }}</td>
+              <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoiceCurrency) }}</td>
             </tr>
           {% else %}
             <tr>

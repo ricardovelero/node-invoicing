@@ -22,6 +22,7 @@ export const getCustomerDetails = (organizationId: string, customerId: string) =
       invoices: {
         orderBy: { createdAt: "desc" },
         include: {
+          snapshot: true,
           payments: {
             orderBy: { paidAt: "desc" },
           },

@@ -64,7 +64,7 @@ export const isInvoiceEffectivelyOverdue = (invoice: {
 export const getInvoices = (organizationId: string) =>
   prisma.invoice.findMany({
     where: { organizationId },
-    include: { customer: true },
+    include: { customer: true, snapshot: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -85,6 +85,7 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
     },
     include: {
       customer: true,
+      snapshot: true,
       lines: {
         orderBy: { createdAt: "asc" },
       },
@@ -160,43 +161,139 @@ export const createInvoiceRecord = async (organizationId: string, data: InvoiceF
   });
 };
 
+type InvoiceSnapshotSource = {
+  id: string;
+  subtotalCents: number;
+  discountCents: number;
+  taxCents: number;
+  totalCents: number;
+  customer: {
+    name: string;
+    email: string | null;
+    taxId: string | null;
+    addressLine1: string | null;
+    city: string | null;
+    country: string | null;
+  };
+  organization: {
+    name: string;
+    legalName: string | null;
+    taxId: string | null;
+    addressLine1: string | null;
+    city: string | null;
+    country: string | null;
+    currency: string;
+    paymentInstructions: string | null;
+  };
+  snapshot: { invoiceId: string } | null;
+};
+
+export const captureInvoiceSnapshot = (
+  tx: Prisma.TransactionClient,
+  invoice: InvoiceSnapshotSource,
+) => {
+  if (invoice.snapshot) {
+    return null;
+  }
+
+  return tx.invoiceSnapshot.create({
+    data: {
+      invoiceId: invoice.id,
+      customerName: invoice.customer.name,
+      customerEmail: invoice.customer.email,
+      customerTaxId: invoice.customer.taxId,
+      customerAddressLine1: invoice.customer.addressLine1,
+      customerCity: invoice.customer.city,
+      customerCountry: invoice.customer.country,
+      sellerName: invoice.organization.name,
+      sellerLegalName: invoice.organization.legalName,
+      sellerTaxId: invoice.organization.taxId,
+      sellerAddressLine1: invoice.organization.addressLine1,
+      sellerCity: invoice.organization.city,
+      sellerCountry: invoice.organization.country,
+      currency: invoice.organization.currency,
+      paymentInstructions: invoice.organization.paymentInstructions,
+      subtotalCents: invoice.subtotalCents,
+      discountCents: invoice.discountCents,
+      taxCents: invoice.taxCents,
+      totalCents: invoice.totalCents,
+    },
+  });
+};
+
 export const updateInvoiceStatus = async (
   organizationId: string,
   invoiceId: string,
   data: InvoiceStatusActionForm,
 ) => {
-  const invoice = await prisma.invoice.findFirst({
-    where: {
-      id: invoiceId,
-      organizationId,
-    },
-    select: {
-      id: true,
-      status: true,
-      totalCents: true,
-    },
+  return prisma.$transaction(async (tx) => {
+    const invoice = await tx.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        organizationId,
+      },
+      select: {
+        id: true,
+        status: true,
+        subtotalCents: true,
+        discountCents: true,
+        taxCents: true,
+        totalCents: true,
+        customer: {
+          select: {
+            name: true,
+            email: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+          },
+        },
+        organization: {
+          select: {
+            name: true,
+            legalName: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+            currency: true,
+            paymentInstructions: true,
+          },
+        },
+        snapshot: {
+          select: {
+            invoiceId: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return { ok: false as const, reason: "notFound" as const };
+    }
+
+    if (!getAllowedInvoiceStatusActions(invoice.status).includes(data.action)) {
+      return { ok: false as const, reason: "invalidTransition" as const };
+    }
+
+    const status = statusActionTargets[data.action];
+
+    if (!status) {
+      return { ok: false as const, reason: "invalidTransition" as const };
+    }
+
+    if (invoice.status === "DRAFT" && status === "SENT") {
+      await captureInvoiceSnapshot(tx, invoice);
+    }
+
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: { status },
+    });
+
+    return { ok: true as const, status };
   });
-
-  if (!invoice) {
-    return { ok: false as const, reason: "notFound" as const };
-  }
-
-  if (!getAllowedInvoiceStatusActions(invoice.status).includes(data.action)) {
-    return { ok: false as const, reason: "invalidTransition" as const };
-  }
-
-  const status = statusActionTargets[data.action];
-
-  if (!status) {
-    return { ok: false as const, reason: "invalidTransition" as const };
-  }
-
-  await prisma.invoice.update({
-    where: { id: invoice.id },
-    data: { status },
-  });
-
-  return { ok: true as const, status };
 };
 
 type LockedInvoiceRow = {

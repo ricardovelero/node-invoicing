@@ -109,6 +109,7 @@ model Invoice {
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lines          InvoiceLine[]
   payments       Payment[]
+  snapshot       InvoiceSnapshot?
 
   @@unique([organizationId, number])
   @@index([organizationId])
@@ -127,6 +128,30 @@ model InvoiceNumberSequence {
 
   @@id([organizationId, year])
   @@index([organizationId])
+}
+
+model InvoiceSnapshot {
+  invoiceId            String   @id @db.Uuid
+  customerName         String
+  customerEmail        String?
+  customerTaxId        String?
+  customerAddressLine1 String?
+  customerCity         String?
+  customerCountry      String?
+  sellerName           String
+  sellerLegalName      String?
+  sellerTaxId          String?
+  sellerAddressLine1   String?
+  sellerCity           String?
+  sellerCountry        String?
+  currency             String
+  paymentInstructions  String?
+  subtotalCents        Int
+  discountCents        Int
+  taxCents             Int
+  totalCents           Int
+  createdAt            DateTime @default(now())
+  invoice              Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model InvoiceLine {

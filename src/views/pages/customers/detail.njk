@@ -114,13 +114,14 @@
             </thead>
             <tbody class="divide-y divide-line">
               {% for invoice in customer.invoices %}
+                {% set invoiceCurrency = invoice.snapshot.currency if invoice.status != 'DRAFT' and invoice.snapshot else currentOrganization.currency %}
                 <tr>
                   <td class="px-4 py-3 font-medium">
                     <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
                   </td>
                   <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
                   <td class="px-4 py-3">{{ invoice.status }}</td>
-                  <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(currentOrganization.currency) }}</td>
+                  <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoiceCurrency) }}</td>
                 </tr>
               {% else %}
                 <tr>
@@ -146,13 +147,14 @@
             </thead>
             <tbody class="divide-y divide-line">
               {% for payment in payments %}
+                {% set paymentCurrency = payment.invoice.snapshot.currency if payment.invoice.status != 'DRAFT' and payment.invoice.snapshot else currentOrganization.currency %}
                 <tr>
                   <td class="px-4 py-3">{{ payment.paidAt | date }}</td>
                   <td class="px-4 py-3">
                     <a class="font-medium text-action hover:text-action-dark" href="/invoices/{{ payment.invoice.id }}">{{ payment.invoice.number }}</a>
                   </td>
                   <td class="px-4 py-3 text-muted">{{ payment.reference or '—' }}</td>
-                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(currentOrganization.currency) }}</td>
+                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(paymentCurrency) }}</td>
                 </tr>
               {% else %}
                 <tr>

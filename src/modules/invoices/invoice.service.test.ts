@@ -6,6 +6,7 @@ import {
   createInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
+  getInvoices,
   recordInvoicePayment,
   updateInvoiceStatus,
 } from "./invoice.service";
@@ -258,6 +259,7 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
     },
     include: {
       customer: true,
+      snapshot: true,
       lines: {
         orderBy: { createdAt: "asc" },
       },
@@ -268,17 +270,93 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
   });
 });
 
-test("updateInvoiceStatus applies valid status transitions", async () => {
-  let updateArgs: unknown;
-
-  prismaMock.invoice.findFirst = async () => ({
-    id: "invoice_1",
-    status: "DRAFT",
-    totalCents: 10000,
-  });
-  prismaMock.invoice.update = async (args: unknown) => {
-    updateArgs = args;
+type StatusTransactionMock = {
+  invoice: {
+    findFirst: (args: unknown) => Promise<unknown>;
+    update: (args: unknown) => Promise<unknown>;
   };
+  invoiceSnapshot: {
+    create: (args: { data: unknown }) => Promise<unknown>;
+  };
+};
+
+const invoiceForStatusUpdate = {
+  id: "invoice_1",
+  status: "DRAFT",
+  subtotalCents: 10000,
+  discountCents: 1000,
+  taxCents: 1890,
+  totalCents: 10890,
+  customer: {
+    name: "Ada Co",
+    email: "billing@ada.example",
+    taxId: "CUST-123",
+    addressLine1: "1 Customer St",
+    city: "London",
+    country: "GB",
+  },
+  organization: {
+    name: "Analytical Engines",
+    legalName: "Analytical Engines Ltd",
+    taxId: "VAT123",
+    addressLine1: "1 Seller St",
+    city: "Madrid",
+    country: "ES",
+    currency: "GBP",
+    paymentInstructions: "Pay by bank transfer.",
+  },
+  snapshot: null,
+};
+
+const mockStatusTransaction = ({
+  invoice,
+  onInvoiceFindFirst,
+  onInvoiceUpdate,
+  onSnapshotCreate,
+}: {
+  invoice: unknown;
+  onInvoiceFindFirst?: (args: unknown) => void;
+  onInvoiceUpdate?: (args: unknown) => void;
+  onSnapshotCreate?: (args: { data: unknown }) => void;
+}) => {
+  prismaMock.$transaction = async (callback: (tx: StatusTransactionMock) => Promise<unknown>) =>
+    callback({
+      invoice: {
+        async findFirst(args) {
+          onInvoiceFindFirst?.(args);
+          return invoice;
+        },
+        async update(args) {
+          onInvoiceUpdate?.(args);
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async create(args) {
+          onSnapshotCreate?.(args);
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+};
+
+test("updateInvoiceStatus captures a snapshot and sends draft invoices in one transaction", async () => {
+  let findFirstArgs: unknown;
+  let updateArgs: unknown;
+  let snapshotCreateArgs: unknown;
+
+  mockStatusTransaction({
+    invoice: invoiceForStatusUpdate,
+    onInvoiceFindFirst: (args) => {
+      findFirstArgs = args;
+    },
+    onInvoiceUpdate: (args) => {
+      updateArgs = args;
+    },
+    onSnapshotCreate: (args) => {
+      snapshotCreateArgs = args;
+    },
+  });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
@@ -287,23 +365,242 @@ test("updateInvoiceStatus applies valid status transitions", async () => {
   );
 
   assert.deepEqual(result, { ok: true, status: "SENT" });
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    },
+    select: {
+      id: true,
+      status: true,
+      subtotalCents: true,
+      discountCents: true,
+      taxCents: true,
+      totalCents: true,
+      customer: {
+        select: {
+          name: true,
+          email: true,
+          taxId: true,
+          addressLine1: true,
+          city: true,
+          country: true,
+        },
+      },
+      organization: {
+        select: {
+          name: true,
+          legalName: true,
+          taxId: true,
+          addressLine1: true,
+          city: true,
+          country: true,
+          currency: true,
+          paymentInstructions: true,
+        },
+      },
+      snapshot: {
+        select: {
+          invoiceId: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(snapshotCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      customerName: "Ada Co",
+      customerEmail: "billing@ada.example",
+      customerTaxId: "CUST-123",
+      customerAddressLine1: "1 Customer St",
+      customerCity: "London",
+      customerCountry: "GB",
+      sellerName: "Analytical Engines",
+      sellerLegalName: "Analytical Engines Ltd",
+      sellerTaxId: "VAT123",
+      sellerAddressLine1: "1 Seller St",
+      sellerCity: "Madrid",
+      sellerCountry: "ES",
+      currency: "GBP",
+      paymentInstructions: "Pay by bank transfer.",
+      subtotalCents: 10000,
+      discountCents: 1000,
+      taxCents: 1890,
+      totalCents: 10890,
+    },
+  });
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
     data: { status: "SENT" },
   });
 });
 
-test("updateInvoiceStatus rejects invalid and terminal transitions", async () => {
-  let updateCalls = 0;
+test("updateInvoiceStatus does not duplicate an existing invoice snapshot", async () => {
+  let snapshotCreateCalls = 0;
+  let updateArgs: unknown;
 
-  prismaMock.invoice.findFirst = async () => ({
-    id: "invoice_1",
-    status: "PAID",
-    totalCents: 10000,
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      snapshot: { invoiceId: "invoice_1" },
+    },
+    onInvoiceUpdate: (args) => {
+      updateArgs = args;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
   });
-  prismaMock.invoice.update = async () => {
-    updateCalls += 1;
-  };
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { action: "send" },
+  );
+
+  assert.deepEqual(result, { ok: true, status: "SENT" });
+  assert.equal(snapshotCreateCalls, 0);
+  assert.deepEqual(updateArgs, {
+    where: { id: "invoice_1" },
+    data: { status: "SENT" },
+  });
+});
+
+test("updateInvoiceStatus allows missing optional billing fields when sending invoices", async () => {
+  let snapshotCreateArgs: unknown;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      customer: {
+        name: "Ada Co",
+        email: null,
+        taxId: null,
+        addressLine1: null,
+        city: null,
+        country: null,
+      },
+      organization: {
+        name: "Analytical Engines",
+        legalName: null,
+        taxId: null,
+        addressLine1: null,
+        city: null,
+        country: null,
+        currency: "EUR",
+        paymentInstructions: null,
+      },
+    },
+    onSnapshotCreate: (args) => {
+      snapshotCreateArgs = args;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { action: "send" },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(snapshotCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      customerName: "Ada Co",
+      customerEmail: null,
+      customerTaxId: null,
+      customerAddressLine1: null,
+      customerCity: null,
+      customerCountry: null,
+      sellerName: "Analytical Engines",
+      sellerLegalName: null,
+      sellerTaxId: null,
+      sellerAddressLine1: null,
+      sellerCity: null,
+      sellerCountry: null,
+      currency: "EUR",
+      paymentInstructions: null,
+      subtotalCents: 10000,
+      discountCents: 1000,
+      taxCents: 1890,
+      totalCents: 10890,
+    },
+  });
+});
+
+test("updateInvoiceStatus applies non-issuing status transitions without snapshots", async () => {
+  let updateArgs: unknown;
+  let snapshotCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      status: "SENT",
+      snapshot: { invoiceId: "invoice_1" },
+    },
+    onInvoiceUpdate: (args) => {
+      updateArgs = args;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { action: "markOverdue" },
+  );
+
+  assert.deepEqual(result, { ok: true, status: "OVERDUE" });
+  assert.equal(snapshotCreateCalls, 0);
+  assert.deepEqual(updateArgs, {
+    where: { id: "invoice_1" },
+    data: { status: "OVERDUE" },
+  });
+});
+
+test("updateInvoiceStatus rejects missing invoices", async () => {
+  let updateCalls = 0;
+  let snapshotCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: null,
+    onInvoiceUpdate: () => {
+      updateCalls += 1;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { action: "send" },
+  );
+
+  assert.deepEqual(result, { ok: false, reason: "notFound" });
+  assert.equal(updateCalls, 0);
+  assert.equal(snapshotCreateCalls, 0);
+});
+
+test("updateInvoiceStatus rejects invalid and terminal transitions without snapshots", async () => {
+  let updateCalls = 0;
+  let snapshotCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      status: "PAID",
+    },
+    onInvoiceUpdate: () => {
+      updateCalls += 1;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
+  });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
@@ -313,6 +610,25 @@ test("updateInvoiceStatus rejects invalid and terminal transitions", async () =>
 
   assert.deepEqual(result, { ok: false, reason: "invalidTransition" });
   assert.equal(updateCalls, 0);
+  assert.equal(snapshotCreateCalls, 0);
+});
+
+test("getInvoices includes invoice snapshots for display", async () => {
+  let findManyArgs: unknown;
+
+  prismaMock.invoice.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [];
+  };
+
+  const invoices = await getInvoices("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+
+  assert.deepEqual(invoices, []);
+  assert.deepEqual(findManyArgs, {
+    where: { organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    include: { customer: true, snapshot: true },
+    orderBy: { createdAt: "desc" },
+  });
 });
 
 test("calculateInvoicePaymentSummary totals paid and outstanding amounts", () => {

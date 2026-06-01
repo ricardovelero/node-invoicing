@@ -16,7 +16,7 @@ export const renderDashboard: RequestHandler = async (req, res) => {
     }),
     prisma.invoice.findMany({
       where: { organizationId },
-      include: { customer: true },
+      include: { customer: true, snapshot: true },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
