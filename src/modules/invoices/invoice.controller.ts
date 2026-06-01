@@ -1,7 +1,6 @@
-import type { RequestHandler } from 'express';
+import type { RequestHandler, Response } from 'express';
 import {
   createInvoiceFormValues,
-  createInvoicePaymentValues,
   formatInvoiceFormErrors,
   formatInvoicePaymentErrors,
   invoiceFormSchema,
@@ -9,88 +8,65 @@ import {
   invoiceStatusActionSchema,
   normalizeInvoiceFormValues,
   normalizeInvoicePaymentValues,
-  type InvoicePaymentErrors,
-  type InvoicePaymentValues,
+  type InvoiceFormErrors,
+  type InvoiceFormValues,
 } from './invoice.schema';
 import {
-  calculateInvoicePaymentSummary,
   canEditInvoice,
-  canRecordInvoicePayment,
   createInvoiceRecord,
-  getAllowedInvoiceStatusActions,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
-  isInvoiceEffectivelyOverdue,
   recordInvoicePayment,
   updateDraftInvoiceRecord,
   updateInvoiceStatus,
 } from './invoice.service';
+import {
+  createInvoiceDisplay,
+  invoiceDetailView,
+  invoiceToFormValues,
+} from './invoice.presenter';
 
-const centsToAmountInput = (amountCents: number) =>
-  (amountCents / 100).toFixed(2);
+type InvoiceFormCustomers = Awaited<ReturnType<typeof getInvoiceFormOptions>>;
 
-const dateToInputValue = (date: Date) => date.toISOString().slice(0, 10);
-
-const invoiceToFormValues = (
-  invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
-) => ({
-  customerId: invoice.customerId,
-  issueDate: dateToInputValue(invoice.issueDate),
-  dueDate: dateToInputValue(invoice.dueDate),
-  currency: invoice.currency,
-  notes: invoice.notes ?? '',
-  invoiceDiscountType: 'amount' as const,
-  invoiceDiscountValue: centsToAmountInput(invoice.discountCents),
-  lines: invoice.lines.map((line) => ({
-    description: line.description,
-    quantity: String(line.quantity),
-    unitPrice: centsToAmountInput(line.unitPriceCents),
-    discountType: 'amount' as const,
-    discountValue: centsToAmountInput(line.discountCents),
-    taxRate: String(line.taxRateBps / 100),
-  })),
-});
-
-export const createInvoiceDisplay = (
-  invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
-) => {
-  const snapshot = invoice.status !== 'DRAFT' ? invoice.snapshot : null;
-
-  return {
-    customerName: snapshot?.customerName ?? invoice.customer.name,
-    customerHref: snapshot ? null : `/customers/${invoice.customer.id}`,
-    currency: invoice.currency,
-    snapshot,
-    isPrintable: invoice.status !== 'DRAFT' && Boolean(invoice.snapshot),
-  };
+type InvoiceFormRenderOptions = {
+  status?: number;
+  title: string;
+  heading?: string;
+  formAction: string;
+  submitLabel: string;
+  cancelHref: string;
+  customers: InvoiceFormCustomers;
+  values: InvoiceFormValues;
+  errors: InvoiceFormErrors;
 };
 
-const invoiceDetailView = (
-  invoice: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>,
-  paymentValues?: InvoicePaymentValues,
-  paymentErrors: InvoicePaymentErrors = {},
+const renderInvoiceForm = (
+  res: Response,
+  {
+    status,
+    title,
+    heading = title,
+    formAction,
+    submitLabel,
+    cancelHref,
+    customers,
+    values,
+    errors,
+  }: InvoiceFormRenderOptions,
 ) => {
-  const paymentSummary = calculateInvoicePaymentSummary(invoice);
+  const response = status ? res.status(status) : res;
 
-  return {
-    title: invoice.number,
-    invoice,
-    invoiceDisplay: createInvoiceDisplay(invoice),
-    allowedActions: getAllowedInvoiceStatusActions(invoice.status),
-    canEditInvoice: canEditInvoice(invoice.status),
-    canRecordPayment:
-      canRecordInvoicePayment(invoice.status) &&
-      paymentSummary.outstandingCents > 0,
-    isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
-    paymentSummary,
-    paymentValues:
-      paymentValues ??
-      createInvoicePaymentValues(
-        centsToAmountInput(paymentSummary.outstandingCents),
-      ),
-    paymentErrors,
-  };
+  return response.render('pages/invoices/form.njk', {
+    title,
+    heading,
+    formAction,
+    submitLabel,
+    cancelHref,
+    customers,
+    values,
+    errors,
+  });
 };
 
 export const listInvoices: RequestHandler = async (req, res) => {
@@ -105,9 +81,8 @@ export const listInvoices: RequestHandler = async (req, res) => {
 export const renderNewInvoice: RequestHandler = async (req, res) => {
   const customers = await getInvoiceFormOptions(req.auth!.organization.id);
 
-  res.render('pages/invoices/form.njk', {
+  renderInvoiceForm(res, {
     title: 'New invoice',
-    heading: 'New invoice',
     formAction: '/invoices',
     submitLabel: 'Create invoice',
     cancelHref: '/invoices',
@@ -126,9 +101,9 @@ export const createInvoice: RequestHandler = async (req, res) => {
   const customers = await getInvoiceFormOptions(organizationId);
 
   if (!result.success) {
-    return res.status(422).render('pages/invoices/form.njk', {
+    return renderInvoiceForm(res, {
+      status: 422,
       title: 'New invoice',
-      heading: 'New invoice',
       formAction: '/invoices',
       submitLabel: 'Create invoice',
       cancelHref: '/invoices',
@@ -138,12 +113,12 @@ export const createInvoice: RequestHandler = async (req, res) => {
     });
   }
 
-  const invoice = await createInvoiceRecord(organizationId, result.data);
+  const createResult = await createInvoiceRecord(organizationId, result.data);
 
-  if (!invoice) {
-    return res.status(422).render('pages/invoices/form.njk', {
+  if (!createResult.ok && createResult.reason === 'invalidCustomer') {
+    return renderInvoiceForm(res, {
+      status: 422,
       title: 'New invoice',
-      heading: 'New invoice',
       formAction: '/invoices',
       submitLabel: 'Create invoice',
       cancelHref: '/invoices',
@@ -326,9 +301,8 @@ export const renderEditInvoice: RequestHandler = async (req, res) => {
 
   const customers = await getInvoiceFormOptions(organizationId);
 
-  res.render('pages/invoices/form.njk', {
+  renderInvoiceForm(res, {
     title: `Edit ${invoice.number}`,
-    heading: `Edit ${invoice.number}`,
     formAction: `/invoices/${invoiceId}/edit`,
     submitLabel: 'Save invoice',
     cancelHref: `/invoices/${invoiceId}`,
@@ -345,9 +319,9 @@ export const editInvoice: RequestHandler = async (req, res) => {
   const customers = await getInvoiceFormOptions(organizationId);
 
   if (!result.success) {
-    return res.status(422).render('pages/invoices/form.njk', {
+    return renderInvoiceForm(res, {
+      status: 422,
       title: 'Edit invoice',
-      heading: 'Edit invoice',
       formAction: `/invoices/${invoiceId}/edit`,
       submitLabel: 'Save invoice',
       cancelHref: `/invoices/${invoiceId}`,
@@ -376,9 +350,9 @@ export const editInvoice: RequestHandler = async (req, res) => {
   }
 
   if (!updateResult.ok && updateResult.reason === 'invalidCustomer') {
-    return res.status(422).render('pages/invoices/form.njk', {
+    return renderInvoiceForm(res, {
+      status: 422,
       title: 'Edit invoice',
-      heading: 'Edit invoice',
       formAction: `/invoices/${invoiceId}/edit`,
       submitLabel: 'Save invoice',
       cancelHref: `/invoices/${invoiceId}`,

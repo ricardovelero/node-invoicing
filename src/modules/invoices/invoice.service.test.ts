@@ -134,7 +134,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
   const issueDate = new Date("2026-05-27T00:00:00.000Z");
   const dueDate = new Date("2026-06-27T00:00:00.000Z");
 
-  const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+  const result = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     currency: "GBP",
     issueDate,
@@ -164,7 +164,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
 
   const year = new Date().getFullYear();
 
-  assert.deepEqual(invoice, { id: "invoice_1" });
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
   assert.equal(reservedNumberOrganizationId, "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
   assert.deepEqual(customerFindFirstArgs, {
     where: {
@@ -238,7 +238,7 @@ test("createInvoiceRecord rejects archived customers", async () => {
       },
     });
 
-  const invoice = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+  const result = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     currency: "EUR",
     issueDate: new Date("2026-05-27T00:00:00.000Z"),
@@ -258,7 +258,7 @@ test("createInvoiceRecord rejects archived customers", async () => {
     ],
   });
 
-  assert.equal(invoice, null);
+  assert.deepEqual(result, { ok: false, reason: "invalidCustomer" });
   assert.equal(invoiceCreateCalls, 0);
   assert.equal(invoiceNumberReservationCalls, 0);
 });

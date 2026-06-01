@@ -3,7 +3,6 @@ import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import {
-  createInvoiceDisplay,
   createInvoice,
   editInvoice,
   printInvoice,
@@ -13,6 +12,7 @@ import {
   showInvoice,
   updateInvoiceStatusController,
 } from "./invoice.controller";
+import { createInvoiceDisplay } from "./invoice.presenter";
 
 type MockRequest = Request & {
   body: Record<string, unknown>;

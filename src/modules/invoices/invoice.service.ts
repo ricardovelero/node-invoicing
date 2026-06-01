@@ -86,6 +86,98 @@ export const canEditInvoice = (status: InvoiceStatus) => {
   return status === 'DRAFT';
 };
 
+const calculateTotalsFromInvoiceForm = (data: InvoiceForm) =>
+  calculateInvoiceTotals(
+    data.lines.map((line) => ({
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discount: {
+        type: line.discountType,
+        value: line.discountValue,
+      },
+      taxRate: line.taxRate,
+    })),
+    {
+      type: data.invoiceDiscountType,
+      value: data.invoiceDiscountValue,
+    },
+  );
+
+const invoiceLineCreateData = (
+  data: InvoiceForm,
+  totals: ReturnType<typeof calculateTotalsFromInvoiceForm>,
+) =>
+  data.lines.map((line, index) => {
+    const calculatedLine = totals.lines[index];
+
+    return {
+      description: line.description,
+      quantity: line.quantity,
+      unitPriceCents: calculatedLine.unitPriceCents,
+      discountCents: calculatedLine.discountCents,
+      invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
+      taxRateBps: calculatedLine.taxRateBps,
+      taxCents: calculatedLine.taxCents,
+      totalCents: calculatedLine.totalCents,
+    };
+  });
+
+const findActiveCustomer = (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  customerId: string,
+) =>
+  tx.customer.findFirst({
+    where: {
+      id: customerId,
+      organizationId,
+      archivedAt: null,
+    },
+    select: { id: true },
+  });
+
+const findEditableDraftInvoice = async (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  invoiceId: string,
+) => {
+  const invoice = await tx.invoice.findFirst({
+    where: {
+      id: invoiceId,
+      organizationId,
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  if (!invoice) {
+    return { ok: false as const, reason: 'notFound' as const };
+  }
+
+  if (!canEditInvoice(invoice.status)) {
+    return { ok: false as const, reason: 'notEditable' as const };
+  }
+
+  return { ok: true as const, invoice };
+};
+
+const replaceInvoiceLines = async (
+  tx: Prisma.TransactionClient,
+  invoiceId: string,
+  data: InvoiceForm,
+  totals: ReturnType<typeof calculateTotalsFromInvoiceForm>,
+) => {
+  await tx.invoiceLine.deleteMany({
+    where: { invoiceId },
+  });
+
+  return {
+    create: invoiceLineCreateData(data, totals),
+  };
+};
+
 export const getInvoices = (organizationId: string) =>
   prisma.invoice.findMany({
     where: { organizationId },
@@ -124,39 +216,18 @@ export const createInvoiceRecord = async (
   organizationId: string,
   data: InvoiceForm,
 ) => {
-  const totals = calculateInvoiceTotals(
-    data.lines.map((line) => ({
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      discount: {
-        type: line.discountType,
-        value: line.discountValue,
-      },
-      taxRate: line.taxRate,
-    })),
-    {
-      type: data.invoiceDiscountType,
-      value: data.invoiceDiscountValue,
-    },
-  );
+  const totals = calculateTotalsFromInvoiceForm(data);
 
   return prisma.$transaction(async (tx) => {
-    const customer = await tx.customer.findFirst({
-      where: {
-        id: data.customerId,
-        organizationId,
-        archivedAt: null,
-      },
-      select: { id: true },
-    });
+    const customer = await findActiveCustomer(tx, organizationId, data.customerId);
 
     if (!customer) {
-      return null;
+      return { ok: false as const, reason: 'invalidCustomer' as const };
     }
 
     const number = await nextInvoiceNumber(tx, organizationId);
 
-    return tx.invoice.create({
+    const invoice = await tx.invoice.create({
       data: {
         organizationId,
         number,
@@ -170,23 +241,12 @@ export const createInvoiceRecord = async (
         currency: data.currency,
         notes: data.notes || null,
         lines: {
-          create: data.lines.map((line, index) => {
-            const calculatedLine = totals.lines[index];
-
-            return {
-              description: line.description,
-              quantity: line.quantity,
-              unitPriceCents: calculatedLine.unitPriceCents,
-              discountCents: calculatedLine.discountCents,
-              invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
-              taxRateBps: calculatedLine.taxRateBps,
-              taxCents: calculatedLine.taxCents,
-              totalCents: calculatedLine.totalCents,
-            };
-          }),
+          create: invoiceLineCreateData(data, totals),
         },
       },
     });
+
+    return { ok: true as const, invoice };
   });
 };
 
@@ -195,55 +255,25 @@ export const updateDraftInvoiceRecord = async (
   invoiceId: string,
   data: InvoiceForm,
 ) => {
-  const totals = calculateInvoiceTotals(
-    data.lines.map((line) => ({
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      discount: {
-        type: line.discountType,
-        value: line.discountValue,
-      },
-      taxRate: line.taxRate,
-    })),
-    { type: data.invoiceDiscountType, value: data.invoiceDiscountValue },
-  );
+  const totals = calculateTotalsFromInvoiceForm(data);
 
   return prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.findFirst({
-      where: {
-        id: invoiceId,
-        organizationId,
-      },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
+    const editableInvoice = await findEditableDraftInvoice(
+      tx,
+      organizationId,
+      invoiceId,
+    );
 
-    if (!invoice) {
-      return { ok: false as const, reason: 'notFound' as const };
+    if (!editableInvoice.ok) {
+      return editableInvoice;
     }
 
-    if (!canEditInvoice(invoice.status)) {
-      return { ok: false as const, reason: 'notEditable' as const };
-    }
-
-    const customer = await tx.customer.findFirst({
-      where: {
-        id: data.customerId,
-        organizationId,
-        archivedAt: null,
-      },
-      select: { id: true },
-    });
+    const { invoice } = editableInvoice;
+    const customer = await findActiveCustomer(tx, organizationId, data.customerId);
 
     if (!customer) {
       return { ok: false as const, reason: 'invalidCustomer' as const };
     }
-
-    await tx.invoiceLine.deleteMany({
-      where: { invoiceId: invoice.id },
-    });
 
     const updatedInvoice = await tx.invoice.update({
       where: { id: invoice.id },
@@ -257,22 +287,7 @@ export const updateDraftInvoiceRecord = async (
         totalCents: totals.totalCents,
         currency: data.currency,
         notes: data.notes || null,
-        lines: {
-          create: data.lines.map((line, index) => {
-            const calculatedLine = totals.lines[index];
-
-            return {
-              description: line.description,
-              quantity: line.quantity,
-              unitPriceCents: calculatedLine.unitPriceCents,
-              discountCents: calculatedLine.discountCents,
-              invoiceDiscountCents: calculatedLine.invoiceDiscountCents,
-              taxRateBps: calculatedLine.taxRateBps,
-              taxCents: calculatedLine.taxCents,
-              totalCents: calculatedLine.totalCents,
-            };
-          }),
-        },
+        lines: await replaceInvoiceLines(tx, invoice.id, data, totals),
       },
     });
 
