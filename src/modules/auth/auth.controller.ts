@@ -1,13 +1,11 @@
-import { Prisma } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 import type { Request, RequestHandler } from 'express';
-import { prisma } from '../../db/prisma';
 import {
   type RegisterErrors,
   type RegisterValues,
   registerSchema,
   registerValuesSchema,
 } from './auth.schema';
+import * as authService from './auth.service';
 
 const renderRegisterForm = (
   res: Parameters<RequestHandler>[1],
@@ -73,36 +71,20 @@ export const registerUser: RequestHandler = async (req, res, next) => {
       return renderRegisterForm(res, values, result.error.flatten().fieldErrors, 422);
     }
 
-    const passwordHash = await bcrypt.hash(result.data.password, 12);
+    const sessionUser = await authService.registerUser(result.data);
 
-    const sessionUser = await prisma.$transaction(async (tx) => {
-      const createdUser = await tx.user.create({
-        data: {
-          name: values.name || null,
-          email: result.data.email,
-          passwordHash,
-        },
-      });
+    if (!sessionUser.ok) {
+      if (sessionUser.reason === 'emailAlreadyExists') {
+        return renderRegisterForm(
+          res,
+          values,
+          { email: ['An account with this email already exists.'] },
+          409,
+        );
+      }
 
-      const organization = await tx.organization.create({
-        data: {
-          name: result.data.organizationName,
-        },
-      });
-
-      await tx.organizationMembership.create({
-        data: {
-          userId: createdUser.id,
-          organizationId: organization.id,
-          role: 'OWNER',
-        },
-      });
-
-      return {
-        userId: createdUser.id,
-        organizationId: organization.id,
-      };
-    });
+      return next(new Error('Unable to create account.'));
+    }
 
     await regenerateSession(req);
 
@@ -113,18 +95,6 @@ export const registerUser: RequestHandler = async (req, res, next) => {
 
     return res.redirect('/');
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      return renderRegisterForm(
-        res,
-        registerValuesSchema.parse(req.body),
-        { email: ['An account with this email already exists.'] },
-        409,
-      );
-    }
-
     return next(error);
   }
 };
@@ -133,44 +103,31 @@ export const loginUser: RequestHandler = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       req.flash('error', 'Email and password are required.');
       return res.redirect('/auth/login');
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-      include: {
-        memberships: {
-          orderBy: { createdAt: 'asc' },
-          take: 1,
-        },
-      },
-    });
+    const sessionUser = await authService.authenticateUser({ email, password });
 
-    if (!user) {
+    if (!sessionUser.ok && sessionUser.reason === 'invalidCredentials') {
       req.flash('error', 'Incorrect credentials.');
       return res.redirect('/auth/login');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isPasswordValid) {
-      req.flash('error', 'Incorrect credentials.');
-      return res.redirect('/auth/login');
-    }
-
-    const membership = user.memberships[0];
-
-    if (!membership) {
+    if (!sessionUser.ok && sessionUser.reason === 'noOrganizationMembership') {
       req.flash('error', 'This account is not connected to an organization.');
       return res.redirect('/auth/login');
     }
 
+    if (!sessionUser.ok) {
+      return next(new Error('Unable to log in.'));
+    }
+
     await regenerateSession(req);
 
-    req.session.userId = user.id;
-    req.session.organizationId = membership.organizationId;
+    req.session.userId = sessionUser.userId;
+    req.session.organizationId = sessionUser.organizationId;
 
     return res.redirect('/');
   } catch (error) {

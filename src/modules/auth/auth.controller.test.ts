@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import bcrypt from "bcryptjs";
 import type { NextFunction, Request, Response } from "express";
-import { prisma } from "../../db/prisma";
 import { loginUser, logoutUser, registerUser } from "./auth.controller";
+import * as authService from "./auth.service";
 
 type MockSession = {
   userId?: string;
@@ -28,19 +27,17 @@ type MockResponse = Response & {
   clearedCookies: string[];
 };
 
-const prismaMock = prisma as unknown as {
-  $transaction: unknown;
-  user: {
-    findUnique: unknown;
-  };
+const authServiceMock = authService as unknown as {
+  registerUser: typeof authService.registerUser;
+  authenticateUser: typeof authService.authenticateUser;
 };
 
-const originalTransaction = prismaMock.$transaction;
-const originalFindUnique = prismaMock.user.findUnique;
+const originalRegisterUser = authServiceMock.registerUser;
+const originalAuthenticateUser = authServiceMock.authenticateUser;
 
 afterEach(() => {
-  prismaMock.$transaction = originalTransaction;
-  prismaMock.user.findUnique = originalFindUnique;
+  authServiceMock.registerUser = originalRegisterUser;
+  authServiceMock.authenticateUser = originalAuthenticateUser;
 });
 
 const createRequest = (body: Record<string, unknown> = {}) => {
@@ -122,37 +119,12 @@ const createNext = () => {
   };
 };
 
-test("registerUser creates the account, organization, owner membership, and session", async () => {
-  let createdUserData: Record<string, unknown> | undefined;
-  let createdOrganizationData: Record<string, unknown> | undefined;
-  let createdMembershipData: Record<string, unknown> | undefined;
-
-  prismaMock.$transaction = async (
-    callback: (tx: {
-      user: { create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }> };
-      organization: { create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }> };
-      organizationMembership: { create: (args: { data: Record<string, unknown> }) => Promise<void> };
-    }) => Promise<unknown>,
-  ) =>
-    callback({
-      user: {
-        async create(args) {
-          createdUserData = args.data;
-          return { id: "user_1" };
-        },
-      },
-      organization: {
-        async create(args) {
-          createdOrganizationData = args.data;
-          return { id: "org_1" };
-        },
-      },
-      organizationMembership: {
-        async create(args) {
-          createdMembershipData = args.data;
-        },
-      },
-    });
+test("registerUser stores the service result in session after creating an account", async () => {
+  let serviceData: unknown;
+  authServiceMock.registerUser = async (data) => {
+    serviceData = data;
+    return { ok: true, userId: "user_1", organizationId: "org_1" };
+  };
 
   const req = createRequest({
     name: " Ada Lovelace ",
@@ -166,14 +138,11 @@ test("registerUser creates the account, organization, owner membership, and sess
   await registerUser(req, res, next.next);
 
   assert.equal(next.error, undefined);
-  assert.equal(createdUserData?.name, "Ada Lovelace");
-  assert.equal(createdUserData?.email, "ada@example.com");
-  assert.notEqual(createdUserData?.passwordHash, "correct-password");
-  assert.equal(createdOrganizationData?.name, "Analytical Engines");
-  assert.deepEqual(createdMembershipData, {
-    userId: "user_1",
-    organizationId: "org_1",
-    role: "OWNER",
+  assert.deepEqual(serviceData, {
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    password: "CorrectPassword1",
+    organizationName: "Analytical Engines",
   });
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
@@ -183,10 +152,11 @@ test("registerUser creates the account, organization, owner membership, and sess
 });
 
 test("registerUser rejects weak passwords and missing organization before creating records", async () => {
-  let transactionCalls = 0;
+  let serviceCalls = 0;
 
-  prismaMock.$transaction = async () => {
-    transactionCalls += 1;
+  authServiceMock.registerUser = async () => {
+    serviceCalls += 1;
+    return { ok: true, userId: "user_1", organizationId: "org_1" };
   };
 
   const req = createRequest({
@@ -201,7 +171,7 @@ test("registerUser rejects weak passwords and missing organization before creati
   await registerUser(req, res, next.next);
 
   assert.equal(next.error, undefined);
-  assert.equal(transactionCalls, 0);
+  assert.equal(serviceCalls, 0);
   assert.equal(req.session.regenerateCalls, 0);
   assert.equal(res.statusCode, 422);
   assert.equal(res.renderedView, "pages/auth/register.njk");
@@ -219,17 +189,46 @@ test("registerUser rejects weak passwords and missing organization before creati
   });
 });
 
-test("loginUser verifies credentials and stores the first organization in session", async () => {
-  const passwordHash = await bcrypt.hash("correct-password", 4);
-  let findUniqueArgs: unknown;
+test("registerUser renders duplicate email errors returned by the service", async () => {
+  authServiceMock.registerUser = async () => ({
+    ok: false,
+    reason: "emailAlreadyExists",
+  });
 
-  prismaMock.user.findUnique = async (args: unknown) => {
-    findUniqueArgs = args;
-    return {
-      id: "user_1",
-      passwordHash,
-      memberships: [{ organizationId: "org_1" }],
-    };
+  const req = createRequest({
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    password: "CorrectPassword1",
+    organizationName: "Analytical Engines",
+  });
+  const res = createResponse();
+  const next = createNext();
+
+  await registerUser(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(req.session.regenerateCalls, 0);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.renderedView, "pages/auth/register.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Create account",
+    values: {
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      organizationName: "Analytical Engines",
+    },
+    errors: {
+      email: ["An account with this email already exists."],
+    },
+  });
+});
+
+test("loginUser stores the authenticated service result in session", async () => {
+  let serviceData: unknown;
+
+  authServiceMock.authenticateUser = async (data) => {
+    serviceData = data;
+    return { ok: true, userId: "user_1", organizationId: "org_1" };
   };
 
   const req = createRequest({
@@ -242,14 +241,9 @@ test("loginUser verifies credentials and stores the first organization in sessio
   await loginUser(req, res, next.next);
 
   assert.equal(next.error, undefined);
-  assert.deepEqual(findUniqueArgs, {
-    where: { email: "ada@example.com" },
-    include: {
-      memberships: {
-        orderBy: { createdAt: "asc" },
-        take: 1,
-      },
-    },
+  assert.deepEqual(serviceData, {
+    email: " ADA@example.COM ",
+    password: "correct-password",
   });
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
@@ -258,12 +252,9 @@ test("loginUser verifies credentials and stores the first organization in sessio
 });
 
 test("loginUser rejects invalid credentials without creating a session", async () => {
-  const passwordHash = await bcrypt.hash("correct-password", 4);
-
-  prismaMock.user.findUnique = async () => ({
-    id: "user_1",
-    passwordHash,
-    memberships: [{ organizationId: "org_1" }],
+  authServiceMock.authenticateUser = async () => ({
+    ok: false,
+    reason: "invalidCredentials",
   });
 
   const req = createRequest({
@@ -280,6 +271,31 @@ test("loginUser rejects invalid credentials without creating a session", async (
   assert.equal(req.session.userId, undefined);
   assert.equal(req.session.organizationId, undefined);
   assert.deepEqual(req.flashMessages.error, ["Incorrect credentials."]);
+  assert.equal(res.redirectedTo, "/auth/login");
+});
+
+test("loginUser rejects accounts without an organization membership", async () => {
+  authServiceMock.authenticateUser = async () => ({
+    ok: false,
+    reason: "noOrganizationMembership",
+  });
+
+  const req = createRequest({
+    email: "ada@example.com",
+    password: "correct-password",
+  });
+  const res = createResponse();
+  const next = createNext();
+
+  await loginUser(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(req.session.regenerateCalls, 0);
+  assert.equal(req.session.userId, undefined);
+  assert.equal(req.session.organizationId, undefined);
+  assert.deepEqual(req.flashMessages.error, [
+    "This account is not connected to an organization.",
+  ]);
   assert.equal(res.redirectedTo, "/auth/login");
 });
 
