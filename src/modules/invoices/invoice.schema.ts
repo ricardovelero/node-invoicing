@@ -9,6 +9,9 @@ import {
 export const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
 export const paidAtRequiredMessage = "Enter a paid date.";
 export const paidAtInvalidMessage = "Enter a valid paid date.";
+export const paymentAmountRequiredMessage = "Enter a payment amount.";
+export const paymentAmountPositiveMessage = "Payment amount must be greater than zero.";
+export const paymentAmountInvalidMessage = "Enter a valid payment amount.";
 
 const asFormRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -39,7 +42,7 @@ const dateInput = (requiredMessage: string, invalidMessage: string) =>
 const discountTypeSchema = z.enum(["amount", "percent"]);
 
 const discountValueSchema = z.coerce.number().nonnegative("Discount cannot be negative.");
-const statusActionSchema = z.enum(["send", "markOverdue", "markPaid", "void"], {
+const statusActionSchema = z.enum(["send", "markOverdue", "void"], {
   error: "Choose a valid invoice status action.",
 });
 
@@ -170,29 +173,54 @@ export const invoiceStatusActionSchema = z.preprocess((value) => {
 
   return {
     action: form.action,
+  };
+}, z
+  .object({
+    action: statusActionSchema,
+  })
+  .transform((value) => ({
+    action: value.action,
+  })));
+
+export type InvoiceStatusActionForm = z.infer<typeof invoiceStatusActionSchema>;
+
+export const invoicePaymentSchema = z.preprocess((value) => {
+  const form = asFormRecord(value);
+
+  return {
+    amount: form.amount,
     paidAt: form.paidAt,
     reference: form.reference,
   };
 }, z
   .object({
-    action: statusActionSchema,
+    amount: z.preprocess(
+      (value) => (typeof value === "string" ? value.trim() : value === undefined ? "" : String(value)),
+      z.string()
+        .min(1, paymentAmountRequiredMessage)
+        .transform((value, ctx) => {
+          const amount = Number(value);
+
+          if (!Number.isFinite(amount)) {
+            ctx.addIssue({
+              code: "custom",
+              message: paymentAmountInvalidMessage,
+            });
+            return z.NEVER;
+          }
+
+          return amount;
+        })
+        .refine((amount) => amount > 0, paymentAmountPositiveMessage),
+    ),
     paidAt: z.preprocess(
-      (value) => (typeof value === "string" ? value : ""),
-      z.string().trim().optional(),
+      (value) => (typeof value === "string" ? value.trim() : ""),
+      z.string().min(1, paidAtRequiredMessage),
     ),
     reference: z.string().trim().max(200, "Reference must be 200 characters or fewer.").default(""),
   })
   .superRefine((value, ctx) => {
-    if (value.action !== "markPaid") {
-      return;
-    }
-
     if (!value.paidAt) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["paidAt"],
-        message: paidAtRequiredMessage,
-      });
       return;
     }
 
@@ -205,12 +233,20 @@ export const invoiceStatusActionSchema = z.preprocess((value) => {
     }
   })
   .transform((value) => ({
-    action: value.action,
-    paidAt: value.action === "markPaid" ? new Date(`${value.paidAt}T00:00:00.000Z`) : undefined,
+    amountCents: amountToCents(value.amount),
+    paidAt: new Date(`${value.paidAt}T00:00:00.000Z`),
     reference: value.reference,
   })));
 
-export type InvoiceStatusActionForm = z.infer<typeof invoiceStatusActionSchema>;
+export type InvoicePaymentForm = z.infer<typeof invoicePaymentSchema>;
+
+export type InvoicePaymentValues = {
+  amount: string;
+  paidAt: string;
+  reference: string;
+};
+
+export type InvoicePaymentErrors = Partial<Record<keyof InvoicePaymentValues, string[]>>;
 
 export type InvoiceLineValues = {
   description: string;
@@ -296,6 +332,22 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
   };
 };
 
+export const createInvoicePaymentValues = (amount = ""): InvoicePaymentValues => ({
+  amount,
+  paidAt: new Date().toISOString().slice(0, 10),
+  reference: "",
+});
+
+export const normalizeInvoicePaymentValues = (value: unknown): InvoicePaymentValues => {
+  const form = asFormRecord(value);
+
+  return {
+    amount: stringValue(form.amount),
+    paidAt: stringValue(form.paidAt),
+    reference: stringValue(form.reference),
+  };
+};
+
 export const formatInvoiceFormErrors = (error: z.ZodError<InvoiceForm>) =>
   error.issues.reduce<InvoiceFormErrors>((errors, issue) => {
     const [field, index, lineField] = issue.path;
@@ -328,6 +380,18 @@ export const formatInvoiceFormErrors = (error: z.ZodError<InvoiceForm>) =>
 
       errors[fieldName] ??= [];
       errors[fieldName].push(issue.message);
+    }
+
+    return errors;
+  }, {});
+
+export const formatInvoicePaymentErrors = (error: z.ZodError<InvoicePaymentForm>) =>
+  error.issues.reduce<InvoicePaymentErrors>((errors, issue) => {
+    const [field] = issue.path;
+
+    if (field === "amount" || field === "paidAt" || field === "reference") {
+      errors[field] ??= [];
+      errors[field].push(issue.message);
     }
 
     return errors;

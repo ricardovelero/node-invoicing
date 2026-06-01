@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createInvoice,
   listInvoices,
+  recordInvoicePaymentController,
   renderNewInvoice,
   showInvoice,
   updateInvoiceStatusController,
@@ -14,3 +15,4 @@ invoiceRouter.get("/new", renderNewInvoice);
 invoiceRouter.post("/", createInvoice);
 invoiceRouter.get("/:invoiceId", showInvoice);
 invoiceRouter.post("/:invoiceId/status", updateInvoiceStatusController);
+invoiceRouter.post("/:invoiceId/payments", recordInvoicePaymentController);

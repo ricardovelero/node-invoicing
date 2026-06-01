@@ -4,9 +4,12 @@ import {
   dueDateBeforeIssueDateMessage,
   formatInvoiceFormErrors,
   invoiceFormSchema,
+  invoicePaymentSchema,
   invoiceStatusActionSchema,
   paidAtInvalidMessage,
   paidAtRequiredMessage,
+  paymentAmountPositiveMessage,
+  paymentAmountRequiredMessage,
 } from "./invoice.schema";
 
 const validInvoiceForm = {
@@ -184,29 +187,12 @@ describe("invoiceStatusActionSchema", () => {
     assert.equal(result.success, true);
     assert.deepEqual(result.data, {
       action: "send",
-      paidAt: undefined,
-      reference: "",
-    });
-  });
-
-  test("normalizes paid action values", () => {
-    const result = invoiceStatusActionSchema.safeParse({
-      action: "markPaid",
-      paidAt: "2026-05-29",
-      reference: "  BANK-123  ",
-    });
-
-    assert.equal(result.success, true);
-    assert.deepEqual(result.data, {
-      action: "markPaid",
-      paidAt: new Date("2026-05-29T00:00:00.000Z"),
-      reference: "BANK-123",
     });
   });
 
   test("rejects invalid action values", () => {
     const result = invoiceStatusActionSchema.safeParse({
-      action: "restore",
+      action: "markPaid",
     });
 
     assert.equal(result.success, false);
@@ -215,12 +201,50 @@ describe("invoiceStatusActionSchema", () => {
     ]);
   });
 
-  test("requires a valid paid date for paid actions", () => {
-    const missingDate = invoiceStatusActionSchema.safeParse({
-      action: "markPaid",
+});
+
+describe("invoicePaymentSchema", () => {
+  test("normalizes payment values", () => {
+    const result = invoicePaymentSchema.safeParse({
+      amount: "123.45",
+      paidAt: "2026-05-29",
+      reference: "  BANK-123  ",
     });
-    const invalidDate = invoiceStatusActionSchema.safeParse({
-      action: "markPaid",
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      amountCents: 12345,
+      paidAt: new Date("2026-05-29T00:00:00.000Z"),
+      reference: "BANK-123",
+    });
+  });
+
+  test("requires a positive payment amount", () => {
+    const missingAmount = invoicePaymentSchema.safeParse({
+      amount: "",
+      paidAt: "2026-05-29",
+    });
+    const zeroAmount = invoicePaymentSchema.safeParse({
+      amount: "0",
+      paidAt: "2026-05-29",
+    });
+
+    assert.equal(missingAmount.success, false);
+    assert.deepEqual((missingAmount.error.flatten().fieldErrors as Record<string, string[]>).amount, [
+      paymentAmountRequiredMessage,
+    ]);
+    assert.equal(zeroAmount.success, false);
+    assert.deepEqual((zeroAmount.error.flatten().fieldErrors as Record<string, string[]>).amount, [
+      paymentAmountPositiveMessage,
+    ]);
+  });
+
+  test("requires a valid paid date for payments", () => {
+    const missingDate = invoicePaymentSchema.safeParse({
+      amount: "10",
+    });
+    const invalidDate = invoicePaymentSchema.safeParse({
+      amount: "10",
       paidAt: "not-a-date",
     });
 

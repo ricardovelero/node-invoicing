@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import {
   createInvoice,
+  recordInvoicePaymentController,
   renderNewInvoice,
   showInvoice,
   updateInvoiceStatusController,
@@ -161,12 +162,14 @@ test("createInvoice preserves submitted notes after validation errors", async ()
 });
 
 test("showInvoice renders invoice details and available actions", async () => {
+  const today = new Date().toISOString().slice(0, 10);
   const invoice = {
     id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
     number: "INV-2026-0001",
     status: "DRAFT",
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
-    customer: { name: "Ada Co" },
+    totalCents: 10000,
+    customer: { id: "customer_1", name: "Ada Co" },
     lines: [],
     payments: [],
   };
@@ -181,8 +184,19 @@ test("showInvoice renders invoice details and available actions", async () => {
     title: "INV-2026-0001",
     invoice,
     allowedActions: ["send", "void"],
+    canRecordPayment: false,
     isEffectivelyOverdue: false,
-    paidAtDefault: new Date().toISOString().slice(0, 10),
+    paymentSummary: {
+      paidCents: 0,
+      outstandingCents: 10000,
+      isPaid: false,
+    },
+    paymentValues: {
+      amount: "100.00",
+      paidAt: today,
+      reference: "",
+    },
+    paymentErrors: {},
   });
 });
 
@@ -239,4 +253,152 @@ test("updateInvoiceStatusController redirects with flash success for valid trans
   });
   assert.deepEqual(req.flashMessages.success, ["Invoice status updated."]);
   assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
+});
+
+test("recordInvoicePaymentController redirects with flash success for valid payments", async () => {
+  let createdPaymentData: unknown;
+  let updatedInvoiceData: unknown;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;
+      payment: {
+        aggregate: () => Promise<{ _sum: { amountCents: number } }>;
+        create: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoice: { update: (args: unknown) => Promise<unknown> };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [
+        {
+          id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+          status: "SENT",
+          totalCents: 10000,
+          dueDate: new Date("2099-06-27T00:00:00.000Z"),
+        },
+      ],
+      payment: {
+        async aggregate() {
+          return { _sum: { amountCents: 0 } };
+        },
+        async create(args) {
+          createdPaymentData = args.data;
+          return { id: "payment_1" };
+        },
+      },
+      invoice: {
+        async update(args) {
+          updatedInvoiceData = args;
+          return { id: "invoice_1" };
+        },
+      },
+    });
+  const req = createRequest(
+    { amount: "25.50", paidAt: "2026-05-29", reference: "  BANK-123  " },
+    { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
+  );
+  const res = createResponse();
+
+  await recordInvoicePaymentController(req, res, () => undefined);
+
+  assert.deepEqual(createdPaymentData, {
+    invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    amountCents: 2550,
+    paidAt: new Date("2026-05-29T00:00:00.000Z"),
+    reference: "BANK-123",
+  });
+  assert.deepEqual(updatedInvoiceData, {
+    where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
+    data: { status: "PARTIALLY_PAID" },
+  });
+  assert.deepEqual(req.flashMessages.success, ["Payment recorded."]);
+  assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
+});
+
+test("recordInvoicePaymentController re-renders invoice detail for invalid payment input", async () => {
+  const invoice = {
+    id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    number: "INV-2026-0001",
+    status: "SENT",
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    totalCents: 10000,
+    customer: { id: "customer_1", name: "Ada Co" },
+    lines: [],
+    payments: [],
+  };
+  prismaMock.invoice.findFirst = async () => invoice;
+  const req = createRequest(
+    { amount: "", paidAt: "", reference: "" },
+    { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
+  );
+  const res = createResponse();
+
+  await recordInvoicePaymentController(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/detail.njk");
+  assert.deepEqual((res.renderedData as { paymentErrors: unknown }).paymentErrors, {
+    amount: ["Enter a payment amount."],
+    paidAt: ["Enter a paid date."],
+  });
+});
+
+test("recordInvoicePaymentController re-renders invoice detail for overpayments", async () => {
+  const invoice = {
+    id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    number: "INV-2026-0001",
+    status: "SENT",
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    totalCents: 10000,
+    customer: { id: "customer_1", name: "Ada Co" },
+    lines: [],
+    payments: [{ amountCents: 9000 }],
+  };
+  prismaMock.invoice.findFirst = async () => invoice;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      $queryRaw: () => Promise<unknown[]>;
+      payment: {
+        aggregate: () => Promise<{ _sum: { amountCents: number } }>;
+        create: () => Promise<unknown>;
+      };
+      invoice: { update: () => Promise<unknown> };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [
+        {
+          id: invoice.id,
+          status: "SENT",
+          totalCents: 10000,
+          dueDate: new Date("2099-06-27T00:00:00.000Z"),
+        },
+      ],
+      payment: {
+        async aggregate() {
+          return { _sum: { amountCents: 9000 } };
+        },
+        async create() {
+          return { id: "payment_1" };
+        },
+      },
+      invoice: {
+        async update() {
+          return { id: "invoice_1" };
+        },
+      },
+    });
+  const req = createRequest(
+    { amount: "10.01", paidAt: "2026-05-29", reference: "" },
+    { invoiceId: invoice.id },
+  );
+  const res = createResponse();
+
+  await recordInvoicePaymentController(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/detail.njk");
+  assert.deepEqual((res.renderedData as { paymentErrors: unknown }).paymentErrors, {
+    amount: ["Payment cannot exceed the outstanding balance."],
+  });
 });

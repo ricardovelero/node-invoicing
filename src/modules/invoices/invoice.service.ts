@@ -1,7 +1,7 @@
-import type { InvoiceStatus } from "@prisma/client";
+import type { InvoiceStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { calculateInvoiceTotals } from "../../lib/money";
-import type { InvoiceForm, InvoiceStatusActionForm } from "./invoice.schema";
+import type { InvoiceForm, InvoicePaymentForm, InvoiceStatusActionForm } from "./invoice.schema";
 import { nextInvoiceNumber } from "./invoice-numbering";
 
 export type InvoiceStatusAction = InvoiceStatusActionForm["action"];
@@ -9,37 +9,56 @@ export type InvoiceStatusAction = InvoiceStatusActionForm["action"];
 const statusActionTargets: Partial<Record<InvoiceStatusAction, InvoiceStatus>> = {
   send: "SENT",
   markOverdue: "OVERDUE",
-  markPaid: "PAID",
   void: "VOID",
 };
 
 const allowedStatusActions: Record<InvoiceStatus, InvoiceStatusAction[]> = {
   DRAFT: ["send", "void"],
-  SENT: ["markOverdue", "markPaid", "void"],
-  OVERDUE: ["markPaid", "void"],
+  SENT: ["markOverdue", "void"],
+  PARTIALLY_PAID: ["markOverdue", "void"],
+  OVERDUE: ["void"],
   PAID: [],
   VOID: [],
 };
 
 export const getAllowedInvoiceStatusActions = (status: InvoiceStatus) => allowedStatusActions[status];
 
+export const paymentEligibleStatuses: InvoiceStatus[] = ["SENT", "PARTIALLY_PAID", "OVERDUE"];
+
+export const canRecordInvoicePayment = (status: InvoiceStatus) =>
+  paymentEligibleStatuses.includes(status);
+
+export const calculateInvoicePaymentSummary = (invoice: {
+  totalCents: number;
+  payments: Array<{ amountCents: number }>;
+}) => {
+  const paidCents = invoice.payments.reduce((total, payment) => total + payment.amountCents, 0);
+  const outstandingCents = Math.max(invoice.totalCents - paidCents, 0);
+
+  return {
+    paidCents,
+    outstandingCents,
+    isPaid: outstandingCents === 0,
+  };
+};
+
+const isPastDueDate = (dueDate: Date) => {
+  const today = new Date();
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+
+  return dueDateOnly < todayDate;
+};
+
 export const isInvoiceEffectivelyOverdue = (invoice: {
   status: InvoiceStatus;
   dueDate: Date;
 }) => {
-  if (invoice.status !== "SENT") {
+  if (invoice.status !== "SENT" && invoice.status !== "PARTIALLY_PAID") {
     return false;
   }
 
-  const today = new Date();
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const dueDate = new Date(
-    invoice.dueDate.getFullYear(),
-    invoice.dueDate.getMonth(),
-    invoice.dueDate.getDate(),
-  );
-
-  return dueDate < todayDate;
+  return isPastDueDate(invoice.dueDate);
 };
 
 export const getInvoices = (organizationId: string) =>
@@ -166,25 +185,6 @@ export const updateInvoiceStatus = async (
     return { ok: false as const, reason: "invalidTransition" as const };
   }
 
-  if (data.action === "markPaid") {
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.create({
-        data: {
-          invoiceId: invoice.id,
-          amountCents: invoice.totalCents,
-          paidAt: data.paidAt!,
-          reference: data.reference || null,
-        },
-      });
-      await tx.invoice.update({
-        where: { id: invoice.id },
-        data: { status: "PAID" },
-      });
-    });
-
-    return { ok: true as const, status: "PAID" as const };
-  }
-
   const status = statusActionTargets[data.action];
 
   if (!status) {
@@ -198,3 +198,77 @@ export const updateInvoiceStatus = async (
 
   return { ok: true as const, status };
 };
+
+type LockedInvoiceRow = {
+  id: string;
+  status: InvoiceStatus;
+  totalCents: number;
+  dueDate: Date;
+};
+
+export const recordInvoicePayment = (
+  organizationId: string,
+  invoiceId: string,
+  data: InvoicePaymentForm,
+) =>
+  prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const invoices = await tx.$queryRaw<LockedInvoiceRow[]>`
+      SELECT "id", "status", "totalCents", "dueDate"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId}::uuid
+        AND "organizationId" = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+    const invoice = invoices[0];
+
+    if (!invoice) {
+      return { ok: false as const, reason: "notFound" as const };
+    }
+
+    if (!canRecordInvoicePayment(invoice.status)) {
+      return { ok: false as const, reason: "invalidStatus" as const };
+    }
+
+    const payments = await tx.payment.aggregate({
+      where: { invoiceId: invoice.id },
+      _sum: { amountCents: true },
+    });
+    const paidCents = payments._sum.amountCents ?? 0;
+    const outstandingCents = Math.max(invoice.totalCents - paidCents, 0);
+
+    if (outstandingCents <= 0) {
+      return { ok: false as const, reason: "alreadyPaid" as const };
+    }
+
+    if (data.amountCents > outstandingCents) {
+      return {
+        ok: false as const,
+        reason: "overpayment" as const,
+        outstandingCents,
+      };
+    }
+
+    const nextOutstandingCents = outstandingCents - data.amountCents;
+    const status: InvoiceStatus =
+      nextOutstandingCents === 0
+        ? "PAID"
+        : invoice.status === "OVERDUE" || isPastDueDate(invoice.dueDate)
+          ? "OVERDUE"
+          : "PARTIALLY_PAID";
+
+    const payment = await tx.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amountCents: data.amountCents,
+        paidAt: data.paidAt,
+        reference: data.reference || null,
+      },
+    });
+
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: { status },
+    });
+
+    return { ok: true as const, payment, status, outstandingCents: nextOutstandingCents };
+  });

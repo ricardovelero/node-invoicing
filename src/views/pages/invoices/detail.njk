@@ -117,8 +117,41 @@
             <span class="font-semibold">Total</span>
             <span class="font-semibold">{{ invoice.totalCents | money(currentOrganization.currency) }}</span>
           </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-muted">Paid</span>
+            <span class="font-medium">{{ paymentSummary.paidCents | money(currentOrganization.currency) }}</span>
+          </div>
+          <div class="flex justify-between gap-4 text-base">
+            <span class="font-semibold">Outstanding</span>
+            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(currentOrganization.currency) }}</span>
+          </div>
         </div>
       </div>
+
+      {% if canRecordPayment %}
+        <div class="rounded-lg border border-line bg-white p-6">
+          <h2 class="text-lg font-semibold">Record payment</h2>
+          <form method="post" action="/invoices/{{ invoice.id }}/payments" class="mt-4 space-y-3">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <div>
+              <label for="paymentAmount">Amount *</label>
+              <input id="paymentAmount" name="amount" type="number" min="0.01" step="0.01" value="{{ paymentValues.amount }}" required aria-describedby="paymentAmount-error">
+              {% if paymentErrors.amount %}<p id="paymentAmount-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.amount[0] }}</p>{% endif %}
+            </div>
+            <div>
+              <label for="paidAt">Paid date *</label>
+              <input id="paidAt" name="paidAt" type="date" value="{{ paymentValues.paidAt }}" required aria-describedby="paidAt-error">
+              {% if paymentErrors.paidAt %}<p id="paidAt-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.paidAt[0] }}</p>{% endif %}
+            </div>
+            <div>
+              <label for="reference">Reference</label>
+              <input id="reference" name="reference" value="{{ paymentValues.reference }}" maxlength="200" aria-describedby="reference-error">
+              {% if paymentErrors.reference %}<p id="reference-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.reference[0] }}</p>{% endif %}
+            </div>
+            <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Record payment</button>
+          </form>
+        </div>
+      {% endif %}
 
       <div class="rounded-lg border border-line bg-white p-6">
         <h2 class="text-lg font-semibold">Actions</h2>
@@ -137,22 +170,6 @@
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="markOverdue">
                 <button class="w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" type="submit">Mark overdue</button>
-              </form>
-            {% endif %}
-
-            {% if 'markPaid' in allowedActions %}
-              <form method="post" action="/invoices/{{ invoice.id }}/status" class="space-y-3 rounded-md border border-line p-3">
-                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                <input type="hidden" name="action" value="markPaid">
-                <div>
-                  <label for="paidAt">Paid date</label>
-                  <input id="paidAt" name="paidAt" type="date" value="{{ paidAtDefault }}" required>
-                </div>
-                <div>
-                  <label for="reference">Reference</label>
-                  <input id="reference" name="reference" value="">
-                </div>
-                <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Mark paid</button>
               </form>
             {% endif %}
 

@@ -1,0 +1,1 @@
+ALTER TYPE "InvoiceStatus" ADD VALUE 'PARTIALLY_PAID';

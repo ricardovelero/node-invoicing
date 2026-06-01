@@ -10,7 +10,7 @@ export const renderDashboard: RequestHandler = async (req, res) => {
     prisma.invoice.aggregate({
       where: {
         organizationId,
-        status: { in: ["DRAFT", "SENT", "OVERDUE"] },
+        status: { in: ["DRAFT", "SENT", "PARTIALLY_PAID", "OVERDUE"] },
       },
       _sum: { totalCents: true },
     }),
