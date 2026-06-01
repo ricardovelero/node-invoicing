@@ -4,9 +4,7 @@
 
 ## Billing correctness
 
-- Move invoice numbering to a transactional sequence table to avoid duplicate numbers under concurrent creates.
 - Add tax rate models and country-specific tax behavior.
-- Add payment allocation logic and partial payment support.
 - Add immutable invoice snapshots so issued invoices do not change if customer data changes later.
 - Add currency handling rules for formatting, rounding, and storage.
 
