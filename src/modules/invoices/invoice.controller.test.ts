@@ -5,8 +5,10 @@ import { prisma } from "../../db/prisma";
 import {
   createInvoiceDisplay,
   createInvoice,
+  editInvoice,
   printInvoice,
   recordInvoicePaymentController,
+  renderEditInvoice,
   renderNewInvoice,
   showInvoice,
   updateInvoiceStatusController,
@@ -172,6 +174,8 @@ const printableInvoice = {
   taxCents: 1890,
   totalCents: 10890,
   currency: "GBP",
+  customerId: "customer_1",
+  notes: "Existing notes.",
   customer: { id: "customer_1", name: "Live Ada Co" },
   snapshot: printableSnapshot,
   lines: [
@@ -239,6 +243,10 @@ test("renderNewInvoice defaults notes from organization payment instructions", a
   assert.equal(res.renderedView, "pages/invoices/form.njk");
   assert.deepEqual(res.renderedData, {
     title: "New invoice",
+    heading: "New invoice",
+    formAction: "/invoices",
+    submitLabel: "Create invoice",
+    cancelHref: "/invoices",
     customers,
     values: {
       issueDate: new Date().toISOString().slice(0, 10),
@@ -282,6 +290,159 @@ test("createInvoice preserves submitted notes after validation errors", async ()
   );
 });
 
+test("renderEditInvoice renders draft invoices with edit form values", async () => {
+  const invoice = {
+    ...printableInvoice,
+    status: "DRAFT" as const,
+    snapshot: null,
+  };
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  prismaMock.invoice.findFirst = async () => invoice;
+  prismaMock.customer.findMany = async () => customers;
+  const req = createRequest({}, { invoiceId: invoice.id });
+  const res = createResponse();
+
+  await renderEditInvoice(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/invoices/form.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Edit INV-2026-0001",
+    heading: "Edit INV-2026-0001",
+    formAction: `/invoices/${invoice.id}/edit`,
+    submitLabel: "Save invoice",
+    cancelHref: `/invoices/${invoice.id}`,
+    customers,
+    values: {
+      customerId: "customer_1",
+      issueDate: "2026-05-27",
+      dueDate: "2026-06-27",
+      currency: "GBP",
+      notes: "Existing notes.",
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: "10.00",
+      lines: [
+        {
+          description: "Consulting services",
+          quantity: "1",
+          unitPrice: "100.00",
+          discountType: "amount",
+          discountValue: "10.00",
+          taxRate: "21",
+        },
+      ],
+    },
+    errors: {},
+  });
+});
+
+test("renderEditInvoice redirects non-draft invoices", async () => {
+  prismaMock.invoice.findFirst = async () => printableInvoice;
+  const req = createRequest({}, { invoiceId: printableInvoice.id });
+  const res = createResponse();
+
+  await renderEditInvoice(req, res, () => undefined);
+
+  assert.deepEqual(req.flashMessages.error, ["Only draft invoices can be edited."]);
+  assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
+});
+
+test("editInvoice updates valid draft invoices and redirects to detail", async () => {
+  let invoiceUpdateData: unknown;
+  prismaMock.customer.findMany = async () => [];
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      customer: { findFirst: () => Promise<unknown> };
+      invoice: {
+        findFirst: () => Promise<unknown>;
+        update: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoiceLine: { deleteMany: () => Promise<unknown> };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      customer: {
+        async findFirst() {
+          return { id: "59cad9c9-16c1-4c85-83e1-6630514781a0" };
+        },
+      },
+      invoice: {
+        async findFirst() {
+          return { id: printableInvoice.id, status: "DRAFT" };
+        },
+        async update(args) {
+          invoiceUpdateData = args.data;
+          return { id: printableInvoice.id };
+        },
+      },
+      invoiceLine: {
+        async deleteMany() {
+          return { count: 1 };
+        },
+      },
+    });
+  const req = createRequest(
+    {
+      customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      currency: "USD",
+      issueDate: "2026-05-27",
+      dueDate: "2026-06-27",
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: "0",
+      notes: "Updated notes.",
+      lineDescription: ["Updated consulting"],
+      quantity: ["1"],
+      unitPrice: ["100"],
+      lineDiscountType: ["amount"],
+      lineDiscountValue: ["0"],
+      taxRate: ["0"],
+    },
+    { invoiceId: printableInvoice.id },
+  );
+  const res = createResponse();
+
+  await editInvoice(req, res, () => undefined);
+
+  assert.equal((invoiceUpdateData as { currency: string }).currency, "USD");
+  assert.equal((invoiceUpdateData as { notes: string }).notes, "Updated notes.");
+  assert.deepEqual(req.flashMessages.success, ["Invoice updated."]);
+  assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
+});
+
+test("editInvoice re-renders edit form metadata for validation errors", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  prismaMock.customer.findMany = async () => customers;
+  const req = createRequest(
+    {
+      customerId: "not-a-uuid",
+      issueDate: "",
+      dueDate: "",
+    },
+    { invoiceId: printableInvoice.id },
+  );
+  const res = createResponse();
+
+  await editInvoice(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/form.njk");
+  assert.deepEqual(
+    {
+      title: (res.renderedData as { title: string }).title,
+      heading: (res.renderedData as { heading: string }).heading,
+      formAction: (res.renderedData as { formAction: string }).formAction,
+      submitLabel: (res.renderedData as { submitLabel: string }).submitLabel,
+      cancelHref: (res.renderedData as { cancelHref: string }).cancelHref,
+    },
+    {
+      title: "Edit invoice",
+      heading: "Edit invoice",
+      formAction: `/invoices/${printableInvoice.id}/edit`,
+      submitLabel: "Save invoice",
+      cancelHref: `/invoices/${printableInvoice.id}`,
+    },
+  );
+});
+
 test("showInvoice renders invoice details and available actions", async () => {
   const today = new Date().toISOString().slice(0, 10);
   const invoice = {
@@ -314,6 +475,7 @@ test("showInvoice renders invoice details and available actions", async () => {
       isPrintable: false,
     },
     allowedActions: ["send", "void"],
+    canEditInvoice: true,
     canRecordPayment: false,
     isEffectivelyOverdue: false,
     paymentSummary: {

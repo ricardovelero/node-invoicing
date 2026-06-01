@@ -3,11 +3,11 @@
 {% block content %}
   <div class="mb-8">
     <p class="text-sm font-medium text-muted">Billing</p>
-    <h1 class="mt-1 text-3xl font-semibold">New invoice</h1>
+    <h1 class="mt-1 text-3xl font-semibold">{{ heading or title or 'New invoice' }}</h1>
   </div>
 
   {% if customers.length %}
-    <form method="post" action="/invoices" data-invoice-form data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentOrganization.locale or 'en-GB' }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentOrganization.locale or 'en-GB' }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div class="grid gap-5 sm:grid-cols-[1fr_180px]">
         <div>
@@ -199,8 +199,8 @@
       </div>
 
       <div class="flex items-center gap-3 pt-2">
-        <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Create invoice</button>
-        <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">Cancel</a>
+        <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create invoice' }}</button>
+        <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/invoices' }}">Cancel</a>
       </div>
     </form>
   {% else %}

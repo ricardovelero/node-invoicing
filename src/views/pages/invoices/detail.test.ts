@@ -17,3 +17,10 @@ test("invoice detail links to print page only for printable invoices", () => {
   assert.match(template, /Print \/ Save as PDF/);
 });
 
+test("invoice detail links to edit page only for editable invoices", () => {
+  const template = readTemplate("detail.njk");
+
+  assert.match(template, /if canEditInvoice/);
+  assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/edit"/);
+  assert.match(template, /Edit invoice/);
+});

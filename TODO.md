@@ -8,8 +8,6 @@
 
 ## Documents and delivery
 
-- Add print/PDF invoice templates.
-- Add branded invoice themes using a dedicated print layout.
 - Add email sending with delivery logging.
 - Add downloadable PDF archives for invoices and receipts.
 

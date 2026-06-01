@@ -10,6 +10,7 @@ import {
   getInvoiceFormOptions,
   getInvoices,
   recordInvoicePayment,
+  updateDraftInvoiceRecord,
   updateInvoiceStatus,
 } from "./invoice.service";
 
@@ -24,6 +25,9 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
     findMany: unknown;
     update: unknown;
+  };
+  invoiceLine: {
+    deleteMany: unknown;
   };
   payment: {
     aggregate: unknown;
@@ -44,6 +48,19 @@ type InvoiceCreateTransactionMock = {
   };
 };
 
+type DraftUpdateTransactionMock = {
+  customer: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
+  invoice: {
+    findFirst: (args: unknown) => Promise<unknown>;
+    update: (args: { data: unknown }) => Promise<unknown>;
+  };
+  invoiceLine: {
+    deleteMany: (args: unknown) => Promise<unknown>;
+  };
+};
+
 const originalTransaction = prismaMock.$transaction;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalCustomerFindMany = prismaMock.customer.findMany;
@@ -51,6 +68,7 @@ const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalInvoiceUpdate = prismaMock.invoice.update;
+const originalInvoiceLineDeleteMany = prismaMock.invoiceLine.deleteMany;
 const originalPaymentAggregate = prismaMock.payment.aggregate;
 const originalPaymentCreate = prismaMock.payment.create;
 
@@ -62,6 +80,7 @@ afterEach(() => {
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.invoice.update = originalInvoiceUpdate;
+  prismaMock.invoiceLine.deleteMany = originalInvoiceLineDeleteMany;
   prismaMock.payment.aggregate = originalPaymentAggregate;
   prismaMock.payment.create = originalPaymentCreate;
 });
@@ -242,6 +261,204 @@ test("createInvoiceRecord rejects archived customers", async () => {
   assert.equal(invoice, null);
   assert.equal(invoiceCreateCalls, 0);
   assert.equal(invoiceNumberReservationCalls, 0);
+});
+
+test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice totals", async () => {
+  let invoiceFindFirstArgs: unknown;
+  let customerFindFirstArgs: unknown;
+  let deleteManyArgs: unknown;
+  let updateData: unknown;
+  const issueDate = new Date("2026-05-27T00:00:00.000Z");
+  const dueDate = new Date("2026-06-27T00:00:00.000Z");
+
+  prismaMock.$transaction = async (
+    callback: (tx: DraftUpdateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      customer: {
+        async findFirst(args) {
+          customerFindFirstArgs = args;
+          return { id: "customer_2" };
+        },
+      },
+      invoice: {
+        async findFirst(args) {
+          invoiceFindFirstArgs = args;
+          return { id: "invoice_1", status: "DRAFT" };
+        },
+        async update(args) {
+          updateData = args.data;
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceLine: {
+        async deleteMany(args) {
+          deleteManyArgs = args;
+          return { count: 1 };
+        },
+      },
+    });
+
+  const result = await updateDraftInvoiceRecord(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    {
+      customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      currency: "USD",
+      issueDate,
+      dueDate,
+      invoiceDiscountType: "percent",
+      invoiceDiscountValue: 10,
+      notes: "Updated draft notes.",
+      lines: [
+        {
+          description: "Updated consulting",
+          quantity: 2,
+          unitPrice: 100,
+          discountType: "amount",
+          discountValue: 10,
+          taxRate: 21,
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
+  assert.deepEqual(invoiceFindFirstArgs, {
+    where: {
+      id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+  assert.deepEqual(customerFindFirstArgs, {
+    where: {
+      id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+    select: { id: true },
+  });
+  assert.deepEqual(deleteManyArgs, {
+    where: { invoiceId: "invoice_1" },
+  });
+  assert.deepEqual(updateData, {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    issueDate,
+    dueDate,
+    subtotalCents: 20000,
+    discountCents: 1900,
+    taxCents: 3591,
+    totalCents: 20691,
+    currency: "USD",
+    notes: "Updated draft notes.",
+    lines: {
+      create: [
+        {
+          description: "Updated consulting",
+          quantity: 2,
+          unitPriceCents: 10000,
+          discountCents: 1000,
+          invoiceDiscountCents: 1900,
+          taxRateBps: 2100,
+          taxCents: 3591,
+          totalCents: 19000,
+        },
+      ],
+    },
+  });
+});
+
+test("updateDraftInvoiceRecord rejects missing, non-draft, and invalid customer updates", async () => {
+  const form = {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR" as const,
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "amount" as const,
+    invoiceDiscountValue: 0,
+    notes: "",
+    lines: [
+      {
+        description: "Consulting",
+        quantity: 1,
+        unitPrice: 100,
+        discountType: "amount" as const,
+        discountValue: 0,
+        taxRate: 0,
+      },
+    ],
+  };
+  const cases = [
+    {
+      name: "missing invoice",
+      invoice: null,
+      customer: { id: "customer_1" },
+      expected: { ok: false, reason: "notFound" },
+      expectedCustomerLookups: 0,
+    },
+    {
+      name: "non-draft invoice",
+      invoice: { id: "invoice_1", status: "SENT" },
+      customer: { id: "customer_1" },
+      expected: { ok: false, reason: "notEditable" },
+      expectedCustomerLookups: 0,
+    },
+    {
+      name: "invalid customer",
+      invoice: { id: "invoice_1", status: "DRAFT" },
+      customer: null,
+      expected: { ok: false, reason: "invalidCustomer" },
+      expectedCustomerLookups: 1,
+    },
+  ];
+
+  for (const testCase of cases) {
+    let customerFindFirstCalls = 0;
+    let deleteManyCalls = 0;
+    let updateCalls = 0;
+
+    prismaMock.$transaction = async (
+      callback: (tx: DraftUpdateTransactionMock) => Promise<unknown>,
+    ) =>
+      callback({
+        customer: {
+          async findFirst() {
+            customerFindFirstCalls += 1;
+            return testCase.customer;
+          },
+        },
+        invoice: {
+          async findFirst() {
+            return testCase.invoice;
+          },
+          async update() {
+            updateCalls += 1;
+            return { id: "invoice_1" };
+          },
+        },
+        invoiceLine: {
+          async deleteMany() {
+            deleteManyCalls += 1;
+            return { count: 1 };
+          },
+        },
+      });
+
+    const result = await updateDraftInvoiceRecord(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      form,
+    );
+
+    assert.deepEqual(result, testCase.expected, testCase.name);
+    assert.equal(customerFindFirstCalls, testCase.expectedCustomerLookups, testCase.name);
+    assert.equal(deleteManyCalls, 0, testCase.name);
+    assert.equal(updateCalls, 0, testCase.name);
+  }
 });
 
 test("getInvoiceDetails scopes invoice lookup by organization", async () => {
