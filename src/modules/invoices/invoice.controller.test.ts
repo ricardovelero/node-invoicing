@@ -275,6 +275,57 @@ test("showInvoice renders invoice details and available actions", async () => {
   });
 });
 
+test("showInvoice disables payment recording when open invoices are fully paid or overpaid", async () => {
+  const cases = [
+    {
+      name: "fully paid",
+      payments: [{ amountCents: 4000 }, { amountCents: 6000 }],
+      expectedPaidCents: 10000,
+    },
+    {
+      name: "overpaid",
+      payments: [{ amountCents: 9000 }, { amountCents: 1500 }],
+      expectedPaidCents: 10500,
+    },
+  ];
+
+  for (const { name, payments, expectedPaidCents } of cases) {
+    const invoice = {
+      id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      number: "INV-2026-0001",
+      status: "SENT",
+      dueDate: new Date("2099-06-27T00:00:00.000Z"),
+      totalCents: 10000,
+      currency: "EUR",
+      customer: { id: "customer_1", name: "Ada Co" },
+      snapshot: null,
+      lines: [],
+      payments,
+    };
+    prismaMock.invoice.findFirst = async () => invoice;
+    const req = createRequest({}, { invoiceId: invoice.id });
+    const res = createResponse();
+
+    await showInvoice(req, res, () => undefined);
+
+    assert.equal((res.renderedData as { canRecordPayment: boolean }).canRecordPayment, false, name);
+    assert.deepEqual(
+      (res.renderedData as { paymentSummary: unknown }).paymentSummary,
+      {
+        paidCents: expectedPaidCents,
+        outstandingCents: 0,
+        isPaid: true,
+      },
+      name,
+    );
+    assert.equal(
+      (res.renderedData as { paymentValues: { amount: string } }).paymentValues.amount,
+      "0.00",
+      name,
+    );
+  }
+});
+
 test("createInvoiceDisplay uses live customer and currency for drafts", () => {
   const display = createInvoiceDisplay(
     {
@@ -344,6 +395,31 @@ test("updateInvoiceStatusController redirects with flash error for invalid trans
 
   assert.deepEqual(req.flashMessages.error, ["That status change is not allowed for this invoice."]);
   assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
+});
+
+test("updateInvoiceStatusController rejects malformed status actions before calling the service", async () => {
+  const cases = [
+    { name: "unsupported action", body: { action: "pay" } },
+    { name: "missing action", body: {} },
+  ];
+
+  for (const { name, body } of cases) {
+    let transactionCalls = 0;
+    prismaMock.$transaction = async () => {
+      transactionCalls += 1;
+      throw new Error("Status service should not be called for malformed actions.");
+    };
+    const req = createRequest(body, {
+      invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    });
+    const res = createResponse();
+
+    await updateInvoiceStatusController(req, res, () => undefined);
+
+    assert.deepEqual(req.flashMessages.error, ["Choose a valid invoice status action."], name);
+    assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c", name);
+    assert.equal(transactionCalls, 0, name);
+  }
 });
 
 test("updateInvoiceStatusController redirects with flash success for valid transitions", async () => {

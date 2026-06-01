@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import type { InvoiceStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import {
   calculateInvoicePaymentSummary,
   createInvoiceRecord,
+  getAllowedInvoiceStatusActions,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
@@ -343,6 +345,127 @@ const mockStatusTransaction = ({
     });
 };
 
+const invoiceStatuses: InvoiceStatus[] = [
+  "DRAFT",
+  "SENT",
+  "PARTIALLY_PAID",
+  "OVERDUE",
+  "PAID",
+  "VOID",
+];
+const statusActions = ["send", "markOverdue", "void"] as const;
+const validStatusTransitions: Partial<
+  Record<InvoiceStatus, Partial<Record<(typeof statusActions)[number], InvoiceStatus>>>
+> = {
+  DRAFT: {
+    send: "SENT",
+    void: "VOID",
+  },
+  SENT: {
+    markOverdue: "OVERDUE",
+    void: "VOID",
+  },
+  PARTIALLY_PAID: {
+    markOverdue: "OVERDUE",
+    void: "VOID",
+  },
+  OVERDUE: {
+    void: "VOID",
+  },
+};
+
+test("getAllowedInvoiceStatusActions returns the full status action matrix", () => {
+  assert.deepEqual(
+    Object.fromEntries(
+      invoiceStatuses.map((status) => [status, getAllowedInvoiceStatusActions(status)]),
+    ),
+    {
+      DRAFT: ["send", "void"],
+      SENT: ["markOverdue", "void"],
+      PARTIALLY_PAID: ["markOverdue", "void"],
+      OVERDUE: ["void"],
+      PAID: [],
+      VOID: [],
+    },
+  );
+});
+
+test("updateInvoiceStatus applies the full status transition matrix", async () => {
+  for (const status of invoiceStatuses) {
+    for (const action of statusActions) {
+      let updateArgs: unknown;
+      let updateCalls = 0;
+      let snapshotCreateCalls = 0;
+      const expectedStatus = validStatusTransitions[status]?.[action];
+
+      mockStatusTransaction({
+        invoice: {
+          ...invoiceForStatusUpdate,
+          status,
+          snapshot: null,
+        },
+        onInvoiceUpdate: (args) => {
+          updateCalls += 1;
+          updateArgs = args;
+        },
+        onSnapshotCreate: () => {
+          snapshotCreateCalls += 1;
+        },
+      });
+
+      const result = await updateInvoiceStatus(
+        "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+        { action },
+      );
+
+      if (!expectedStatus) {
+        assert.deepEqual(result, { ok: false, reason: "invalidTransition" }, `${status} ${action}`);
+        assert.equal(updateCalls, 0, `${status} ${action}`);
+        assert.equal(snapshotCreateCalls, 0, `${status} ${action}`);
+        continue;
+      }
+
+      assert.deepEqual(result, { ok: true, status: expectedStatus }, `${status} ${action}`);
+      assert.equal(updateCalls, 1, `${status} ${action}`);
+      assert.deepEqual(
+        updateArgs,
+        {
+          where: { id: "invoice_1" },
+          data: { status: expectedStatus },
+        },
+        `${status} ${action}`,
+      );
+      assert.equal(snapshotCreateCalls, status === "DRAFT" && action === "send" ? 1 : 0);
+    }
+  }
+});
+
+test("updateInvoiceStatus rejects impossible status actions without updating", async () => {
+  let updateCalls = 0;
+  let snapshotCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: invoiceForStatusUpdate,
+    onInvoiceUpdate: () => {
+      updateCalls += 1;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { action: "pay" } as unknown as Parameters<typeof updateInvoiceStatus>[2],
+  );
+
+  assert.deepEqual(result, { ok: false, reason: "invalidTransition" });
+  assert.equal(updateCalls, 0);
+  assert.equal(snapshotCreateCalls, 0);
+});
+
 test("updateInvoiceStatus captures a snapshot and sends draft invoices in one transaction", async () => {
   let findFirstArgs: unknown;
   let updateArgs: unknown;
@@ -630,18 +753,38 @@ test("getInvoices includes invoice snapshots for display", async () => {
   });
 });
 
-test("calculateInvoicePaymentSummary totals paid and outstanding amounts", () => {
-  assert.deepEqual(
-    calculateInvoicePaymentSummary({
-      totalCents: 10000,
-      payments: [{ amountCents: 2500 }, { amountCents: 3000 }],
-    }),
+test("calculateInvoicePaymentSummary handles partial, exact, overpaid, and zero totals", () => {
+  const cases = [
     {
-      paidCents: 5500,
-      outstandingCents: 4500,
-      isPaid: false,
+      name: "no payments",
+      invoice: { totalCents: 10000, payments: [] },
+      expected: { paidCents: 0, outstandingCents: 10000, isPaid: false },
     },
-  );
+    {
+      name: "partial payments",
+      invoice: { totalCents: 10000, payments: [{ amountCents: 2500 }, { amountCents: 3000 }] },
+      expected: { paidCents: 5500, outstandingCents: 4500, isPaid: false },
+    },
+    {
+      name: "exactly paid",
+      invoice: { totalCents: 10000, payments: [{ amountCents: 2500 }, { amountCents: 7500 }] },
+      expected: { paidCents: 10000, outstandingCents: 0, isPaid: true },
+    },
+    {
+      name: "overpaid",
+      invoice: { totalCents: 10000, payments: [{ amountCents: 9000 }, { amountCents: 1500 }] },
+      expected: { paidCents: 10500, outstandingCents: 0, isPaid: true },
+    },
+    {
+      name: "zero total",
+      invoice: { totalCents: 0, payments: [] },
+      expected: { paidCents: 0, outstandingCents: 0, isPaid: true },
+    },
+  ];
+
+  cases.forEach(({ name, invoice, expected }) => {
+    assert.deepEqual(calculateInvoicePaymentSummary(invoice), expected, name);
+  });
 });
 
 type PaymentTransactionMock = {
@@ -840,6 +983,43 @@ test("recordInvoicePayment rejects overpayments without creating a payment", asy
   });
   assert.equal(paymentCreateCalls, 0);
   assert.equal(invoiceUpdateCalls, 0);
+});
+
+test("recordInvoicePayment rejects invoices whose existing payments already cover the total", async () => {
+  for (const paidCents of [10000, 10500]) {
+    let paymentCreateCalls = 0;
+    let invoiceUpdateCalls = 0;
+
+    mockPaymentTransaction({
+      invoice: {
+        id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+        status: "SENT",
+        totalCents: 10000,
+        dueDate: new Date("2099-06-27T00:00:00.000Z"),
+      },
+      paidCents,
+      onPaymentCreate: () => {
+        paymentCreateCalls += 1;
+      },
+      onInvoiceUpdate: () => {
+        invoiceUpdateCalls += 1;
+      },
+    });
+
+    const result = await recordInvoicePayment(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      {
+        amountCents: 1,
+        paidAt: new Date("2026-05-29T00:00:00.000Z"),
+        reference: "",
+      },
+    );
+
+    assert.deepEqual(result, { ok: false, reason: "alreadyPaid" }, String(paidCents));
+    assert.equal(paymentCreateCalls, 0, String(paidCents));
+    assert.equal(invoiceUpdateCalls, 0, String(paidCents));
+  }
 });
 
 test("recordInvoicePayment rejects invoices that cannot accept payments", async () => {
