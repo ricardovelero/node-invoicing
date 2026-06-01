@@ -12,7 +12,16 @@ const setupFlashMessages = () => {
   });
 };
 
+const setupPrintButtons = () => {
+  document.querySelectorAll<HTMLButtonElement>("[data-print-button]").forEach((button) => {
+    button.addEventListener("click", () => {
+      window.print();
+    });
+  });
+};
+
 setupInvoiceForms();
 setupFlashMessages();
+setupPrintButtons();
 setupRegisterForms();
 setupPasswordToggles();

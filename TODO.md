@@ -16,7 +16,7 @@
 ## Engineering
 
 - Add Vitest unit tests for totals, numbering, and status transitions.
-- Add Playwright coverage for customer/invoice creation flows.
+- Add Playwright e2e tests for authenticated customer and invoice creation flows once auth is stable.
 - Add database seed data for local development.
 - Add structured logging and request IDs.
 - Add Docker Compose for PostgreSQL and local app services.

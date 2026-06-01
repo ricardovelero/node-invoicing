@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import {
   createInvoiceDisplay,
   createInvoice,
+  printInvoice,
   recordInvoicePaymentController,
   renderNewInvoice,
   showInvoice,
@@ -138,6 +139,59 @@ const statusInvoice = {
   snapshot: null,
 };
 
+const printableSnapshot = {
+  invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+  customerName: "Snapshot Ada Co",
+  customerEmail: "billing@ada.example",
+  customerTaxId: "CUST-123",
+  customerAddressLine1: "1 Customer St",
+  customerCity: "London",
+  customerCountry: "GB",
+  sellerName: "Analytical Engines",
+  sellerLegalName: "Analytical Engines Ltd",
+  sellerTaxId: "VAT123",
+  sellerAddressLine1: "1 Seller St",
+  sellerCity: "Madrid",
+  sellerCountry: "ES",
+  paymentInstructions: "Pay by bank transfer.",
+  subtotalCents: 10000,
+  discountCents: 1000,
+  taxCents: 1890,
+  totalCents: 10890,
+  createdAt: new Date("2026-05-27T00:00:00.000Z"),
+};
+
+const printableInvoice = {
+  id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+  number: "INV-2026-0001",
+  status: "SENT",
+  issueDate: new Date("2026-05-27T00:00:00.000Z"),
+  dueDate: new Date("2026-06-27T00:00:00.000Z"),
+  subtotalCents: 10000,
+  discountCents: 1000,
+  taxCents: 1890,
+  totalCents: 10890,
+  currency: "GBP",
+  customer: { id: "customer_1", name: "Live Ada Co" },
+  snapshot: printableSnapshot,
+  lines: [
+    {
+      id: "line_1",
+      description: "Consulting services",
+      quantity: 1,
+      unitPriceCents: 10000,
+      discountCents: 1000,
+      invoiceDiscountCents: 0,
+      taxRateBps: 2100,
+      taxCents: 1890,
+      totalCents: 10890,
+      invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      createdAt: new Date("2026-05-27T00:00:00.000Z"),
+    },
+  ],
+  payments: [],
+};
+
 const mockStatusTransaction = ({
   invoice,
   onInvoiceUpdate,
@@ -257,6 +311,7 @@ test("showInvoice renders invoice details and available actions", async () => {
       customerHref: "/customers/customer_1",
       currency: "EUR",
       snapshot: null,
+      isPrintable: false,
     },
     allowedActions: ["send", "void"],
     canRecordPayment: false,
@@ -343,10 +398,11 @@ test("createInvoiceDisplay uses live customer and currency for drafts", () => {
     customerHref: "/customers/customer_1",
     currency: "EUR",
     snapshot: null,
+    isPrintable: false,
   });
 });
 
-test("createInvoiceDisplay uses snapshot customer and currency for issued invoices", () => {
+test("createInvoiceDisplay uses snapshot customer and currency for printable invoices", () => {
   const snapshot = {
     customerName: "Snapshot Ada Co",
   };
@@ -364,7 +420,72 @@ test("createInvoiceDisplay uses snapshot customer and currency for issued invoic
     customerHref: null,
     currency: "GBP",
     snapshot,
+    isPrintable: true,
   });
+});
+
+test("printInvoice renders issued invoices with snapshot data", async () => {
+  prismaMock.invoice.findFirst = async () => printableInvoice;
+  const req = createRequest({}, { invoiceId: printableInvoice.id });
+  const res = createResponse();
+
+  await printInvoice(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/invoices/print.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Print INV-2026-0001",
+    invoice: printableInvoice,
+    invoiceDisplay: {
+      customerName: "Snapshot Ada Co",
+      customerHref: null,
+      currency: "GBP",
+      snapshot: printableSnapshot,
+      isPrintable: true,
+    },
+    snapshot: printableSnapshot,
+  });
+});
+
+test("printInvoice redirects draft invoices and issued invoices without snapshots", async () => {
+  const cases = [
+    {
+      name: "draft invoice",
+      invoice: {
+        ...printableInvoice,
+        status: "DRAFT" as const,
+        snapshot: printableSnapshot,
+      },
+    },
+    {
+      name: "issued invoice without snapshot",
+      invoice: {
+        ...printableInvoice,
+        snapshot: null,
+      },
+    },
+  ];
+
+  for (const { name, invoice } of cases) {
+    prismaMock.invoice.findFirst = async () => invoice;
+    const req = createRequest({}, { invoiceId: printableInvoice.id });
+    const res = createResponse();
+
+    await printInvoice(req, res, () => undefined);
+
+    assert.deepEqual(req.flashMessages.error, ["Mark the invoice sent before printing."], name);
+    assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`, name);
+  }
+});
+
+test("printInvoice renders not found for missing invoices", async () => {
+  prismaMock.invoice.findFirst = async () => null;
+  const req = createRequest({}, { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" });
+  const res = createResponse();
+
+  await printInvoice(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
 });
 
 test("showInvoice renders not found for missing invoices", async () => {
@@ -463,7 +584,7 @@ test("recordInvoicePaymentController redirects with flash success for valid paym
       $queryRaw: async () => [
         {
           id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-          status: "SENT",
+        status: "SENT" as const,
           totalCents: 10000,
           dueDate: new Date("2099-06-27T00:00:00.000Z"),
         },

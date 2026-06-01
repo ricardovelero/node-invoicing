@@ -37,6 +37,7 @@ export const createInvoiceDisplay = (
     customerHref: snapshot ? null : `/customers/${invoice.customer.id}`,
     currency: invoice.currency,
     snapshot,
+    isPrintable: invoice.status !== "DRAFT" && Boolean(invoice.snapshot),
   };
 };
 
@@ -125,6 +126,32 @@ export const showInvoice: RequestHandler = async (req, res) => {
   }
 
   res.render("pages/invoices/detail.njk", invoiceDetailView(invoice));
+};
+
+export const printInvoice: RequestHandler = async (req, res) => {
+  const invoiceId = String(req.params.invoiceId);
+  const invoice = await getInvoiceDetails(req.auth!.organization.id, invoiceId);
+
+  if (!invoice) {
+    return res.status(404).render("pages/errors/not-found.njk", {
+      title: "Not found",
+      path: req.path,
+    });
+  }
+
+  const invoiceDisplay = createInvoiceDisplay(invoice);
+
+  if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
+    req.flash("error", "Mark the invoice sent before printing.");
+    return res.redirect(`/invoices/${invoiceId}`);
+  }
+
+  return res.render("pages/invoices/print.njk", {
+    title: `Print ${invoice.number}`,
+    invoice,
+    invoiceDisplay,
+    snapshot: invoiceDisplay.snapshot,
+  });
 };
 
 export const updateInvoiceStatusController: RequestHandler = async (req, res) => {

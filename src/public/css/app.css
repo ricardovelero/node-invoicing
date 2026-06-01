@@ -28,3 +28,38 @@
     @apply text-sm font-medium text-ink;
   }
 }
+
+@layer components {
+  .invoice-print-body {
+    @apply bg-panel text-ink antialiased;
+  }
+
+  .invoice-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 24px;
+    padding: 18mm;
+    background: white;
+    box-shadow: 0 18px 60px rgb(23 33 29 / 14%);
+  }
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  .no-print {
+    display: none;
+  }
+
+  body {
+    background: white;
+  }
+
+  .invoice-page {
+    box-shadow: none;
+    margin: 0;
+  }
+}
