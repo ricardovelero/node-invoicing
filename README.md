@@ -51,6 +51,7 @@ Set the required variables in `.env`:
 
 ```env
 DATABASE_URL="postgresql://USER@localhost:5432/node_invoicing?schema=public"
+TEST_DATABASE_URL="postgresql://test:test@localhost:5432/test"
 PORT=3000
 SESSION_SECRET="replace-this-in-production"
 NODE_ENV="development"
@@ -95,6 +96,25 @@ pnpm test
 ```
 
 Builds the project and runs compiled `*.test.js` files with Node's built-in test runner. The test command uses `NODE_ENV=test` and `DATABASE_URL=postgresql://test:test@localhost:5432/test`.
+
+```sh
+pnpm db:test:setup
+```
+
+Creates or repairs the default local PostgreSQL test role/database used by e2e tests: `postgresql://test:test@localhost:5432/test`. The setup command connects as `TEST_DATABASE_ADMIN_URL`, `DATABASE_ADMIN_URL`, or `postgresql://localhost:5432/postgres` by default, so your local PostgreSQL user must be allowed to create roles and databases.
+
+If you prefer a different test database, set `TEST_DATABASE_URL` before running setup and tests:
+
+```sh
+TEST_DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/node_invoicing_test" pnpm db:test:setup
+TEST_DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/node_invoicing_test" pnpm test:e2e
+```
+
+```sh
+pnpm test:e2e
+```
+
+Builds the app, applies Prisma migrations to `TEST_DATABASE_URL` or the default test database, starts the compiled server on port `4173`, and runs Playwright e2e tests.
 
 ```sh
 pnpm start

@@ -13,6 +13,8 @@
     "build:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --minify",
     "start": "node dist/server.js",
     "test": "NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm build && NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test node --test \"dist/**/*.test.js\"",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "db:test:setup": "node scripts/setup-test-db.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
@@ -34,6 +36,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/cli": "^4.3.0",
     "@types/compression": "^1.8.1",
     "@types/connect-flash": "^0.0.40",
