@@ -10,6 +10,7 @@ import {
   renderEditInvoice,
   renderNewInvoice,
   showInvoice,
+  updateInvoiceMetadataController,
   updateInvoiceStatusController,
 } from "./invoice.controller";
 import { createInvoiceDisplay } from "./invoice.presenter";
@@ -38,18 +39,23 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
     update: unknown;
   };
+  invoiceSnapshot: {
+    update: unknown;
+  };
 };
 
 const originalTransaction = prismaMock.$transaction;
 const originalFindMany = prismaMock.customer.findMany;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceUpdate = prismaMock.invoice.update;
+const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findMany = originalFindMany;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.update = originalInvoiceUpdate;
+  prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
 });
 
 const createRequest = (body: Record<string, unknown> = {}, params: Record<string, string> = {}) =>
@@ -121,6 +127,7 @@ const statusInvoice = {
   taxCents: 0,
   totalCents: 10000,
   currency: "EUR",
+  paymentInstructions: "Draft payment instructions.",
   customer: {
     name: "Ada Co",
     email: null,
@@ -175,6 +182,7 @@ const printableInvoice = {
   totalCents: 10890,
   currency: "GBP",
   customerId: "customer_1",
+  paymentInstructions: "Draft payment instructions.",
   notes: "Existing notes.",
   customer: { id: "customer_1", name: "Live Ada Co" },
   snapshot: printableSnapshot,
@@ -232,7 +240,7 @@ const mockStatusTransaction = ({
     });
 };
 
-test("renderNewInvoice defaults notes from organization payment instructions", async () => {
+test("renderNewInvoice defaults payment instructions from organization settings and leaves notes empty", async () => {
   const customers = [{ id: "customer_1", name: "Ada Co" }];
   prismaMock.customer.findMany = async () => customers;
   const req = createRequest();
@@ -253,7 +261,8 @@ test("renderNewInvoice defaults notes from organization payment instructions", a
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "0",
       currency: "EUR",
-      notes: "Pay by bank transfer.",
+      paymentInstructions: "Pay by bank transfer.",
+      notes: "",
       lines: [
         {
           description: "",
@@ -317,6 +326,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
       issueDate: "2026-05-27",
       dueDate: "2026-06-27",
       currency: "GBP",
+      paymentInstructions: "Draft payment instructions.",
       notes: "Existing notes.",
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "10.00",
@@ -388,6 +398,7 @@ test("editInvoice updates valid draft invoices and redirects to detail", async (
       dueDate: "2026-06-27",
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "0",
+      paymentInstructions: "Updated payment instructions.",
       notes: "Updated notes.",
       lineDescription: ["Updated consulting"],
       quantity: ["1"],
@@ -403,6 +414,10 @@ test("editInvoice updates valid draft invoices and redirects to detail", async (
   await editInvoice(req, res, () => undefined);
 
   assert.equal((invoiceUpdateData as { currency: string }).currency, "USD");
+  assert.equal(
+    (invoiceUpdateData as { paymentInstructions: string }).paymentInstructions,
+    "Updated payment instructions.",
+  );
   assert.equal((invoiceUpdateData as { notes: string }).notes, "Updated notes.");
   assert.deepEqual(req.flashMessages.success, ["Invoice updated."]);
   assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
@@ -452,6 +467,8 @@ test("showInvoice renders invoice details and available actions", async () => {
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
     currency: "EUR",
+    paymentInstructions: "Draft payment instructions.",
+    notes: "Internal note.",
     customer: { id: "customer_1", name: "Ada Co" },
     snapshot: null,
     lines: [],
@@ -489,6 +506,12 @@ test("showInvoice renders invoice details and available actions", async () => {
       reference: "",
     },
     paymentErrors: {},
+    metadataValues: {
+      paymentInstructions: "Draft payment instructions.",
+      notes: "Internal note.",
+    },
+    metadataErrors: {},
+    metadataEditor: null,
     emailDeliveries: [],
   });
 });
@@ -660,6 +683,209 @@ test("showInvoice renders not found for missing invoices", async () => {
 
   assert.equal(res.statusCode, 404);
   assert.equal(res.renderedView, "pages/errors/not-found.njk");
+});
+
+test("updateInvoiceMetadataController re-renders invoice detail for validation errors", async () => {
+  const invoice = {
+    id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    number: "INV-2026-0001",
+    status: "SENT",
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    totalCents: 10000,
+    currency: "EUR",
+    paymentInstructions: null,
+    notes: "Existing notes.",
+    customer: { id: "customer_1", name: "Ada Co" },
+    snapshot: printableSnapshot,
+    lines: [],
+    payments: [],
+  };
+  prismaMock.invoice.findFirst = async () => invoice;
+  const req = createRequest(
+    {
+      intent: "paymentInstructions",
+      paymentInstructions: "x".repeat(2001),
+      notes: "Use these submitted notes.",
+    },
+    { invoiceId: invoice.id },
+  );
+  const res = createResponse();
+
+  await updateInvoiceMetadataController(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/detail.njk");
+  assert.deepEqual(
+    (res.renderedData as { metadataValues: unknown }).metadataValues,
+    {
+      paymentInstructions: "x".repeat(2001),
+      notes: "Existing notes.",
+    },
+  );
+  assert.deepEqual(
+    (res.renderedData as { metadataErrors: unknown }).metadataErrors,
+    {
+      paymentInstructions: [
+        "Payment instructions must be 2,000 characters or fewer.",
+      ],
+    },
+  );
+  assert.equal((res.renderedData as { metadataEditor: unknown }).metadataEditor, "paymentInstructions");
+});
+
+test("updateInvoiceMetadataController updates invoice notes without touching payment instructions", async () => {
+  let invoiceUpdateData: unknown;
+  let snapshotUpdateCalls = 0;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      invoice: {
+        findFirst: () => Promise<unknown>;
+        update: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoiceSnapshot: {
+        update: () => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return { id: printableInvoice.id, status: "DRAFT", snapshot: null };
+        },
+        async update(args) {
+          invoiceUpdateData = args.data;
+          return { id: printableInvoice.id };
+        },
+      },
+      invoiceSnapshot: {
+        async update() {
+          snapshotUpdateCalls += 1;
+          return { invoiceId: printableInvoice.id };
+        },
+      },
+    });
+  const req = createRequest(
+    {
+      intent: "notes",
+      notes: "  Draft internal note.  ",
+    },
+    { invoiceId: printableInvoice.id },
+  );
+  const res = createResponse();
+
+  await updateInvoiceMetadataController(req, res, () => undefined);
+
+  assert.deepEqual(invoiceUpdateData, {
+    notes: "Draft internal note.",
+  });
+  assert.equal(snapshotUpdateCalls, 0);
+  assert.deepEqual(req.flashMessages.success, ["Invoice details updated."]);
+  assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
+});
+
+test("updateInvoiceMetadataController updates draft invoice payment instructions", async () => {
+  let invoiceUpdateData: unknown;
+  let snapshotUpdateCalls = 0;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      invoice: {
+        findFirst: () => Promise<unknown>;
+        update: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoiceSnapshot: {
+        update: () => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return { id: printableInvoice.id, status: "DRAFT", snapshot: null };
+        },
+        async update(args) {
+          invoiceUpdateData = args.data;
+          return { id: printableInvoice.id };
+        },
+      },
+      invoiceSnapshot: {
+        async update() {
+          snapshotUpdateCalls += 1;
+          return { invoiceId: printableInvoice.id };
+        },
+      },
+    });
+  const req = createRequest(
+    {
+      intent: "paymentInstructions",
+      paymentInstructions: "  Draft wire instructions.  ",
+    },
+    { invoiceId: printableInvoice.id },
+  );
+  const res = createResponse();
+
+  await updateInvoiceMetadataController(req, res, () => undefined);
+
+  assert.deepEqual(invoiceUpdateData, {
+    paymentInstructions: "Draft wire instructions.",
+  });
+  assert.equal(snapshotUpdateCalls, 0);
+  assert.deepEqual(req.flashMessages.success, ["Invoice details updated."]);
+  assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
+});
+
+test("updateInvoiceMetadataController updates sent invoice snapshot payment instructions", async () => {
+  let invoiceUpdateData: unknown;
+  let snapshotUpdateData: unknown;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      invoice: {
+        findFirst: () => Promise<unknown>;
+        update: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoiceSnapshot: {
+        update: (args: { data: unknown }) => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return {
+            id: printableInvoice.id,
+            status: "SENT",
+            snapshot: { invoiceId: printableInvoice.id },
+          };
+        },
+        async update(args) {
+          invoiceUpdateData = args.data;
+          return { id: printableInvoice.id };
+        },
+      },
+      invoiceSnapshot: {
+        async update(args) {
+          snapshotUpdateData = args.data;
+          return { invoiceId: printableInvoice.id };
+        },
+      },
+    });
+  const req = createRequest(
+    {
+      intent: "paymentInstructions",
+      paymentInstructions: "  Updated snapshot instructions.  ",
+      notes: "  Sent internal note.  ",
+    },
+    { invoiceId: printableInvoice.id },
+  );
+  const res = createResponse();
+
+  await updateInvoiceMetadataController(req, res, () => undefined);
+
+  assert.equal(invoiceUpdateData, undefined);
+  assert.deepEqual(snapshotUpdateData, {
+    paymentInstructions: "Updated snapshot instructions.",
+  });
+  assert.deepEqual(req.flashMessages.success, ["Invoice details updated."]);
+  assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
 });
 
 test("updateInvoiceStatusController redirects with flash error for invalid transitions", async () => {

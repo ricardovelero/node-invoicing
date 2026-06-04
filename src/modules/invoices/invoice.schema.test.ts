@@ -3,7 +3,9 @@ import { describe, test } from "node:test";
 import {
   dueDateBeforeIssueDateMessage,
   formatInvoiceFormErrors,
+  formatInvoiceMetadataErrors,
   invoiceFormSchema,
+  invoiceMetadataSchema,
   invoicePaymentSchema,
   invoiceStatusActionSchema,
   paidAtInvalidMessage,
@@ -105,18 +107,32 @@ describe("invoiceFormSchema", () => {
     ]);
   });
 
-  test("normalizes invoice discount and notes", () => {
+  test("normalizes invoice discount, payment instructions, and notes", () => {
     const result = invoiceFormSchema.safeParse({
       ...validInvoiceForm,
       invoiceDiscountType: "percent",
       invoiceDiscountValue: "12.5",
+      paymentInstructions: "  Pay by bank transfer.  ",
       notes: "  Pay within 14 days.  ",
     });
 
     assert.equal(result.success, true);
     assert.equal(result.data.invoiceDiscountType, "percent");
     assert.equal(result.data.invoiceDiscountValue, 12.5);
+    assert.equal(result.data.paymentInstructions, "Pay by bank transfer.");
     assert.equal(result.data.notes, "Pay within 14 days.");
+  });
+
+  test("rejects long payment instructions", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      paymentInstructions: "x".repeat(2001),
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(formatInvoiceFormErrors(result.error).paymentInstructions, [
+      "Payment instructions must be 2,000 characters or fewer.",
+    ]);
   });
 
   test("rejects submissions without line items", () => {
@@ -189,6 +205,58 @@ describe("invoiceFormSchema", () => {
     assert.deepEqual(formatInvoiceFormErrors(result.error).invoiceDiscountValue, [
       "Invoice discount cannot exceed the subtotal after line discounts.",
     ]);
+  });
+});
+
+describe("invoiceMetadataSchema", () => {
+  test("normalizes note metadata", () => {
+    const result = invoiceMetadataSchema.safeParse({
+      intent: "notes",
+      notes: "  Internal note.  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      intent: "notes",
+      notes: "Internal note.",
+    });
+  });
+
+  test("normalizes payment instruction metadata", () => {
+    const result = invoiceMetadataSchema.safeParse({
+      intent: "paymentInstructions",
+      paymentInstructions: "  Pay this invoice by card.  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      intent: "paymentInstructions",
+      paymentInstructions: "Pay this invoice by card.",
+    });
+  });
+
+  test("rejects only the intended long metadata field", () => {
+    const paymentResult = invoiceMetadataSchema.safeParse({
+      intent: "paymentInstructions",
+      paymentInstructions: "x".repeat(2001),
+      notes: "Ignored note.",
+    });
+    const noteResult = invoiceMetadataSchema.safeParse({
+      intent: "notes",
+      paymentInstructions: "Ignored instructions.",
+      notes: "y".repeat(2001),
+    });
+
+    assert.equal(paymentResult.success, false);
+    assert.deepEqual(formatInvoiceMetadataErrors(paymentResult.error), {
+      paymentInstructions: [
+        "Payment instructions must be 2,000 characters or fewer.",
+      ],
+    });
+    assert.equal(noteResult.success, false);
+    assert.deepEqual(formatInvoiceMetadataErrors(noteResult.error), {
+      notes: ["Notes must be 2,000 characters or fewer."],
+    });
   });
 });
 

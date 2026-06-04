@@ -11,6 +11,7 @@ import {
   getInvoices,
   recordInvoicePayment,
   updateDraftInvoiceRecord,
+  updateInvoiceMetadata,
   updateInvoiceStatus,
 } from "./invoice.service";
 
@@ -28,6 +29,9 @@ const prismaMock = prisma as unknown as {
   };
   invoiceLine: {
     deleteMany: unknown;
+  };
+  invoiceSnapshot: {
+    update: unknown;
   };
   payment: {
     aggregate: unknown;
@@ -69,6 +73,7 @@ const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalInvoiceUpdate = prismaMock.invoice.update;
 const originalInvoiceLineDeleteMany = prismaMock.invoiceLine.deleteMany;
+const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 const originalPaymentAggregate = prismaMock.payment.aggregate;
 const originalPaymentCreate = prismaMock.payment.create;
 
@@ -81,6 +86,7 @@ afterEach(() => {
   prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.invoice.update = originalInvoiceUpdate;
   prismaMock.invoiceLine.deleteMany = originalInvoiceLineDeleteMany;
+  prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
   prismaMock.payment.aggregate = originalPaymentAggregate;
   prismaMock.payment.create = originalPaymentCreate;
 });
@@ -141,6 +147,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
     dueDate,
     invoiceDiscountType: "percent",
     invoiceDiscountValue: 10,
+    paymentInstructions: "Pay this invoice by bank transfer.",
     notes: "Pay within 14 days.",
     lines: [
       {
@@ -185,6 +192,7 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
     taxCents: 4553,
     totalCents: 31271,
     currency: "GBP",
+    paymentInstructions: "Pay this invoice by bank transfer.",
     notes: "Pay within 14 days.",
     lines: {
       create: [
@@ -245,6 +253,7 @@ test("createInvoiceRecord rejects archived customers", async () => {
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     invoiceDiscountType: "percent",
     invoiceDiscountValue: 0,
+    paymentInstructions: "",
     notes: "",
     lines: [
       {
@@ -309,6 +318,7 @@ test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice tot
       dueDate,
       invoiceDiscountType: "percent",
       invoiceDiscountValue: 10,
+      paymentInstructions: "Updated draft payment instructions.",
       notes: "Updated draft notes.",
       lines: [
         {
@@ -354,6 +364,7 @@ test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice tot
     taxCents: 3591,
     totalCents: 20691,
     currency: "USD",
+    paymentInstructions: "Updated draft payment instructions.",
     notes: "Updated draft notes.",
     lines: {
       create: [
@@ -380,6 +391,7 @@ test("updateDraftInvoiceRecord rejects missing, non-draft, and invalid customer 
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     invoiceDiscountType: "amount" as const,
     invoiceDiscountValue: 0,
+    paymentInstructions: "",
     notes: "",
     lines: [
       {
@@ -496,6 +508,254 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
   });
 });
 
+type MetadataTransactionMock = {
+  invoice: {
+    findFirst: (args: unknown) => Promise<unknown>;
+    update: (args: unknown) => Promise<unknown>;
+  };
+  invoiceSnapshot: {
+    update: (args: unknown) => Promise<unknown>;
+  };
+};
+
+test("updateInvoiceMetadata scopes lookup and updates invoice notes only", async () => {
+  let findFirstArgs: unknown;
+  let invoiceUpdateArgs: unknown;
+  let snapshotUpdateCalls = 0;
+  prismaMock.$transaction = async (
+    callback: (tx: MetadataTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst(args) {
+          findFirstArgs = args;
+          return { id: "invoice_1", status: "DRAFT", snapshot: null };
+        },
+        async update(args) {
+          invoiceUpdateArgs = args;
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async update() {
+          snapshotUpdateCalls += 1;
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await updateInvoiceMetadata(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    {
+      intent: "notes",
+      notes: "Draft note.",
+    },
+  );
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    },
+    select: {
+      id: true,
+      status: true,
+      snapshot: {
+        select: {
+          invoiceId: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(invoiceUpdateArgs, {
+    where: { id: "invoice_1" },
+    data: { notes: "Draft note." },
+  });
+  assert.equal(snapshotUpdateCalls, 0);
+});
+
+test("updateInvoiceMetadata updates draft invoice payment instructions only", async () => {
+  let invoiceUpdateArgs: unknown;
+  let snapshotUpdateCalls = 0;
+  prismaMock.$transaction = async (
+    callback: (tx: MetadataTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return { id: "invoice_1", status: "DRAFT", snapshot: null };
+        },
+        async update(args) {
+          invoiceUpdateArgs = args;
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async update() {
+          snapshotUpdateCalls += 1;
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await updateInvoiceMetadata(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    {
+      intent: "paymentInstructions",
+      paymentInstructions: "Draft instructions.",
+    },
+  );
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
+  assert.deepEqual(invoiceUpdateArgs, {
+    where: { id: "invoice_1" },
+    data: { paymentInstructions: "Draft instructions." },
+  });
+  assert.equal(snapshotUpdateCalls, 0);
+});
+
+test("updateInvoiceMetadata updates sent invoice snapshot payment instructions only", async () => {
+  let invoiceUpdateArgs: unknown;
+  let snapshotUpdateArgs: unknown;
+  prismaMock.$transaction = async (
+    callback: (tx: MetadataTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return {
+            id: "invoice_1",
+            status: "SENT",
+            snapshot: { invoiceId: "invoice_1" },
+          };
+        },
+        async update(args) {
+          invoiceUpdateArgs = args;
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async update(args) {
+          snapshotUpdateArgs = args;
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await updateInvoiceMetadata(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    {
+      intent: "paymentInstructions",
+      paymentInstructions: "Corrected snapshot instructions.",
+    },
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(invoiceUpdateArgs, undefined);
+  assert.deepEqual(snapshotUpdateArgs, {
+    where: { invoiceId: "invoice_1" },
+    data: { paymentInstructions: "Corrected snapshot instructions." },
+  });
+});
+
+test("updateInvoiceMetadata allows note-only updates for issued invoices without snapshots", async () => {
+  let invoiceUpdateArgs: unknown;
+  let snapshotUpdateCalls = 0;
+  prismaMock.$transaction = async (
+    callback: (tx: MetadataTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      invoice: {
+        async findFirst() {
+          return { id: "invoice_1", status: "SENT", snapshot: null };
+        },
+        async update(args) {
+          invoiceUpdateArgs = args;
+          return { id: "invoice_1" };
+        },
+      },
+      invoiceSnapshot: {
+        async update() {
+          snapshotUpdateCalls += 1;
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await updateInvoiceMetadata(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    {
+      intent: "notes",
+      notes: "Note without snapshot.",
+    },
+  );
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
+  assert.deepEqual(invoiceUpdateArgs, {
+    where: { id: "invoice_1" },
+    data: { notes: "Note without snapshot." },
+  });
+  assert.equal(snapshotUpdateCalls, 0);
+});
+
+test("updateInvoiceMetadata rejects missing invoices and issued invoices without snapshots", async () => {
+  const cases = [
+    {
+      name: "missing invoice",
+      invoice: null,
+      expected: { ok: false, reason: "notFound" },
+    },
+    {
+      name: "issued invoice without snapshot",
+      invoice: { id: "invoice_1", status: "SENT", snapshot: null },
+      expected: { ok: false, reason: "missingSnapshot" },
+    },
+  ];
+
+  for (const testCase of cases) {
+    let invoiceUpdateCalls = 0;
+    let snapshotUpdateCalls = 0;
+    prismaMock.$transaction = async (
+      callback: (tx: MetadataTransactionMock) => Promise<unknown>,
+    ) =>
+      callback({
+        invoice: {
+          async findFirst() {
+            return testCase.invoice;
+          },
+          async update() {
+            invoiceUpdateCalls += 1;
+            return { id: "invoice_1" };
+          },
+        },
+        invoiceSnapshot: {
+          async update() {
+            snapshotUpdateCalls += 1;
+            return { invoiceId: "invoice_1" };
+          },
+        },
+      });
+
+    const result = await updateInvoiceMetadata(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      {
+        intent: "paymentInstructions",
+        paymentInstructions: "Instructions.",
+      },
+    );
+
+    assert.deepEqual(result, testCase.expected, testCase.name);
+    assert.equal(invoiceUpdateCalls, 0, testCase.name);
+    assert.equal(snapshotUpdateCalls, 0, testCase.name);
+  }
+});
+
 type StatusTransactionMock = {
   invoice: {
     findFirst: (args: unknown) => Promise<unknown>;
@@ -514,6 +774,7 @@ const invoiceForStatusUpdate = {
   taxCents: 1890,
   totalCents: 10890,
   currency: "GBP",
+  paymentInstructions: "Pay this invoice by card.",
   customer: {
     name: "Ada Co",
     email: "billing@ada.example",
@@ -529,7 +790,7 @@ const invoiceForStatusUpdate = {
     addressLine1: "1 Seller St",
     city: "Madrid",
     country: "ES",
-    paymentInstructions: "Pay by bank transfer.",
+    paymentInstructions: "Organization default instructions.",
   },
   snapshot: null,
 };
@@ -724,6 +985,7 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
       discountCents: true,
       taxCents: true,
       totalCents: true,
+      paymentInstructions: true,
       customer: {
         select: {
           name: true,
@@ -742,7 +1004,6 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
           addressLine1: true,
           city: true,
           country: true,
-          paymentInstructions: true,
         },
       },
       snapshot: {
@@ -767,7 +1028,7 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
       sellerAddressLine1: "1 Seller St",
       sellerCity: "Madrid",
       sellerCountry: "ES",
-      paymentInstructions: "Pay by bank transfer.",
+      paymentInstructions: "Pay this invoice by card.",
       subtotalCents: 10000,
       discountCents: 1000,
       taxCents: 1890,
@@ -817,6 +1078,7 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
   mockStatusTransaction({
     invoice: {
       ...invoiceForStatusUpdate,
+      paymentInstructions: null,
       customer: {
         name: "Ada Co",
         email: null,

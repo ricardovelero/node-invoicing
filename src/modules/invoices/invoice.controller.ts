@@ -1,15 +1,19 @@
 import type { RequestHandler, Response } from 'express';
 import {
   createInvoiceFormValues,
+  formatInvoiceMetadataErrors,
   formatInvoiceFormErrors,
   formatInvoicePaymentErrors,
   invoiceFormSchema,
+  invoiceMetadataSchema,
   invoicePaymentSchema,
   invoiceStatusActionSchema,
+  normalizeInvoiceMetadataValues,
   normalizeInvoiceFormValues,
   normalizeInvoicePaymentValues,
   type InvoiceFormErrors,
   type InvoiceFormValues,
+  type InvoiceMetadataIntent,
 } from './invoice.schema';
 import {
   canEditInvoice,
@@ -19,6 +23,7 @@ import {
   getInvoices,
   recordInvoicePayment,
   updateDraftInvoiceRecord,
+  updateInvoiceMetadata,
   updateInvoiceStatus,
 } from './invoice.service';
 import {
@@ -28,6 +33,7 @@ import {
 } from './invoice.presenter';
 
 type InvoiceFormCustomers = Awaited<ReturnType<typeof getInvoiceFormOptions>>;
+type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
 
 type InvoiceFormRenderOptions = {
   status?: number;
@@ -67,6 +73,32 @@ const renderInvoiceForm = (
     values,
     errors,
   });
+};
+
+const metadataIntentFromBody = (
+  body: Record<string, unknown>,
+): InvoiceMetadataIntent =>
+  body.intent === 'paymentInstructions' ? 'paymentInstructions' : 'notes';
+
+const metadataValuesAfterInvalidSubmission = (
+  invoice: InvoiceDetails,
+  body: Record<string, unknown>,
+) => {
+  const intent = metadataIntentFromBody(body);
+  const submittedValues = normalizeInvoiceMetadataValues(body);
+  const invoiceDisplay = createInvoiceDisplay(invoice);
+  const currentValues = {
+    paymentInstructions:
+      invoiceDisplay.snapshot?.paymentInstructions ??
+      invoice.paymentInstructions ??
+      '',
+    notes: invoice.notes ?? '',
+  };
+
+  return {
+    ...currentValues,
+    [intent]: submittedValues[intent],
+  };
 };
 
 export const listInvoices: RequestHandler = async (req, res) => {
@@ -208,6 +240,65 @@ export const updateInvoiceStatusController: RequestHandler = async (
   }
 
   req.flash('success', 'Invoice status updated.');
+  return res.redirect(invoicePath);
+};
+
+export const updateInvoiceMetadataController: RequestHandler = async (
+  req,
+  res,
+) => {
+  const invoiceId = String(req.params.invoiceId);
+  const invoicePath = `/invoices/${invoiceId}`;
+  const organizationId = req.auth!.organization.id;
+  const result = invoiceMetadataSchema.safeParse(req.body);
+
+  if (!result.success) {
+    const invoice = await getInvoiceDetails(organizationId, invoiceId);
+
+    if (!invoice) {
+      return res.status(404).render('pages/errors/not-found.njk', {
+        title: 'Not found',
+        path: req.path,
+      });
+    }
+
+    return res
+      .status(422)
+      .render(
+        'pages/invoices/detail.njk',
+        invoiceDetailView(
+          invoice,
+          undefined,
+          {},
+          metadataValuesAfterInvalidSubmission(invoice, req.body),
+          formatInvoiceMetadataErrors(result.error),
+          metadataIntentFromBody(req.body),
+        ),
+      );
+  }
+
+  const updateResult = await updateInvoiceMetadata(
+    organizationId,
+    invoiceId,
+    result.data,
+  );
+
+  if (!updateResult.ok && updateResult.reason === 'notFound') {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  if (!updateResult.ok) {
+    req.flash(
+      'error',
+      'Payment instructions can only be edited after the invoice snapshot exists.',
+    );
+    return res.redirect(invoicePath);
+  }
+
+  req.flash('success', 'Invoice details updated.');
   return res.redirect(invoicePath);
 };
 

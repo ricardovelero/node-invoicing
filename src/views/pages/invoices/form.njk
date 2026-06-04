@@ -193,8 +193,14 @@
       </template>
 
       <div>
+        <label for="paymentInstructions">Payment instructions</label>
+        <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="Bank transfer details, payment terms, or customer-facing instructions">{{ values.paymentInstructions or '' }}</textarea>
+        {% if errors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ errors.paymentInstructions[0] }}</p>{% endif %}
+      </div>
+
+      <div>
         <label for="notes">Notes</label>
-        <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="Payment terms, project context, or customer-facing notes">{{ values.notes or '' }}</textarea>
+        <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="Internal notes for your team">{{ values.notes or '' }}</textarea>
         {% if errors.notes %}<p class="mt-1 text-sm text-red-700">{{ errors.notes[0] }}</p>{% endif %}
       </div>
 

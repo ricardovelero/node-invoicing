@@ -1,5 +1,9 @@
 import {
+  createInvoiceMetadataValues,
   createInvoicePaymentValues,
+  type InvoiceMetadataErrors,
+  type InvoiceMetadataIntent,
+  type InvoiceMetadataValues,
   type InvoiceFormValues,
   type InvoicePaymentErrors,
   type InvoicePaymentValues,
@@ -35,6 +39,7 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
   issueDate: dateToInputValue(invoice.issueDate),
   dueDate: dateToInputValue(invoice.dueDate),
   currency: invoice.currency,
+  paymentInstructions: invoice.paymentInstructions ?? '',
   notes: invoice.notes ?? '',
   invoiceDiscountType: 'amount',
   invoiceDiscountValue: centsToAmountInput(invoice.discountCents),
@@ -64,13 +69,17 @@ export const invoiceDetailView = (
   invoice: InvoiceDetails,
   paymentValues?: InvoicePaymentValues,
   paymentErrors: InvoicePaymentErrors = {},
+  metadataValues?: InvoiceMetadataValues,
+  metadataErrors: InvoiceMetadataErrors = {},
+  metadataEditor: InvoiceMetadataIntent | null = null,
 ) => {
   const paymentSummary = calculateInvoicePaymentSummary(invoice);
+  const invoiceDisplay = createInvoiceDisplay(invoice);
 
   return {
     title: invoice.number,
     invoice,
-    invoiceDisplay: createInvoiceDisplay(invoice),
+    invoiceDisplay,
     allowedActions: getAllowedInvoiceStatusActions(invoice.status),
     canEditInvoice: canEditInvoice(invoice.status),
     canRecordPayment:
@@ -84,6 +93,16 @@ export const invoiceDetailView = (
         centsToAmountInput(paymentSummary.outstandingCents),
       ),
     paymentErrors,
+    metadataValues:
+      metadataValues ??
+      createInvoiceMetadataValues(
+        invoiceDisplay.snapshot?.paymentInstructions ??
+          invoice.paymentInstructions ??
+          '',
+        invoice.notes ?? '',
+      ),
+    metadataErrors,
+    metadataEditor,
     emailDeliveries: invoice.emailDeliveries ?? [],
   };
 };

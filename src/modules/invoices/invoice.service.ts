@@ -4,6 +4,7 @@ import { calculateInvoiceTotals } from '../../lib/money';
 import { nextInvoiceNumber } from './invoice-numbering';
 import type {
   InvoiceForm,
+  InvoiceMetadataForm,
   InvoicePaymentForm,
   InvoiceStatusActionForm,
 } from './invoice.schema';
@@ -243,6 +244,7 @@ export const createInvoiceRecord = async (
         taxCents: totals.taxCents,
         totalCents: totals.totalCents,
         currency: data.currency,
+        paymentInstructions: data.paymentInstructions || null,
         notes: data.notes || null,
         lines: {
           create: invoiceLineCreateData(data, totals),
@@ -290,6 +292,7 @@ export const updateDraftInvoiceRecord = async (
         taxCents: totals.taxCents,
         totalCents: totals.totalCents,
         currency: data.currency,
+        paymentInstructions: data.paymentInstructions || null,
         notes: data.notes || null,
         lines: await replaceInvoiceLines(tx, invoice.id, data, totals),
       },
@@ -305,6 +308,7 @@ type InvoiceSnapshotSource = {
   discountCents: number;
   taxCents: number;
   totalCents: number;
+  paymentInstructions: string | null;
   customer: {
     name: string;
     email: string | null;
@@ -320,7 +324,6 @@ type InvoiceSnapshotSource = {
     addressLine1: string | null;
     city: string | null;
     country: string | null;
-    paymentInstructions: string | null;
   };
   snapshot: { invoiceId: string } | null;
 };
@@ -348,7 +351,7 @@ export const captureInvoiceSnapshot = (
       sellerAddressLine1: invoice.organization.addressLine1,
       sellerCity: invoice.organization.city,
       sellerCountry: invoice.organization.country,
-      paymentInstructions: invoice.organization.paymentInstructions,
+      paymentInstructions: invoice.paymentInstructions,
       subtotalCents: invoice.subtotalCents,
       discountCents: invoice.discountCents,
       taxCents: invoice.taxCents,
@@ -375,6 +378,7 @@ export const updateInvoiceStatus = async (
         discountCents: true,
         taxCents: true,
         totalCents: true,
+        paymentInstructions: true,
         customer: {
           select: {
             name: true,
@@ -393,7 +397,6 @@ export const updateInvoiceStatus = async (
             addressLine1: true,
             city: true,
             country: true,
-            paymentInstructions: true,
           },
         },
         snapshot: {
@@ -430,6 +433,68 @@ export const updateInvoiceStatus = async (
     return { ok: true as const, status };
   });
 };
+
+export const updateInvoiceMetadata = async (
+  organizationId: string,
+  invoiceId: string,
+  data: InvoiceMetadataForm,
+) =>
+  prisma.$transaction(async (tx) => {
+    const invoice = await tx.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        organizationId,
+      },
+      select: {
+        id: true,
+        status: true,
+        snapshot: {
+          select: {
+            invoiceId: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return { ok: false as const, reason: 'notFound' as const };
+    }
+
+    if (data.intent === 'notes') {
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { notes: data.notes || null },
+      });
+
+      return { ok: true as const, invoice: updatedInvoice };
+    }
+
+    const paymentInstructions = data.paymentInstructions || null;
+
+    if (invoice.status === 'DRAFT') {
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { paymentInstructions },
+      });
+
+      return { ok: true as const, invoice: updatedInvoice };
+    }
+
+    if (!invoice.snapshot && paymentInstructions) {
+      return { ok: false as const, reason: 'missingSnapshot' as const };
+    }
+
+    if (!invoice.snapshot) {
+      return { ok: false as const, reason: 'missingSnapshot' as const };
+    }
+
+    await tx.invoiceSnapshot.update({
+      where: { invoiceId: invoice.id },
+      data: { paymentInstructions },
+    });
+
+    return { ok: true as const };
+  });
 
 type LockedInvoiceRow = {
   id: string;

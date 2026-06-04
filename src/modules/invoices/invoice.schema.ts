@@ -115,6 +115,7 @@ export const invoiceFormSchema = z.preprocess((value) => {
     dueDate: form.dueDate,
     invoiceDiscountType: form.invoiceDiscountType,
     invoiceDiscountValue: form.invoiceDiscountValue,
+    paymentInstructions: form.paymentInstructions,
     notes: form.notes,
     lines: normalizeLineInputs(form),
   };
@@ -126,6 +127,11 @@ export const invoiceFormSchema = z.preprocess((value) => {
     dueDate: dateInput("Enter a due date.", "Enter a valid due date."),
     invoiceDiscountType: discountTypeSchema.default("amount"),
     invoiceDiscountValue: discountValueSchema.default(0),
+    paymentInstructions: z
+      .string()
+      .trim()
+      .max(2000, "Payment instructions must be 2,000 characters or fewer.")
+      .default(""),
     notes: z.string().trim().max(2000, "Notes must be 2,000 characters or fewer.").default(""),
     lines: z.array(lineItemSchema).min(1, "Add at least one line item."),
   })
@@ -251,6 +257,38 @@ export type InvoicePaymentValues = {
 
 export type InvoicePaymentErrors = Partial<Record<keyof InvoicePaymentValues, string[]>>;
 
+const metadataText = (label: string) =>
+  z.string().trim().max(2000, `${label} must be 2,000 characters or fewer.`).default("");
+
+export const invoiceMetadataSchema = z.preprocess((value) => {
+  const form = asFormRecord(value);
+
+  return {
+    intent: form.intent,
+    paymentInstructions: form.paymentInstructions,
+    notes: form.notes,
+  };
+}, z.discriminatedUnion("intent", [
+  z.object({
+    intent: z.literal("notes"),
+    notes: metadataText("Notes"),
+  }),
+  z.object({
+    intent: z.literal("paymentInstructions"),
+    paymentInstructions: metadataText("Payment instructions"),
+  }),
+]));
+
+export type InvoiceMetadataForm = z.infer<typeof invoiceMetadataSchema>;
+export type InvoiceMetadataIntent = InvoiceMetadataForm["intent"];
+
+export type InvoiceMetadataValues = {
+  paymentInstructions: string;
+  notes: string;
+};
+
+export type InvoiceMetadataErrors = Partial<Record<keyof InvoiceMetadataValues, string[]>>;
+
 export type InvoiceLineValues = {
   description: string;
   quantity: string;
@@ -267,6 +305,7 @@ export type InvoiceFormValues = {
   dueDate?: string;
   invoiceDiscountType: DiscountType;
   invoiceDiscountValue: string;
+  paymentInstructions: string;
   notes: string;
   lines: InvoiceLineValues[];
 };
@@ -279,6 +318,7 @@ export type InvoiceFormErrors = Partial<
     | "issueDate"
     | "dueDate"
     | "invoiceDiscountValue"
+    | "paymentInstructions"
     | "notes"
     | "lineItems",
     string[]
@@ -287,12 +327,16 @@ export type InvoiceFormErrors = Partial<
   lines?: InvoiceLineErrors[];
 };
 
-export const createInvoiceFormValues = (notes = "", currency = "EUR"): InvoiceFormValues => ({
+export const createInvoiceFormValues = (
+  paymentInstructions = "",
+  currency = "EUR",
+): InvoiceFormValues => ({
   currency,
   issueDate: new Date().toISOString().slice(0, 10),
   invoiceDiscountType: "amount",
   invoiceDiscountValue: "0",
-  notes,
+  paymentInstructions,
+  notes: "",
   lines: [
     {
       description: "",
@@ -331,6 +375,7 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
     invoiceDiscountType:
       stringValue(form.invoiceDiscountType, "amount") === "percent" ? "percent" : "amount",
     invoiceDiscountValue: stringValue(form.invoiceDiscountValue, "0"),
+    paymentInstructions: stringValue(form.paymentInstructions),
     notes: stringValue(form.notes),
     lines: Array.from({ length: lineCount }, (_, index) => ({
       description: stringValue(descriptions[index]),
@@ -341,6 +386,23 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
       discountValue: stringValue(discountValues[index], "0"),
       taxRate: stringValue(taxRates[index], "0"),
     })),
+  };
+};
+
+export const createInvoiceMetadataValues = (
+  paymentInstructions = "",
+  notes = "",
+): InvoiceMetadataValues => ({
+  paymentInstructions,
+  notes,
+});
+
+export const normalizeInvoiceMetadataValues = (value: unknown): InvoiceMetadataValues => {
+  const form = asFormRecord(value);
+
+  return {
+    paymentInstructions: stringValue(form.paymentInstructions),
+    notes: stringValue(form.notes),
   };
 };
 
@@ -388,10 +450,23 @@ export const formatInvoiceFormErrors = (error: z.ZodError<InvoiceForm>) =>
         | "issueDate"
         | "dueDate"
         | "invoiceDiscountValue"
+        | "paymentInstructions"
         | "notes";
 
       errors[fieldName] ??= [];
       errors[fieldName].push(issue.message);
+    }
+
+    return errors;
+  }, {});
+
+export const formatInvoiceMetadataErrors = (error: z.ZodError<InvoiceMetadataForm>) =>
+  error.issues.reduce<InvoiceMetadataErrors>((errors, issue) => {
+    const [field] = issue.path;
+
+    if (field === "paymentInstructions" || field === "notes") {
+      errors[field] ??= [];
+      errors[field].push(issue.message);
     }
 
     return errors;
