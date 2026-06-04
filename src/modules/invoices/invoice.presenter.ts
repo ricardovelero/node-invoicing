@@ -29,10 +29,29 @@ type InvoiceDisplaySource = InvoiceDetails & {
   };
 };
 
+type InvoiceLineDisplayInput = {
+  totalCents: number;
+  taxCents: number;
+  taxRateBps: number;
+};
+
 const centsToAmountInput = (amountCents: number) =>
   (amountCents / 100).toFixed(2);
 
 const dateToInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const formatTaxRateLabel = (taxRateBps: number) =>
+  `${(taxRateBps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+
+export const createInvoiceLineDisplays = <Line extends InvoiceLineDisplayInput>(
+  lines: Line[],
+) =>
+  lines.map((line) => ({
+    ...line,
+    netCents: line.totalCents,
+    taxRateLabel: formatTaxRateLabel(line.taxRateBps),
+    displayTotalCents: line.totalCents + line.taxCents,
+  }));
 
 export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues => ({
   customerId: invoice.customerId,
@@ -80,6 +99,7 @@ export const invoiceDetailView = (
     title: invoice.number,
     invoice,
     invoiceDisplay,
+    invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
     allowedActions: getAllowedInvoiceStatusActions(invoice.status),
     canEditInvoice: canEditInvoice(invoice.status),
     canRecordPayment:
@@ -130,6 +150,7 @@ export const invoicePrintView = (invoice: InvoiceDisplaySource) => {
     title: `Print ${invoice.number}`,
     invoice,
     invoiceDisplay,
+    invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
     snapshot: invoiceDisplay.snapshot,
     paymentSummary: calculateInvoicePaymentSummary(invoice),
   };
@@ -139,6 +160,7 @@ export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
   title: `Invoice ${invoice.number}`,
   invoice,
   invoiceDisplay: createInvoiceDisplay(invoice),
+  invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
   snapshot: createInvoiceDisplay(invoice).snapshot,
   isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
   paymentSummary: calculateInvoicePaymentSummary(invoice),

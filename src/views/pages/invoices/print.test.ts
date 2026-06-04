@@ -31,7 +31,14 @@ test("invoice print template includes printable invoice sections and action", ()
   assert.match(printBody, /{{ invoice\.issueDate \| date }}/);
   assert.match(printBody, /{{ invoice\.dueDate \| date }}/);
   assert.doesNotMatch(printBody, /sm:grid-cols-3/);
-  assert.match(printBody, /for line in invoice\.lines/);
+  assert.match(printBody, /Unit Price/);
+  assert.match(printBody, /Net/);
+  assert.match(printBody, /for line in invoiceLineDisplays/);
+  assert.match(printBody, /line\.netCents/);
+  assert.match(printBody, /line\.taxRateLabel/);
+  assert.match(printBody, /line\.displayTotalCents/);
+  assert.doesNotMatch(printBody, />Unit<\/th>/);
+  assert.doesNotMatch(printBody, /Line net/);
   assert.match(printBody, /{{ snapshot\.subtotalCents \| money\(invoiceDisplay\.currency, currentOrganization\.locale\) }}/);
   assert.match(printBody, /{{ snapshot\.discountCents \| money\(invoiceDisplay\.currency, currentOrganization\.locale\) }}/);
   assert.match(printBody, /{{ snapshot\.taxCents \| money\(invoiceDisplay\.currency, currentOrganization\.locale\) }}/);

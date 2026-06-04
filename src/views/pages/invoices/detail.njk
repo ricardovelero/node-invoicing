@@ -137,21 +137,23 @@
             <tr>
               <th class="px-4 py-3 font-medium">Description</th>
               <th class="px-4 py-3 text-right font-medium">Qty</th>
-              <th class="px-4 py-3 text-right font-medium">Unit</th>
+              <th class="px-4 py-3 text-right font-medium">Unit Price</th>
               <th class="px-4 py-3 text-right font-medium">Discount</th>
+              <th class="px-4 py-3 text-right font-medium">Net</th>
               <th class="px-4 py-3 text-right font-medium">Tax</th>
-              <th class="px-4 py-3 text-right font-medium">Line net</th>
+              <th class="px-4 py-3 text-right font-medium">Total</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            {% for line in invoice.lines %}
+            {% for line in invoiceLineDisplays %}
               <tr>
                 <td class="px-4 py-3 font-medium">{{ line.description }}</td>
                 <td class="px-4 py-3 text-right text-muted">{{ line.quantity }}</td>
                 <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
                 <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
-                <td class="px-4 py-3 text-right font-medium">{{ line.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.netCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }} <span class="text-muted">({{ line.taxRateLabel }})</span></td>
+                <td class="px-4 py-3 text-right font-medium">{{ line.displayTotalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
               </tr>
             {% endfor %}
           </tbody>

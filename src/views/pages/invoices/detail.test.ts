@@ -38,6 +38,24 @@ test("invoice detail includes email delivery history", () => {
   assert.doesNotMatch(template, /Provider message/);
 });
 
+test("invoice detail uses clear line item display columns", () => {
+  const template = readTemplate("detail.njk");
+
+  assert.match(template, /Description/);
+  assert.match(template, /Qty/);
+  assert.match(template, /Unit Price/);
+  assert.match(template, /Discount/);
+  assert.match(template, /Net/);
+  assert.match(template, /Tax/);
+  assert.match(template, /Total/);
+  assert.match(template, /for line in invoiceLineDisplays/);
+  assert.match(template, /line\.netCents/);
+  assert.match(template, /line\.taxRateLabel/);
+  assert.match(template, /line\.displayTotalCents/);
+  assert.doesNotMatch(template, />Unit<\/th>/);
+  assert.doesNotMatch(template, /Line net/);
+});
+
 test("invoice detail includes separate inline metadata editors", () => {
   const template = readTemplate("detail.njk");
 

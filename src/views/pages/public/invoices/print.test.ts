@@ -31,6 +31,13 @@ test("public invoice print view omits protected invoice navigation", () => {
   assert.match(printBody, /grid-cols-\[120px_1fr\]/);
   assert.match(printBody, /{{ invoice\.number }}/);
   assert.match(printBody, /{{ snapshot\.customerName }}/);
+  assert.match(printBody, /Unit Price/);
+  assert.match(printBody, /Net/);
+  assert.match(printBody, /for line in invoiceLineDisplays/);
+  assert.match(printBody, /line\.taxRateLabel/);
+  assert.match(printBody, /line\.displayTotalCents/);
+  assert.doesNotMatch(printBody, />Unit<\/th>/);
+  assert.doesNotMatch(printBody, /Line net/);
   assert.doesNotMatch(printBody, /sm:grid-cols-3/);
 });
 

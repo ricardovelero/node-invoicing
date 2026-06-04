@@ -13,7 +13,10 @@ import {
   updateInvoiceMetadataController,
   updateInvoiceStatusController,
 } from "./invoice.controller";
-import { createInvoiceDisplay } from "./invoice.presenter";
+import {
+  createInvoiceDisplay,
+  createInvoiceLineDisplays,
+} from "./invoice.presenter";
 
 type MockRequest = Request & {
   body: Record<string, unknown>;
@@ -196,7 +199,7 @@ const printableInvoice = {
       invoiceDiscountCents: 0,
       taxRateBps: 2100,
       taxCents: 1890,
-      totalCents: 10890,
+      totalCents: 9000,
       invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
       createdAt: new Date("2026-05-27T00:00:00.000Z"),
     },
@@ -491,6 +494,7 @@ test("showInvoice renders invoice details and available actions", async () => {
       snapshot: null,
       isPrintable: false,
     },
+    invoiceLineDisplays: [],
     allowedActions: ["send", "void"],
     canEditInvoice: true,
     canRecordPayment: false,
@@ -628,6 +632,7 @@ test("printInvoice renders issued invoices with snapshot data", async () => {
       snapshot: printableSnapshot,
       isPrintable: true,
     },
+    invoiceLineDisplays: createInvoiceLineDisplays(printableInvoice.lines),
     snapshot: printableSnapshot,
     paymentSummary: {
       paidCents: 0,
@@ -635,6 +640,61 @@ test("printInvoice renders issued invoices with snapshot data", async () => {
       isPaid: false,
     },
   });
+});
+
+test("createInvoiceLineDisplays adds line tax labels and display totals", () => {
+  assert.deepEqual(
+    createInvoiceLineDisplays([
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPriceCents: 10000,
+        discountCents: 1000,
+        invoiceDiscountCents: 0,
+        taxRateBps: 2100,
+        taxCents: 1890,
+        totalCents: 9000,
+      },
+      {
+        description: "Hosting",
+        quantity: 2,
+        unitPriceCents: 5000,
+        discountCents: 0,
+        invoiceDiscountCents: 0,
+        taxRateBps: 825,
+        taxCents: 825,
+        totalCents: 10000,
+      },
+    ]),
+    [
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPriceCents: 10000,
+        discountCents: 1000,
+        invoiceDiscountCents: 0,
+        taxRateBps: 2100,
+        taxCents: 1890,
+        totalCents: 9000,
+        netCents: 9000,
+        taxRateLabel: "21%",
+        displayTotalCents: 10890,
+      },
+      {
+        description: "Hosting",
+        quantity: 2,
+        unitPriceCents: 5000,
+        discountCents: 0,
+        invoiceDiscountCents: 0,
+        taxRateBps: 825,
+        taxCents: 825,
+        totalCents: 10000,
+        netCents: 10000,
+        taxRateLabel: "8.25%",
+        displayTotalCents: 10825,
+      },
+    ],
+  );
 });
 
 test("printInvoice redirects draft invoices and issued invoices without snapshots", async () => {
