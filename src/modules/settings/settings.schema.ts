@@ -8,6 +8,12 @@ const optionalText = (maxLength: number, message: string) =>
 
 export const organizationSettingsSchema = z.object({
   legalName: optionalText(200, "Legal name must be 200 characters or fewer."),
+  billingEmail: optionalText(254, "Billing email must be 254 characters or fewer.").pipe(
+    z
+      .string()
+      .email("Enter a valid billing email.")
+      .or(z.literal("")),
+  ),
   taxId: optionalText(80, "Tax ID must be 80 characters or fewer."),
   addressLine1: optionalText(200, "Address must be 200 characters or fewer."),
   city: optionalText(120, "City must be 120 characters or fewer."),
@@ -36,6 +42,7 @@ export const createOrganizationSettingsValues = (
   organization: OrganizationSettingsSource = {},
 ): OrganizationSettingsValues => ({
   legalName: organization.legalName ?? "",
+  billingEmail: organization.billingEmail ?? "",
   taxId: organization.taxId ?? "",
   addressLine1: organization.addressLine1 ?? "",
   city: organization.city ?? "",

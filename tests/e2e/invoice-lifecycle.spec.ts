@@ -1,3 +1,4 @@
+import { createServer, type Server } from "node:http";
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -12,6 +13,20 @@ const prisma = new PrismaClient({
     connectionString: databaseUrl,
   }),
 });
+let postmarkServer: Server;
+let postmarkRequests: Array<Record<string, unknown>> = [];
+
+const readRequestBody = async (request: Parameters<Parameters<typeof createServer>[0]>[0]) =>
+  new Promise<string>((resolve, reject) => {
+    let body = "";
+
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => resolve(body));
+    request.on("error", reject);
+  });
 
 const dateInput = (daysFromToday: number) => {
   const date = new Date();
@@ -22,6 +37,9 @@ const dateInput = (daysFromToday: number) => {
 const resetDatabase = async () => {
   await prisma.$transaction([
     prisma.payment.deleteMany(),
+    prisma.invoiceEmailEvent.deleteMany(),
+    prisma.invoiceEmailDelivery.deleteMany(),
+    prisma.invoicePublicAccessToken.deleteMany(),
     prisma.invoiceSnapshot.deleteMany(),
     prisma.invoiceLine.deleteMany(),
     prisma.invoice.deleteMany(),
@@ -32,6 +50,34 @@ const resetDatabase = async () => {
     prisma.user.deleteMany(),
   ]);
 };
+
+const startPostmarkMockServer = async () =>
+  new Promise<void>((resolve) => {
+    postmarkServer = createServer(async (request, response) => {
+      if (request.method !== "POST" || request.url !== "/email") {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+
+      const body = JSON.parse(await readRequestBody(request)) as Record<
+        string,
+        unknown
+      >;
+      postmarkRequests.push(body);
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(
+        JSON.stringify({
+          ErrorCode: 0,
+          Message: "OK",
+          MessageID: `mock-message-${postmarkRequests.length}`,
+          SubmittedAt: "2026-06-03T12:00:00.000Z",
+        }),
+      );
+    });
+
+    postmarkServer.listen(4181, "127.0.0.1", () => resolve());
+  });
 
 const register = async (page: Page, suffix: string) => {
   await page.goto("/auth/register");
@@ -66,6 +112,14 @@ const createCustomer = async (page: Page, suffix: string) => {
   await expect(page.getByRole("link", { name: customerName })).toBeVisible();
 
   return customerName;
+};
+
+const setOrganizationBillingEmail = async (page: Page, suffix: string) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByLabel("Billing email").fill(`billing-${suffix}@example.test`);
+  await page.getByRole("button", { name: "Save settings" }).click();
+
+  await expect(page).toHaveURL("/settings");
 };
 
 const fillInvoiceLine = async (
@@ -147,10 +201,25 @@ const recordPayment = async (page: Page, amount: string, reference: string) => {
 };
 
 test.beforeEach(async () => {
+  postmarkRequests = [];
   await resetDatabase();
 });
 
+test.beforeAll(async () => {
+  await startPostmarkMockServer();
+});
+
 test.afterAll(async () => {
+  await new Promise<void>((resolve, reject) => {
+    postmarkServer.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
   await prisma.$disconnect();
 });
 
@@ -212,4 +281,60 @@ test("records partial and final payments until the invoice is paid", async ({
   await expect(
     page.getByRole("heading", { name: "Record payment" }),
   ).toHaveCount(0);
+});
+
+test("sends invoice email, opens the public invoice link, and records delivery webhook", async ({
+  page,
+}, testInfo) => {
+  const suffix = `email-${testInfo.workerIndex}-${Date.now()}`;
+  await register(page, suffix);
+  await setOrganizationBillingEmail(page, suffix);
+  const customerName = await createCustomer(page, suffix);
+  await createDraftInvoice(page, customerName);
+  await markInvoiceSent(page);
+  const invoiceUrl = page.url();
+
+  await page.getByRole("link", { name: "Send invoice email" }).click();
+  await expect(page.getByRole("heading", { name: /^Send INV-/ })).toBeVisible();
+  await page
+    .getByLabel(/^Recipient email/)
+    .fill(`accounts-${suffix}@example.test`);
+  await page.getByRole("button", { name: "Send invoice email" }).click();
+
+  await expect(page).toHaveURL(invoiceUrl);
+  await expect(page.getByText("SENT").first()).toBeVisible();
+  await expect(page.getByText(`accounts-${suffix}@example.test`)).toBeVisible();
+  await expect(page.getByText("mock-message-1")).toBeVisible();
+  await expect.poll(() => postmarkRequests.length).toBe(1);
+
+  const postmarkPayload = postmarkRequests[0];
+  expect(postmarkPayload.From).toBe("SaaS Billing <billing@example.test>");
+  expect(postmarkPayload.ReplyTo).toBe(`billing-${suffix}@example.test`);
+  expect(postmarkPayload.HtmlBody).toContain("/public/invoices/");
+  expect(postmarkPayload.TextBody).toContain("/public/invoices/");
+  const publicInvoiceUrl = String(postmarkPayload.TextBody).match(
+    /http:\/\/127\.0\.0\.1:4173\/public\/invoices\/[A-Za-z0-9_-]+/,
+  )?.[0];
+
+  expect(publicInvoiceUrl).toBeTruthy();
+  await page.goto(publicInvoiceUrl!);
+  await expect(page.getByRole("heading", { name: /^INV-/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customer" })).toBeVisible();
+  await expect(page.getByText(customerName)).toBeVisible();
+
+  const webhookResponse = await page.request.post("/webhooks/postmark", {
+    headers: {
+      Authorization: `Basic ${Buffer.from(
+        "postmark:postmark-secret",
+      ).toString("base64")}`,
+    },
+    data: {
+      RecordType: "Delivery",
+      MessageID: "mock-message-1",
+    },
+  });
+  expect(webhookResponse.ok()).toBe(true);
+
+  await page.goto(invoiceUrl);
+  await expect(page.getByText("DELIVERED")).toBeVisible();
 });

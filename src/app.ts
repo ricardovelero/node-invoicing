@@ -14,8 +14,10 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { customerRouter } from "./modules/customers/customer.routes";
+import { publicInvoiceRouter } from "./modules/invoices/public-invoice.routes";
 import { invoiceRouter } from "./modules/invoices/invoice.routes";
 import { settingsRouter } from "./modules/settings/settings.routes";
+import { postmarkWebhookRouter } from "./modules/webhooks/postmark.routes";
 import { formatDate } from "./lib/dates";
 import { formatMoney } from "./lib/money";
 
@@ -48,6 +50,7 @@ export const createApp = () => {
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
+  app.use("/webhooks", postmarkWebhookRouter);
   app.use(cookieParser());
   app.use(
     session({
@@ -77,6 +80,7 @@ export const createApp = () => {
     next();
   });
 
+  app.use("/public/invoices", publicInvoiceRouter);
   app.use("/auth", authRouter);
   app.use(requireAuth);
   app.use("/", dashboardRouter);

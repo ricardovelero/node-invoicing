@@ -15,6 +15,8 @@ test("invoice detail links to print page only for printable invoices", () => {
   assert.match(template, /if invoiceDisplay\.isPrintable/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/print"/);
   assert.match(template, /Print \/ Save as PDF/);
+  assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/email"/);
+  assert.match(template, /Send invoice email/);
 });
 
 test("invoice detail links to edit page only for editable invoices", () => {
@@ -23,4 +25,15 @@ test("invoice detail links to edit page only for editable invoices", () => {
   assert.match(template, /if canEditInvoice/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/edit"/);
   assert.match(template, /Edit invoice/);
+});
+
+test("invoice detail includes email delivery history", () => {
+  const template = readTemplate("detail.njk");
+
+  assert.match(template, /Email deliveries/);
+  assert.match(template, /for delivery in emailDeliveries/);
+  assert.match(template, /delivery\.status/);
+  assert.match(template, /Accepted for delivery/);
+  assert.match(template, /Delivered to recipient/);
+  assert.doesNotMatch(template, /Provider message/);
 });

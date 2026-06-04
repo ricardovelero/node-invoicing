@@ -8,6 +8,7 @@ type CurrentOrganization = Pick<
   | "id"
   | "name"
   | "legalName"
+  | "billingEmail"
   | "taxId"
   | "addressLine1"
   | "city"
@@ -67,6 +68,7 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
             id: true,
             name: true,
             legalName: true,
+            billingEmail: true,
             taxId: true,
             addressLine1: true,
             city: true,

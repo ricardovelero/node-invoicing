@@ -13,8 +13,9 @@ The app currently supports a multi-organization invoicing workflow with:
 - Immutable invoice snapshots when draft invoices are issued.
 - Payment recording with outstanding-balance checks.
 - HTML print view for issued invoices, designed for browser print/save-as-PDF.
+- Postmark invoice email delivery with public tokenized invoice links.
 - Per-invoice currency and organization locale formatting.
-- Organization settings for seller billing data, default currency, locale, and payment instructions.
+- Organization settings for seller billing data, billing email, default currency, locale, and payment instructions.
 - Server-rendered pages with progressive client-side enhancements.
 - Strict Content Security Policy without inline scripts, `unsafe-eval`, or `unsafe-inline`.
 
@@ -52,6 +53,13 @@ Set the required variables in `.env`:
 ```env
 DATABASE_URL="postgresql://USER@localhost:5432/node_invoicing?schema=public"
 TEST_DATABASE_URL="postgresql://test:test@localhost:5432/test"
+APP_URL="http://localhost:3000"
+POSTMARK_SERVER_TOKEN=""
+POSTMARK_FROM="SaaS Billing <billing@example.com>"
+POSTMARK_API_URL="https://api.postmarkapp.com/email"
+POSTMARK_MESSAGE_STREAM="outbound"
+POSTMARK_WEBHOOK_USERNAME=""
+POSTMARK_WEBHOOK_PASSWORD=""
 PORT=3000
 SESSION_SECRET="replace-this-in-production"
 NODE_ENV="development"

@@ -45,6 +45,7 @@ const createRequest = (body: Record<string, unknown> = {}) =>
         id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
         name: "Analytical Engines",
         legalName: "Analytical Engines Ltd",
+        billingEmail: "billing@example.com",
         taxId: "VAT123",
         addressLine1: "1 Example Street",
         city: "London",
@@ -102,6 +103,7 @@ test("renderOrganizationSettings renders current organization values", () => {
     title: "Organization settings",
     values: {
       legalName: "Analytical Engines Ltd",
+      billingEmail: "billing@example.com",
       taxId: "VAT123",
       addressLine1: "1 Example Street",
       city: "London",
@@ -122,6 +124,7 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
   const req = createRequest({
     currency: "JPY",
     locale: "fr-FR",
+    billingEmail: "not-an-email",
     paymentInstructions: "x".repeat(2001),
   });
   const res = createResponse();
@@ -132,6 +135,7 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
   assert.equal(res.statusCode, 422);
   assert.equal(res.renderedView, "pages/settings/form.njk");
   assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
+    billingEmail: ["Enter a valid billing email."],
     currency: ["Choose a supported currency."],
     locale: ["Choose a supported locale."],
     paymentInstructions: ["Payment instructions must be 2,000 characters or fewer."],
@@ -146,6 +150,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
   };
   const req = createRequest({
     legalName: "  Analytical Engines Ltd  ",
+    billingEmail: "  billing@example.com  ",
     taxId: "  VAT123  ",
     addressLine1: "  1 Example Street  ",
     city: "  London  ",
@@ -162,6 +167,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     data: {
       legalName: "Analytical Engines Ltd",
+      billingEmail: "billing@example.com",
       taxId: "VAT123",
       addressLine1: "1 Example Street",
       city: "London",

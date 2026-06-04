@@ -1,0 +1,43 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p class="text-sm font-medium text-muted">Invoice email</p>
+      <h1 class="mt-1 text-3xl font-semibold">Send {{ invoice.number }}</h1>
+      <p class="mt-2 text-sm text-muted">{{ invoiceDisplay.customerName }}</p>
+    </div>
+    <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices/{{ invoice.id }}">Back to invoice</a>
+  </div>
+
+  <form method="post" action="/invoices/{{ invoice.id }}/email" class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <div>
+      <label for="toEmail">Recipient email <span aria-hidden="true">*</span></label>
+      <input id="toEmail" name="toEmail" type="email" value="{{ values.toEmail or '' }}" required autocomplete="email" aria-describedby="toEmail-help{% if errors.toEmail %} toEmail-error{% endif %}">
+      <p id="toEmail-help" class="mt-1 text-sm text-muted">The invoice will be sent from the SaaS billing address. Replies go to your organization billing email.</p>
+      {% if errors.toEmail %}<p id="toEmail-error" class="mt-1 text-sm text-red-700">{{ errors.toEmail[0] }}</p>{% endif %}
+    </div>
+
+    <div class="rounded-md border border-line bg-panel p-4 text-sm">
+      <div class="flex justify-between gap-4">
+        <span class="text-muted">Subject</span>
+        <span class="text-right font-medium">Invoice {{ invoice.number }} from {{ invoiceDisplay.snapshot.sellerLegalName or invoiceDisplay.snapshot.sellerName }}</span>
+      </div>
+      <div class="mt-3 flex justify-between gap-4">
+        <span class="text-muted">Total</span>
+        <span class="font-medium">{{ invoice.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+      </div>
+      <div class="mt-3 flex justify-between gap-4">
+        <span class="text-muted">Outstanding</span>
+        <span class="font-medium">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 pt-2">
+      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Send invoice email</button>
+      <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices/{{ invoice.id }}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

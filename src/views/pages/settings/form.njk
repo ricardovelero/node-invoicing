@@ -15,6 +15,13 @@
       {% if errors.legalName %}<p class="mt-1 text-sm text-red-700">{{ errors.legalName[0] }}</p>{% endif %}
     </div>
 
+    <div>
+      <label for="billingEmail">Billing email</label>
+      <input id="billingEmail" name="billingEmail" type="email" value="{{ values.billingEmail or '' }}" autocomplete="email" placeholder="billing@example.com">
+      {% if errors.billingEmail %}<p class="mt-1 text-sm text-red-700">{{ errors.billingEmail[0] }}</p>{% endif %}
+      <p class="mt-1 text-sm text-muted">Customer replies to invoice emails will go to this address.</p>
+    </div>
+
     <div class="grid gap-5 sm:grid-cols-2">
       <div>
         <label for="taxId">Tax ID</label>

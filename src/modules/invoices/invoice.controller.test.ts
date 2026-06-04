@@ -489,6 +489,7 @@ test("showInvoice renders invoice details and available actions", async () => {
       reference: "",
     },
     paymentErrors: {},
+    emailDeliveries: [],
   });
 });
 

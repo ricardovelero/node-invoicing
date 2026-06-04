@@ -4,6 +4,10 @@ import {
   type InvoicePaymentErrors,
   type InvoicePaymentValues,
 } from './invoice.schema';
+import type {
+  InvoiceEmailErrors,
+  InvoiceEmailValues,
+} from './invoice-email.schema';
 import {
   calculateInvoicePaymentSummary,
   canEditInvoice,
@@ -14,6 +18,12 @@ import {
 } from './invoice.service';
 
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
+
+type InvoiceDisplaySource = InvoiceDetails & {
+  organization?: {
+    locale: string;
+  };
+};
 
 const centsToAmountInput = (amountCents: number) =>
   (amountCents / 100).toFixed(2);
@@ -38,7 +48,7 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
   })),
 });
 
-export const createInvoiceDisplay = (invoice: InvoiceDetails) => {
+export const createInvoiceDisplay = (invoice: InvoiceDisplaySource) => {
   const snapshot = invoice.status !== 'DRAFT' ? invoice.snapshot : null;
 
   return {
@@ -74,5 +84,32 @@ export const invoiceDetailView = (
         centsToAmountInput(paymentSummary.outstandingCents),
       ),
     paymentErrors,
+    emailDeliveries: invoice.emailDeliveries ?? [],
   };
 };
+
+export const invoiceEmailView = (
+  invoice: InvoiceDisplaySource,
+  values: InvoiceEmailValues,
+  errors: InvoiceEmailErrors = {},
+) => ({
+  title: `Email ${invoice.number}`,
+  invoice,
+  invoiceDisplay: createInvoiceDisplay(invoice),
+  paymentSummary: calculateInvoicePaymentSummary(invoice),
+  values: {
+    toEmail:
+      values.toEmail || createInvoiceDisplay(invoice).snapshot?.customerEmail || '',
+  },
+  errors,
+});
+
+export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
+  title: `Invoice ${invoice.number}`,
+  invoice,
+  invoiceDisplay: createInvoiceDisplay(invoice),
+  snapshot: createInvoiceDisplay(invoice).snapshot,
+  isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
+  paymentSummary: calculateInvoicePaymentSummary(invoice),
+  currentOrganization: invoice.organization,
+});

@@ -209,6 +209,10 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
       payments: {
         orderBy: { paidAt: 'desc' },
       },
+      emailDeliveries: {
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      },
     },
   });
 

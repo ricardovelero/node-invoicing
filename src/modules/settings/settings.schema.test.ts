@@ -6,6 +6,7 @@ describe("organizationSettingsSchema", () => {
   test("trims valid settings values", () => {
     const result = organizationSettingsSchema.safeParse({
       legalName: "  Analytical Engines Ltd  ",
+      billingEmail: "  billing@example.com  ",
       taxId: "  VAT123  ",
       addressLine1: "  1 Example Street  ",
       city: "  London  ",
@@ -18,6 +19,7 @@ describe("organizationSettingsSchema", () => {
     assert.equal(result.success, true);
     assert.deepEqual(result.data, {
       legalName: "Analytical Engines Ltd",
+      billingEmail: "billing@example.com",
       taxId: "VAT123",
       addressLine1: "1 Example Street",
       city: "London",
@@ -26,6 +28,19 @@ describe("organizationSettingsSchema", () => {
       locale: "es-ES",
       paymentInstructions: "Pay by bank transfer.",
     });
+  });
+
+  test("rejects invalid billing email", () => {
+    const result = organizationSettingsSchema.safeParse({
+      billingEmail: "not-an-email",
+      currency: "EUR",
+      locale: "en-GB",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.billingEmail, [
+      "Enter a valid billing email.",
+    ]);
   });
 
   test("rejects unsupported currencies", () => {

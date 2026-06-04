@@ -488,6 +488,10 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
       payments: {
         orderBy: { paidAt: "desc" },
       },
+      emailDeliveries: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
     },
   });
 });

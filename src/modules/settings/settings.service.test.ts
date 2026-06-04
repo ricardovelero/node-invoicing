@@ -25,6 +25,7 @@ test("updateOrganizationSettings updates the current organization and stores emp
 
   const organization = await updateOrganizationSettings("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     legalName: "Analytical Engines Ltd",
+    billingEmail: "",
     taxId: "",
     addressLine1: "1 Example Street",
     city: "",
@@ -39,6 +40,7 @@ test("updateOrganizationSettings updates the current organization and stores emp
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     data: {
       legalName: "Analytical Engines Ltd",
+      billingEmail: null,
       taxId: null,
       addressLine1: "1 Example Street",
       city: null,

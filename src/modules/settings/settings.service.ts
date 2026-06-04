@@ -11,6 +11,7 @@ export const updateOrganizationSettings = (
     where: { id: organizationId },
     data: {
       legalName: emptyToNull(data.legalName),
+      billingEmail: emptyToNull(data.billingEmail),
       taxId: emptyToNull(data.taxId),
       addressLine1: emptyToNull(data.addressLine1),
       city: emptyToNull(data.city),

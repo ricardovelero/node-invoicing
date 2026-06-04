@@ -1,0 +1,16 @@
+Invoice {{ invoice.number }} from {{ sellerName }}
+
+Hello {{ invoiceDisplay.snapshot.customerName }},
+
+Your invoice is ready to view online:
+{{ publicInvoiceUrl }}
+
+Issue date: {{ invoice.issueDate | date }}
+Due date: {{ invoice.dueDate | date }}
+Total: {{ invoice.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}
+Outstanding: {{ paymentSummary.outstandingCents | money(invoiceDisplay.currency, currentOrganization.locale) }}
+
+{% if invoiceDisplay.snapshot.paymentInstructions %}
+Payment instructions:
+{{ invoiceDisplay.snapshot.paymentInstructions }}
+{% endif %}

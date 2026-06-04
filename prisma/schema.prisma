@@ -21,6 +21,15 @@ enum OrganizationRole {
   MEMBER
 }
 
+enum InvoiceEmailDeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  SPAM_COMPLAINT
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -43,6 +52,7 @@ model Organization {
   currency    String   @default("EUR")
   locale      String   @default("en-GB")
   paymentInstructions String?
+  billingEmail String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -51,6 +61,8 @@ model Organization {
   customers              Customer[]
   invoices               Invoice[]
   invoiceNumberSequences InvoiceNumberSequence[]
+  invoicePublicAccessTokens InvoicePublicAccessToken[]
+  invoiceEmailDeliveries    InvoiceEmailDelivery[]
 
   @@index([name])
 }
@@ -112,6 +124,8 @@ model Invoice {
   lines          InvoiceLine[]
   payments       Payment[]
   snapshot       InvoiceSnapshot?
+  publicAccessTokens InvoicePublicAccessToken[]
+  emailDeliveries    InvoiceEmailDelivery[]
 
   @@unique([organizationId, number])
   @@index([organizationId])
@@ -182,4 +196,67 @@ model Payment {
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+model InvoicePublicAccessToken {
+  id             String    @id @default(uuid()) @db.Uuid
+  invoiceId      String    @db.Uuid
+  organizationId String    @db.Uuid
+  tokenHash      String    @unique
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   InvoiceEmailDelivery[]
+
+  @@index([invoiceId])
+  @@index([organizationId])
+  @@index([revokedAt])
+}
+
+model InvoiceEmailDelivery {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  invoiceId           String                     @db.Uuid
+  organizationId      String                     @db.Uuid
+  publicAccessTokenId String?                    @db.Uuid
+  toEmail             String
+  subject             String
+  provider            String                     @default("postmark")
+  providerMessageId   String?
+  status              InvoiceEmailDeliveryStatus @default(PENDING)
+  errorMessage        String?
+  metadata            Json?
+  sentAt              DateTime?
+  deliveredAt         DateTime?
+  failedAt            DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  invoice           Invoice                   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  publicAccessToken InvoicePublicAccessToken? @relation(fields: [publicAccessTokenId], references: [id], onDelete: SetNull)
+  events            InvoiceEmailEvent[]
+
+  @@index([invoiceId])
+  @@index([organizationId])
+  @@index([providerMessageId])
+  @@index([status])
+}
+
+model InvoiceEmailEvent {
+  id                String   @id @default(uuid()) @db.Uuid
+  deliveryId        String?  @db.Uuid
+  provider          String   @default("postmark")
+  providerMessageId String?
+  recordType        String
+  payload           Json
+  createdAt         DateTime @default(now())
+
+  delivery InvoiceEmailDelivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@index([deliveryId])
+  @@index([providerMessageId])
+  @@index([recordType])
 }
