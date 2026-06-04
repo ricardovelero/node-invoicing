@@ -3,12 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-test("app layout includes a settings nav link with an active state", () => {
+test("app layout includes primary nav links with active states", () => {
   const layout = readFileSync(
     path.join(process.cwd(), "src", "views", "layouts", "app.njk"),
     "utf8",
   );
 
+  assert.match(layout, /href="\/items"/);
+  assert.match(layout, /currentPath\.startsWith\('\/items'\)/);
   assert.match(layout, /href="\/settings"/);
   assert.match(layout, /currentPath\.startsWith\('\/settings'\)/);
 });

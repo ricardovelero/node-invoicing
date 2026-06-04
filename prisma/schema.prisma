@@ -63,8 +63,27 @@ model Organization {
   invoiceNumberSequences InvoiceNumberSequence[]
   invoicePublicAccessTokens InvoicePublicAccessToken[]
   invoiceEmailDeliveries    InvoiceEmailDelivery[]
+  catalogItems              CatalogItem[]
 
   @@index([name])
+}
+
+model CatalogItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  name           String
+  description    String?
+  unitPriceCents Int
+  currency       String
+  taxRateBps     Int          @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([name])
+  @@index([archivedAt])
 }
 
 model OrganizationMembership {

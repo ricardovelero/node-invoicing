@@ -14,6 +14,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { customerRouter } from "./modules/customers/customer.routes";
+import { itemRouter } from "./modules/items/item.routes";
 import { publicInvoiceRouter } from "./modules/invoices/public-invoice.routes";
 import { invoiceRouter } from "./modules/invoices/invoice.routes";
 import { settingsRouter } from "./modules/settings/settings.routes";
@@ -86,6 +87,7 @@ export const createApp = () => {
   app.use("/", dashboardRouter);
   app.use("/settings", settingsRouter);
   app.use("/customers", customerRouter);
+  app.use("/items", itemRouter);
   app.use("/invoices", invoiceRouter);
 
   app.use(notFoundHandler);

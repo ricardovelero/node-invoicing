@@ -1,0 +1,69 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-sm font-medium text-muted">Catalog</p>
+      <h1 class="mt-1 text-3xl font-semibold">{{ 'Archived items' if showingArchived else 'Items' }}</h1>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if showingArchived %}
+        <a class="text-sm font-medium text-muted hover:text-ink" href="/items">Active items</a>
+      {% else %}
+        <a class="text-sm font-medium text-muted hover:text-ink" href="/items?archived=1">Archived items</a>
+      {% endif %}
+      <a href="/items/new" class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark">New item</a>
+    </div>
+  </div>
+
+  <div class="overflow-hidden rounded-lg border border-line bg-white">
+    <table class="min-w-full divide-y divide-line text-sm">
+      <thead class="bg-panel text-left text-muted">
+        <tr>
+          <th class="px-4 py-3 font-medium">Name</th>
+          <th class="px-4 py-3 font-medium">Description</th>
+          <th class="px-4 py-3 text-right font-medium">Unit price</th>
+          <th class="px-4 py-3 text-right font-medium">Tax rate</th>
+          <th class="px-4 py-3 font-medium">Created</th>
+          <th class="px-4 py-3 text-right font-medium">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for item in items %}
+          <tr>
+            <td class="px-4 py-3 font-medium">
+              <a class="text-action hover:text-action-dark" href="/items/{{ item.id }}/edit">{{ item.name }}</a>
+              {% if item.archivedAt %}
+                <span class="ml-2 rounded-full bg-panel px-2 py-0.5 text-xs font-medium text-muted">Archived</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-muted">{{ item.description or '—' }}</td>
+            <td class="px-4 py-3 text-right">{{ item.unitPriceCents | money(item.currency, currentOrganization.locale) }}</td>
+            <td class="px-4 py-3 text-right text-muted">{{ item.taxRateLabel }}</td>
+            <td class="px-4 py-3 text-muted">{{ item.createdAt | date }}</td>
+            <td class="px-4 py-3">
+              <div class="flex justify-end gap-3">
+                <a class="text-sm font-medium text-action hover:text-action-dark" href="/items/{{ item.id }}/edit">Edit</a>
+                {% if item.archivedAt %}
+                  <form method="post" action="/items/{{ item.id }}/restore">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button class="text-sm font-medium text-action hover:text-action-dark" type="submit">Restore</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="/items/{{ item.id }}/archive">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button class="text-sm font-medium text-muted hover:text-ink" type="submit">Archive</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td class="px-4 py-6 text-muted" colspan="6">{{ 'No archived items.' if showingArchived else 'No items yet.' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

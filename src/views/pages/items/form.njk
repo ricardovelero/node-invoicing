@@ -1,0 +1,49 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-8">
+    <p class="text-sm font-medium text-muted">Catalog</p>
+    <h1 class="mt-1 text-3xl font-semibold">{{ heading or 'New item' }}</h1>
+  </div>
+
+  <form method="post" action="{{ formAction or '/items' }}" class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <div>
+      <label for="name">Name <span aria-hidden="true">*</span></label>
+      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off">
+      {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
+    </div>
+    <div>
+      <label for="description">Description</label>
+      <textarea id="description" name="description" rows="4">{{ values.description or '' }}</textarea>
+      {% if errors.description %}<p class="mt-1 text-sm text-red-700">{{ errors.description[0] }}</p>{% endif %}
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="unitPrice">Unit price <span aria-hidden="true">*</span></label>
+        <input id="unitPrice" name="unitPrice" type="number" min="0" step="0.01" value="{{ values.unitPrice or 0 }}">
+        {% if errors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ errors.unitPrice[0] }}</p>{% endif %}
+      </div>
+      <div>
+        <label for="currency">Currency <span aria-hidden="true">*</span></label>
+        <select id="currency" name="currency" required>
+          {% for currency in currencies %}
+            <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="taxRate">Tax rate <span aria-hidden="true">*</span></label>
+        <input id="taxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="{{ values.taxRate or 0 }}">
+        {% if errors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ errors.taxRate[0] }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="flex items-center gap-3 pt-2">
+      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create item' }}</button>
+      <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/items' }}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}
