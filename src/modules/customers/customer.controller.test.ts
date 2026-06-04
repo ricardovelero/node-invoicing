@@ -112,11 +112,19 @@ test("showCustomer renders customer invoice and payment history", async () => {
       {
         id: "invoice_1",
         number: "INV-2026-0001",
+        status: "SENT",
+        dueDate: new Date("2026-06-29T00:00:00.000Z"),
+        totalCents: 10000,
+        currency: "EUR",
         payments: [{ id: "payment_1", paidAt: firstPaidAt, amountCents: 10000 }],
       },
       {
         id: "invoice_2",
         number: "INV-2026-0002",
+        status: "PAID",
+        dueDate: new Date("2026-06-30T00:00:00.000Z"),
+        totalCents: 15000,
+        currency: "EUR",
         payments: [{ id: "payment_2", paidAt: secondPaidAt, amountCents: 15000 }],
       },
     ],
@@ -131,6 +139,22 @@ test("showCustomer renders customer invoice and payment history", async () => {
   assert.deepEqual(res.renderedData, {
     title: "Ada Co",
     customer,
+    invoiceRows: [
+      {
+        ...customer.invoices[0],
+        statusBadge: {
+          label: "Sent",
+          variant: "info",
+        },
+      },
+      {
+        ...customer.invoices[1],
+        statusBadge: {
+          label: "Paid",
+          variant: "success",
+        },
+      },
+    ],
     payments: [
       {
         id: "payment_2",

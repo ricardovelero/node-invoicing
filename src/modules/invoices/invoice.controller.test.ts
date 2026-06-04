@@ -14,8 +14,11 @@ import {
   updateInvoiceStatusController,
 } from "./invoice.controller";
 import {
+  createEmailDeliveryStatusBadge,
   createInvoiceDisplay,
   createInvoiceLineDisplays,
+  createInvoiceStatusBadge,
+  invoiceIndexView,
 } from "./invoice.presenter";
 
 type MockRequest = Request & {
@@ -611,6 +614,97 @@ test("createInvoiceDisplay uses snapshot customer and currency for printable inv
     currency: "GBP",
     snapshot,
     isPrintable: true,
+  });
+});
+
+test("invoice status badges use readable labels and semantic variants", () => {
+  assert.deepEqual(createInvoiceStatusBadge("DRAFT"), {
+    label: "Draft",
+    variant: "neutral",
+  });
+  assert.deepEqual(createInvoiceStatusBadge("SENT"), {
+    label: "Sent",
+    variant: "info",
+  });
+  assert.deepEqual(createInvoiceStatusBadge("PARTIALLY_PAID"), {
+    label: "Partially paid",
+    variant: "warning",
+  });
+  assert.deepEqual(createInvoiceStatusBadge("PAID"), {
+    label: "Paid",
+    variant: "success",
+  });
+  assert.deepEqual(createInvoiceStatusBadge("OVERDUE"), {
+    label: "Overdue",
+    variant: "danger",
+  });
+  assert.deepEqual(createInvoiceStatusBadge("VOID"), {
+    label: "Void",
+    variant: "muted",
+  });
+});
+
+test("email delivery status badges use readable labels and semantic variants", () => {
+  assert.deepEqual(createEmailDeliveryStatusBadge("PENDING"), {
+    label: "Pending",
+    variant: "warning",
+  });
+  assert.deepEqual(createEmailDeliveryStatusBadge("SENT"), {
+    label: "Sent",
+    variant: "info",
+  });
+  assert.deepEqual(createEmailDeliveryStatusBadge("DELIVERED"), {
+    label: "Delivered",
+    variant: "success",
+  });
+  assert.deepEqual(createEmailDeliveryStatusBadge("FAILED"), {
+    label: "Failed",
+    variant: "danger",
+  });
+  assert.deepEqual(createEmailDeliveryStatusBadge("BOUNCED"), {
+    label: "Bounced",
+    variant: "danger",
+  });
+  assert.deepEqual(createEmailDeliveryStatusBadge("SPAM_COMPLAINT"), {
+    label: "Spam complaint",
+    variant: "danger",
+  });
+});
+
+test("invoiceIndexView prepares customer names and status badges", () => {
+  const rows = invoiceIndexView([
+    {
+      id: "invoice_1",
+      number: "INV-2026-0001",
+      status: "DRAFT",
+      dueDate: new Date("2026-06-27T00:00:00.000Z"),
+      totalCents: 10000,
+      currency: "EUR",
+      customer: { name: "Live Ada Co" },
+      snapshot: { customerName: "Snapshot Ada Co" },
+    },
+    {
+      id: "invoice_2",
+      number: "INV-2026-0002",
+      status: "SENT",
+      dueDate: new Date("2026-06-28T00:00:00.000Z"),
+      totalCents: 20000,
+      currency: "EUR",
+      customer: { name: "Live Byron Co" },
+      snapshot: { customerName: "Snapshot Byron Co" },
+    },
+  ] as Parameters<typeof invoiceIndexView>[0]);
+
+  assert.equal(rows.title, "Invoices");
+  assert.equal(rows.invoiceRows[0]?.customerName, "Live Ada Co");
+  assert.deepEqual(rows.invoiceRows[0]?.statusBadge, {
+    label: "Draft",
+    variant: "neutral",
+  });
+  assert.equal(rows.invoiceRows[1]?.customerName, "Snapshot Byron Co");
+  assert.deepEqual(rows.invoiceRows[1]?.statusBadge, {
+    label: "Sent",
+    variant: "info",
   });
 });
 

@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import { prisma } from "../../db/prisma";
+import { createInvoiceTableRows } from "../invoices/invoice.presenter";
 
 export const renderDashboard: RequestHandler = async (req, res) => {
   const organizationId = req.auth!.organization.id;
@@ -32,6 +33,6 @@ export const renderDashboard: RequestHandler = async (req, res) => {
       openBalanceCurrency: openBalances[0]?.currency ?? req.auth!.organization.currency,
       openBalanceIsMixedCurrency: openBalances.length > 1,
     },
-    latestInvoices,
+    latestInvoiceRows: createInvoiceTableRows(latestInvoices),
   });
 };

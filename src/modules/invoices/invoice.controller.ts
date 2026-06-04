@@ -29,6 +29,7 @@ import {
 import {
   createInvoiceDisplay,
   invoiceDetailView,
+  invoiceIndexView,
   invoicePrintView,
   invoiceToFormValues,
 } from './invoice.presenter';
@@ -105,10 +106,7 @@ const metadataValuesAfterInvalidSubmission = (
 export const listInvoices: RequestHandler = async (req, res) => {
   const invoices = await getInvoices(req.auth!.organization.id);
 
-  res.render('pages/invoices/index.njk', {
-    title: 'Invoices',
-    invoices,
-  });
+  res.render('pages/invoices/index.njk', invoiceIndexView(invoices));
 };
 
 export const renderNewInvoice: RequestHandler = async (req, res) => {

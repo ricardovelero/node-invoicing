@@ -1,3 +1,4 @@
+import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
 import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
@@ -18,10 +19,21 @@ import {
   canRecordInvoicePayment,
   getAllowedInvoiceStatusActions,
   type getInvoiceDetails,
+  type getInvoices,
   isInvoiceEffectivelyOverdue,
 } from './invoice.service';
 
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
+type InvoiceList = Awaited<ReturnType<typeof getInvoices>>;
+type InvoiceListItem = InvoiceList[number];
+
+type BadgeVariant =
+  | 'neutral'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'muted';
 
 type InvoiceDisplaySource = InvoiceDetails & {
   organization?: {
@@ -43,6 +55,37 @@ const dateToInputValue = (date: Date) => date.toISOString().slice(0, 10);
 const formatTaxRateLabel = (taxRateBps: number) =>
   `${(taxRateBps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
 
+const invoiceStatusBadges: Record<
+  InvoiceStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  DRAFT: { label: 'Draft', variant: 'neutral' },
+  SENT: { label: 'Sent', variant: 'info' },
+  PARTIALLY_PAID: { label: 'Partially paid', variant: 'warning' },
+  PAID: { label: 'Paid', variant: 'success' },
+  OVERDUE: { label: 'Overdue', variant: 'danger' },
+  VOID: { label: 'Void', variant: 'muted' },
+};
+
+const emailDeliveryStatusBadges: Record<
+  InvoiceEmailDeliveryStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  PENDING: { label: 'Pending', variant: 'warning' },
+  SENT: { label: 'Sent', variant: 'info' },
+  DELIVERED: { label: 'Delivered', variant: 'success' },
+  FAILED: { label: 'Failed', variant: 'danger' },
+  BOUNCED: { label: 'Bounced', variant: 'danger' },
+  SPAM_COMPLAINT: { label: 'Spam complaint', variant: 'danger' },
+};
+
+export const createInvoiceStatusBadge = (status: InvoiceStatus) =>
+  invoiceStatusBadges[status];
+
+export const createEmailDeliveryStatusBadge = (
+  status: InvoiceEmailDeliveryStatus,
+) => emailDeliveryStatusBadges[status];
+
 export const createInvoiceLineDisplays = <Line extends InvoiceLineDisplayInput>(
   lines: Line[],
 ) =>
@@ -51,6 +94,23 @@ export const createInvoiceLineDisplays = <Line extends InvoiceLineDisplayInput>(
     netCents: line.totalCents,
     taxRateLabel: formatTaxRateLabel(line.taxRateBps),
     displayTotalCents: line.totalCents + line.taxCents,
+  }));
+
+export const invoiceIndexView = (invoices: InvoiceList) => ({
+  title: 'Invoices',
+  invoiceRows: createInvoiceTableRows(invoices),
+});
+
+export const createInvoiceTableRows = <Invoice extends InvoiceListItem>(
+  invoices: Invoice[],
+) =>
+  invoices.map((invoice) => ({
+    ...invoice,
+    customerName:
+      invoice.status !== 'DRAFT' && invoice.snapshot
+        ? invoice.snapshot.customerName
+        : invoice.customer.name,
+    statusBadge: createInvoiceStatusBadge(invoice.status),
   }));
 
 export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues => ({
@@ -123,7 +183,10 @@ export const invoiceDetailView = (
       ),
     metadataErrors,
     metadataEditor,
-    emailDeliveries: invoice.emailDeliveries ?? [],
+    emailDeliveries: (invoice.emailDeliveries ?? []).map((delivery) => ({
+      ...delivery,
+      statusBadge: createEmailDeliveryStatusBadge(delivery.status),
+    })),
   };
 };
 

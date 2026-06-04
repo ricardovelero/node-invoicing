@@ -1,4 +1,5 @@
 {% extends "layouts/app.njk" %}
+{% from "components/badge.njk" import badge %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -44,12 +45,11 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-line">
-          {% for invoice in latestInvoices %}
-            {% set invoiceCustomerName = invoice.snapshot.customerName if invoice.status != 'DRAFT' and invoice.snapshot else invoice.customer.name %}
+          {% for invoice in latestInvoiceRows %}
             <tr>
               <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
-              <td class="px-4 py-3 text-muted">{{ invoiceCustomerName }}</td>
-              <td class="px-4 py-3">{{ invoice.status }}</td>
+              <td class="px-4 py-3 text-muted">{{ invoice.customerName }}</td>
+              <td class="px-4 py-3">{{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}</td>
               <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
             </tr>
           {% else %}

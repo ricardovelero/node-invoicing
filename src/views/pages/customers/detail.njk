@@ -1,4 +1,5 @@
 {% extends "layouts/app.njk" %}
+{% from "components/badge.njk" import badge %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -113,13 +114,13 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-line">
-              {% for invoice in customer.invoices %}
+              {% for invoice in invoiceRows %}
                 <tr>
                   <td class="px-4 py-3 font-medium">
                     <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
                   </td>
                   <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
-                  <td class="px-4 py-3">{{ invoice.status }}</td>
+                  <td class="px-4 py-3">{{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}</td>
                   <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
                 </tr>
               {% else %}

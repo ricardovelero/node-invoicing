@@ -1,0 +1,16 @@
+{% macro badge(label, variant = 'neutral') %}
+  {% if variant == 'info' %}
+    {% set badgeClass = 'bg-sky-50 text-sky-700 ring-sky-200' %}
+  {% elif variant == 'success' %}
+    {% set badgeClass = 'bg-emerald-50 text-emerald-700 ring-emerald-200' %}
+  {% elif variant == 'warning' %}
+    {% set badgeClass = 'bg-amber-50 text-amber-700 ring-amber-200' %}
+  {% elif variant == 'danger' %}
+    {% set badgeClass = 'bg-rose-50 text-rose-700 ring-rose-200' %}
+  {% elif variant == 'muted' %}
+    {% set badgeClass = 'bg-slate-100 text-slate-600 ring-slate-200' %}
+  {% else %}
+    {% set badgeClass = 'bg-panel text-muted ring-line' %}
+  {% endif %}
+  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset {{ badgeClass }}">{{ label }}</span>
+{% endmacro %}

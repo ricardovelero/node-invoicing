@@ -47,3 +47,15 @@ test("customer detail visibly indicates archived customers", () => {
   assert.match(template, /Archived/);
   assert.match(template, /{{ customer\.archivedAt \| date }}/);
 });
+
+test("customer detail invoice table renders status badges", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /for invoice in invoiceRows/);
+  assert.match(template, /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/);
+  assert.doesNotMatch(template, /{{ invoice\.status }}/);
+});

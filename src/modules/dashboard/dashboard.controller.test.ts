@@ -19,7 +19,7 @@ type MockResponse = Response & {
       openBalanceCurrency: string;
       openBalanceIsMixedCurrency: boolean;
     };
-    latestInvoices: unknown[];
+    latestInvoiceRows: unknown[];
   };
 };
 
@@ -90,7 +90,18 @@ const mockDashboardQueries = (openBalances: unknown[]) => {
   prismaMock.customer.count = async () => 2;
   prismaMock.invoice.count = async () => 3;
   prismaMock.invoice.groupBy = async () => openBalances;
-  prismaMock.invoice.findMany = async () => [];
+  prismaMock.invoice.findMany = async () => [
+    {
+      id: "invoice_1",
+      number: "INV-2026-0001",
+      status: "PARTIALLY_PAID",
+      dueDate: new Date("2026-06-29T00:00:00.000Z"),
+      totalCents: 10000,
+      currency: "EUR",
+      customer: { name: "Live Ada Co" },
+      snapshot: { customerName: "Snapshot Ada Co" },
+    },
+  ];
 };
 
 test("renderDashboard exposes a single-currency open balance", async () => {
@@ -107,6 +118,23 @@ test("renderDashboard exposes a single-currency open balance", async () => {
     openBalanceCurrency: "GBP",
     openBalanceIsMixedCurrency: false,
   });
+  assert.deepEqual(res.renderedData?.latestInvoiceRows, [
+    {
+      id: "invoice_1",
+      number: "INV-2026-0001",
+      status: "PARTIALLY_PAID",
+      dueDate: new Date("2026-06-29T00:00:00.000Z"),
+      totalCents: 10000,
+      currency: "EUR",
+      customer: { name: "Live Ada Co" },
+      snapshot: { customerName: "Snapshot Ada Co" },
+      customerName: "Snapshot Ada Co",
+      statusBadge: {
+        label: "Partially paid",
+        variant: "warning",
+      },
+    },
+  ]);
 });
 
 test("renderDashboard flags mixed-currency open balances", async () => {
@@ -126,4 +154,3 @@ test("renderDashboard flags mixed-currency open balances", async () => {
     openBalanceIsMixedCurrency: true,
   });
 });
-

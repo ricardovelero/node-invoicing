@@ -1,4 +1,5 @@
 {% extends "layouts/app.njk" %}
+{% from "components/badge.njk" import badge %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -238,7 +239,7 @@
                 <tr>
                   <td class="px-4 py-3">{% if delivery.sentAt %}{{ delivery.sentAt | date }}{% else %}{{ delivery.createdAt | date }}{% endif %}</td>
                   <td class="px-4 py-3 text-muted">{{ delivery.toEmail }}</td>
-                  <td class="px-4 py-3">{{ delivery.status }}</td>
+                  <td class="px-4 py-3">{{ badge(delivery.statusBadge.label, delivery.statusBadge.variant) }}</td>
                   <td class="px-4 py-3 text-muted">
                     {% if delivery.status == 'DELIVERED' %}
                       Delivered to recipient

@@ -32,9 +32,12 @@ test("invoice detail includes email delivery history", () => {
 
   assert.match(template, /Email deliveries/);
   assert.match(template, /for delivery in emailDeliveries/);
+  assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(template, /delivery\.status/);
+  assert.match(template, /badge\(delivery\.statusBadge\.label, delivery\.statusBadge\.variant\)/);
   assert.match(template, /Accepted for delivery/);
   assert.match(template, /Delivered to recipient/);
+  assert.doesNotMatch(template, /<td class="px-4 py-3">{{ delivery\.status }}<\/td>/);
   assert.doesNotMatch(template, /Provider message/);
 });
 

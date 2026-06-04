@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { createInvoiceStatusBadge } from '../invoices/invoice.presenter';
 import type { CustomerForm } from './customer.schema';
 import { customerFormSchema } from './customer.schema';
 import {
@@ -194,6 +195,10 @@ export const showCustomer: RequestHandler = async (req, res) => {
   res.render('pages/customers/detail.njk', {
     title: customer.name,
     customer,
+    invoiceRows: customer.invoices.map((invoice) => ({
+      ...invoice,
+      statusBadge: createInvoiceStatusBadge(invoice.status),
+    })),
     payments,
   });
 };
