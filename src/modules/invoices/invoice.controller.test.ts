@@ -629,6 +629,11 @@ test("printInvoice renders issued invoices with snapshot data", async () => {
       isPrintable: true,
     },
     snapshot: printableSnapshot,
+    paymentSummary: {
+      paidCents: 0,
+      outstandingCents: 10890,
+      isPaid: false,
+    },
   });
 });
 

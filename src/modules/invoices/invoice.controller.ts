@@ -29,6 +29,7 @@ import {
 import {
   createInvoiceDisplay,
   invoiceDetailView,
+  invoicePrintView,
   invoiceToFormValues,
 } from './invoice.presenter';
 
@@ -196,12 +197,7 @@ export const printInvoice: RequestHandler = async (req, res) => {
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
-  return res.render('pages/invoices/print.njk', {
-    title: `Print ${invoice.number}`,
-    invoice,
-    invoiceDisplay,
-    snapshot: invoiceDisplay.snapshot,
-  });
+  return res.render('pages/invoices/print.njk', invoicePrintView(invoice));
 };
 
 export const updateInvoiceStatusController: RequestHandler = async (

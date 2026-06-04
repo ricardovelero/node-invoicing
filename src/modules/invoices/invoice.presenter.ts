@@ -123,6 +123,18 @@ export const invoiceEmailView = (
   errors,
 });
 
+export const invoicePrintView = (invoice: InvoiceDisplaySource) => {
+  const invoiceDisplay = createInvoiceDisplay(invoice);
+
+  return {
+    title: `Print ${invoice.number}`,
+    invoice,
+    invoiceDisplay,
+    snapshot: invoiceDisplay.snapshot,
+    paymentSummary: calculateInvoicePaymentSummary(invoice),
+  };
+};
+
 export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
   title: `Invoice ${invoice.number}`,
   invoice,
