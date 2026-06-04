@@ -162,7 +162,12 @@
         {% set isNotesEditorOpen = metadataEditor == 'notes' %}
         <div class="flex items-center justify-between gap-3">
           <h2 class="text-lg font-semibold">Notes</h2>
-          <button class="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-panel" type="button" aria-expanded="{{ 'true' if isNotesEditorOpen else 'false' }}" data-inline-editor-open>Edit invoice note</button>
+          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink" type="button" aria-expanded="{{ 'true' if isNotesEditorOpen else 'false' }}" data-inline-editor-open>              
+            <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+            </svg>
+          </button>
         </div>
         <div class="{{ 'hidden' if isNotesEditorOpen }} mt-3 text-sm" data-inline-editor-display>
           {% if invoice.notes %}
