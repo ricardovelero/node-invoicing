@@ -34,6 +34,35 @@ export const getCatalogItemForEdit = (
     },
   });
 
+export const searchCatalogItems = (organizationId: string, query: string) => {
+  const searchTerm = query.trim();
+
+  if (searchTerm.length < 2) {
+    return Promise.resolve([]);
+  }
+
+  return prisma.catalogItem.findMany({
+    where: {
+      organizationId,
+      archivedAt: null,
+      OR: [
+        { name: { contains: searchTerm, mode: "insensitive" } },
+        { description: { contains: searchTerm, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      unitPriceCents: true,
+      currency: true,
+      taxRateBps: true,
+    },
+    orderBy: [{ name: "asc" }, { createdAt: "desc" }],
+    take: 8,
+  });
+};
+
 export const createCatalogItemRecord = (
   organizationId: string,
   data: ItemForm,

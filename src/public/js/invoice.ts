@@ -1,7 +1,27 @@
-import { calculateInvoiceTotals, type DiscountType } from "../../lib/money";
-import { setFieldError } from "./form-errors";
+import { calculateInvoiceTotals, type DiscountType } from '../../lib/money';
+import { setFieldError } from './form-errors';
 
-const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
+const dueDateBeforeIssueDateMessage =
+  'Due date cannot be before the issue date.';
+const catalogSearchDebounceMs = 250;
+
+type CatalogItemSuggestion = {
+  id: string;
+  name: string;
+  description: string | null;
+  unitPrice: string;
+  unitPriceCents: number;
+  currency: string;
+  taxRate: string;
+  taxRateBps: number;
+};
+
+type CatalogSearchState = {
+  activeIndex: number;
+  controller?: AbortController;
+  items: CatalogItemSuggestion[];
+  timeout?: number;
+};
 
 const parseNumberInput = (input: HTMLInputElement) => {
   const value = Number(input.value);
@@ -10,267 +30,674 @@ const parseNumberInput = (input: HTMLInputElement) => {
 };
 
 const parseDiscountType = (select: HTMLSelectElement): DiscountType =>
-  select.value === "percent" ? "percent" : "amount";
+  select.value === 'percent' ? 'percent' : 'amount';
 
 export const setupInvoiceForms = () => {
-  document.querySelectorAll<HTMLFormElement>("[data-invoice-form]").forEach((form) => {
-    const locale = form.dataset.locale || "en-GB";
-    let currencyFormatter = new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: form.dataset.currency || "EUR",
-    });
-    const formatCents = (amountCents: number) => currencyFormatter.format(amountCents / 100);
-    const formatDiscountCents = (amountCents: number) =>
-      amountCents > 0 ? `-${formatCents(amountCents)}` : formatCents(0);
-    const linesContainer = form.querySelector<HTMLElement>("[data-invoice-lines]");
-    const lineTemplate = form.querySelector<HTMLTemplateElement>("[data-invoice-line-template]");
-    const invoiceSubtotal = form.querySelector<HTMLElement>("[data-invoice-subtotal]");
-    const lineDiscountTotal = form.querySelector<HTMLElement>("[data-invoice-line-discount]");
-    const invoiceDiscountTotal = form.querySelector<HTMLElement>("[data-invoice-discount]");
-    const invoiceTax = form.querySelector<HTMLElement>("[data-invoice-tax]");
-    const invoiceTotal = form.querySelector<HTMLElement>("[data-invoice-total]");
-    const invoiceDiscountType = form.querySelector<HTMLSelectElement>(
-      "[data-invoice-discount-type]",
-    );
-    const invoiceDiscountValue = form.querySelector<HTMLInputElement>(
-      "[data-invoice-discount-value]",
-    );
-    const currencySelect = form.querySelector<HTMLSelectElement>("[data-invoice-currency-select]");
-    const issueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-issue-date]");
-    const dueDateInput = form.querySelector<HTMLInputElement>("[data-invoice-due-date]");
-    const dueDateError = form.querySelector<HTMLElement>("[data-invoice-due-date-error]");
-
-    if (
-      !linesContainer ||
-      !lineTemplate ||
-      !invoiceSubtotal ||
-      !lineDiscountTotal ||
-      !invoiceDiscountTotal ||
-      !invoiceTax ||
-      !invoiceTotal ||
-      !invoiceDiscountType ||
-      !invoiceDiscountValue ||
-      !currencySelect ||
-      !issueDateInput ||
-      !dueDateInput ||
-      !dueDateError
-    ) {
-      return;
-    }
-
-    const getRows = () =>
-      Array.from(linesContainer.querySelectorAll<HTMLElement>("[data-invoice-line]"));
-
-    const updateCurrency = () => {
-      const currency = currencySelect.value || "EUR";
-      form.dataset.currency = currency;
-      currencyFormatter = new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency,
+  document
+    .querySelectorAll<HTMLFormElement>('[data-invoice-form]')
+    .forEach((form) => {
+      const locale = form.dataset.locale || 'en-GB';
+      let currencyFormatter = new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: form.dataset.currency || 'EUR',
       });
-      form.querySelectorAll<HTMLOptionElement>("[data-invoice-currency-option]").forEach((option) => {
-        option.textContent = currency;
-      });
-    };
-
-    const readLineInput = (row: HTMLElement) => {
-      const quantityInput = row.querySelector<HTMLInputElement>("[data-invoice-quantity]");
-      const unitPriceInput = row.querySelector<HTMLInputElement>("[data-invoice-unit-price]");
-      const discountType = row.querySelector<HTMLSelectElement>("[data-invoice-line-discount-type]");
-      const discountValue = row.querySelector<HTMLInputElement>(
-        "[data-invoice-line-discount-value]",
+      const formatCents = (amountCents: number) =>
+        currencyFormatter.format(amountCents / 100);
+      const formatDiscountCents = (amountCents: number) =>
+        amountCents > 0 ? `-${formatCents(amountCents)}` : formatCents(0);
+      const linesContainer = form.querySelector<HTMLElement>(
+        '[data-invoice-lines]',
       );
-      const taxRate = row.querySelector<HTMLInputElement>("[data-invoice-tax-rate]");
+      const lineTemplate = form.querySelector<HTMLTemplateElement>(
+        '[data-invoice-line-template]',
+      );
+      const invoiceSubtotal = form.querySelector<HTMLElement>(
+        '[data-invoice-subtotal]',
+      );
+      const lineDiscountTotal = form.querySelector<HTMLElement>(
+        '[data-invoice-line-discount]',
+      );
+      const invoiceDiscountTotal = form.querySelector<HTMLElement>(
+        '[data-invoice-discount]',
+      );
+      const invoiceTax = form.querySelector<HTMLElement>('[data-invoice-tax]');
+      const invoiceTotal = form.querySelector<HTMLElement>(
+        '[data-invoice-total]',
+      );
+      const invoiceDiscountType = form.querySelector<HTMLSelectElement>(
+        '[data-invoice-discount-type]',
+      );
+      const invoiceDiscountValue = form.querySelector<HTMLInputElement>(
+        '[data-invoice-discount-value]',
+      );
+      const currencySelect = form.querySelector<HTMLSelectElement>(
+        '[data-invoice-currency-select]',
+      );
+      const issueDateInput = form.querySelector<HTMLInputElement>(
+        '[data-invoice-issue-date]',
+      );
+      const dueDateInput = form.querySelector<HTMLInputElement>(
+        '[data-invoice-due-date]',
+      );
+      const dueDateError = form.querySelector<HTMLElement>(
+        '[data-invoice-due-date-error]',
+      );
 
-      if (!quantityInput || !unitPriceInput || !discountType || !discountValue || !taxRate) {
-        return {
-          quantity: 0,
-          unitPrice: 0,
-          discount: { type: "amount" as const, value: 0 },
-          taxRate: 0,
+      if (
+        !linesContainer ||
+        !lineTemplate ||
+        !invoiceSubtotal ||
+        !lineDiscountTotal ||
+        !invoiceDiscountTotal ||
+        !invoiceTax ||
+        !invoiceTotal ||
+        !invoiceDiscountType ||
+        !invoiceDiscountValue ||
+        !currencySelect ||
+        !issueDateInput ||
+        !dueDateInput ||
+        !dueDateError
+      ) {
+        return;
+      }
+
+      const getRows = () =>
+        Array.from(
+          linesContainer.querySelectorAll<HTMLElement>('[data-invoice-line]'),
+        );
+      const catalogSearchStates = new WeakMap<
+        HTMLInputElement,
+        CatalogSearchState
+      >();
+
+      const getCatalogSearchState = (
+        input: HTMLInputElement,
+      ): CatalogSearchState => {
+        const state = catalogSearchStates.get(input);
+
+        if (state) {
+          return state;
+        }
+
+        const nextState: CatalogSearchState = {
+          activeIndex: -1,
+          items: [],
         };
-      }
 
-      return {
-        quantity: parseNumberInput(quantityInput),
-        unitPrice: parseNumberInput(unitPriceInput),
-        discount: {
-          type: parseDiscountType(discountType),
-          value: parseNumberInput(discountValue),
-        },
-        taxRate: parseNumberInput(taxRate),
+        catalogSearchStates.set(input, nextState);
+        return nextState;
       };
-    };
 
-    const updateRemoveButtons = (rows: HTMLElement[]) => {
-      const canRemove = rows.length > 1;
+      const catalogResultsForInput = (input: HTMLInputElement) =>
+        input
+          .closest<HTMLElement>('[data-invoice-catalog-combobox]')
+          ?.querySelector<HTMLElement>('[data-invoice-catalog-results]');
 
-      rows.forEach((row) => {
-        const removeButton = row.querySelector<HTMLButtonElement>("[data-invoice-remove-line]");
+      const updateCatalogActiveOption = (input: HTMLInputElement) => {
+        const state = getCatalogSearchState(input);
+        const results = catalogResultsForInput(input);
 
-        if (removeButton) {
-          removeButton.disabled = !canRemove;
+        results
+          ?.querySelectorAll<HTMLButtonElement>('[data-invoice-catalog-option]')
+          .forEach((button, index) => {
+            const isActive = index === state.activeIndex;
+
+            // Keep visual state in CSS via [aria-selected="true"] instead of toggling design classes here.
+            button.setAttribute('aria-selected', String(isActive));
+          });
+      };
+
+      const hideCatalogSuggestions = (input: HTMLInputElement) => {
+        const state = getCatalogSearchState(input);
+
+        if (state.timeout) {
+          window.clearTimeout(state.timeout);
+          state.timeout = undefined;
         }
-      });
-    };
 
-    const updateTotals = () => {
-      const rows = getRows();
-      const totals = calculateInvoiceTotals(rows.map(readLineInput), {
-        type: parseDiscountType(invoiceDiscountType),
-        value: parseNumberInput(invoiceDiscountValue),
-      });
+        state.controller?.abort();
+        state.controller = undefined;
+        state.items = [];
+        state.activeIndex = -1;
+        input.setAttribute('aria-expanded', 'false');
+        const results = catalogResultsForInput(input);
 
-      rows.forEach((row, index) => {
-        const lineTotal = row.querySelector<HTMLElement>("[data-invoice-line-total]");
-
-        if (lineTotal) {
-          lineTotal.textContent = formatCents(totals.lines[index]?.totalCents ?? 0);
+        if (results) {
+          results.classList.add('hidden');
+          results.replaceChildren();
         }
-      });
+      };
 
-      invoiceSubtotal.textContent = formatCents(totals.subtotalCents);
-      lineDiscountTotal.textContent = formatDiscountCents(totals.lineDiscountCents);
-      invoiceDiscountTotal.textContent = formatDiscountCents(totals.discountCents);
-      invoiceTax.textContent = formatCents(totals.taxCents);
-      invoiceTotal.textContent = formatCents(totals.totalCents);
-      updateRemoveButtons(rows);
-    };
+      const hideAllCatalogSuggestions = () => {
+        form
+          .querySelectorAll<HTMLInputElement>('[data-invoice-catalog-input]')
+          .forEach((input) => {
+            hideCatalogSuggestions(input);
+          });
+      };
 
-    const addLine = () => {
-      const line = lineTemplate.content.firstElementChild?.cloneNode(true);
+      const showCatalogSuggestions = (
+        input: HTMLInputElement,
+        items: CatalogItemSuggestion[],
+      ) => {
+        const results = catalogResultsForInput(input);
+        const state = getCatalogSearchState(input);
 
-      if (!(line instanceof HTMLElement)) {
-        return;
-      }
+        if (!results || items.length === 0) {
+          hideCatalogSuggestions(input);
+          return;
+        }
 
-      linesContainer.append(line);
-      updateTotals();
-      line.querySelector<HTMLInputElement>("[data-invoice-description]")?.focus();
-    };
+        state.items = items;
+        state.activeIndex = 0;
+        results.replaceChildren();
 
-    const validateDateOrder = () => {
-      const hasDateOrderError =
-        issueDateInput.value !== "" &&
-        dueDateInput.value !== "" &&
-        issueDateInput.validity.valid &&
-        dueDateInput.validity.valid &&
-        dueDateInput.value < issueDateInput.value;
-      const message = hasDateOrderError ? dueDateBeforeIssueDateMessage : "";
+        items.forEach((item, index) => {
+          const option = document.createElement('button');
+          const label = document.createElement('span');
+          const metadata = document.createElement('span');
 
-      setFieldError(dueDateInput, dueDateError, message);
+          option.type = 'button';
+          option.className = 'invoice-catalog-option';
+          option.dataset.invoiceCatalogOption = String(index);
+          option.setAttribute('role', 'option');
+          option.setAttribute('aria-selected', 'false');
 
-      return !message;
-    };
+          label.className = 'invoice-catalog-option-label';
+          label.textContent = item.name;
+          metadata.className = 'invoice-catalog-option-meta';
+          metadata.textContent = `${item.currency} ${item.unitPrice} - ${item.taxRate}% tax`;
 
-    issueDateInput.addEventListener("input", validateDateOrder);
-    issueDateInput.addEventListener("change", validateDateOrder);
-    dueDateInput.addEventListener("input", validateDateOrder);
-    dueDateInput.addEventListener("change", validateDateOrder);
+          option.append(label, metadata);
+          results.append(option);
+        });
 
-    form.addEventListener("input", (event) => {
-      if (!(event.target instanceof HTMLInputElement)) {
-        return;
-      }
+        results.classList.remove('hidden');
+        input.setAttribute('aria-expanded', 'true');
+        updateCatalogActiveOption(input);
+      };
 
-      if (
-        event.target.matches("[data-invoice-quantity]") ||
-        event.target.matches("[data-invoice-unit-price]") ||
-        event.target.matches("[data-invoice-line-discount-value]") ||
-        event.target.matches("[data-invoice-tax-rate]") ||
-        event.target.matches("[data-invoice-discount-value]")
-      ) {
+      const fetchCatalogSuggestions = async (
+        input: HTMLInputElement,
+        query: string,
+      ) => {
+        const state = getCatalogSearchState(input);
+
+        state.controller?.abort();
+        const controller = new AbortController();
+        state.controller = controller;
+
+        try {
+          const params = new URLSearchParams({ q: query });
+          const response = await fetch(`/items/search?${params.toString()}`, {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            hideCatalogSuggestions(input);
+            return;
+          }
+
+          const payload = (await response.json()) as {
+            items?: CatalogItemSuggestion[];
+          };
+
+          if (input.value.trim() !== query) {
+            return;
+          }
+
+          showCatalogSuggestions(
+            input,
+            Array.isArray(payload.items) ? payload.items : [],
+          );
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            return;
+          }
+
+          hideCatalogSuggestions(input);
+        } finally {
+          if (state.controller === controller) {
+            state.controller = undefined;
+          }
+        }
+      };
+
+      const scheduleCatalogSearch = (input: HTMLInputElement) => {
+        const state = getCatalogSearchState(input);
+        const query = input.value.trim();
+
+        if (state.timeout) {
+          window.clearTimeout(state.timeout);
+        }
+
+        if (query.length < 2) {
+          hideCatalogSuggestions(input);
+          return;
+        }
+
+        state.timeout = window.setTimeout(() => {
+          state.timeout = undefined;
+          void fetchCatalogSuggestions(input, query);
+        }, catalogSearchDebounceMs);
+      };
+
+      const selectCatalogSuggestion = (
+        input: HTMLInputElement,
+        item: CatalogItemSuggestion,
+      ) => {
+        const row = input.closest<HTMLElement>('[data-invoice-line]');
+        const unitPriceInput = row?.querySelector<HTMLInputElement>(
+          '[data-invoice-unit-price]',
+        );
+        const taxRateInput = row?.querySelector<HTMLInputElement>(
+          '[data-invoice-tax-rate]',
+        );
+        const lineDiscountType = row?.querySelector<HTMLSelectElement>(
+          '[data-invoice-line-discount-type]',
+        );
+        const lineDiscountValue = row?.querySelector<HTMLInputElement>(
+          '[data-invoice-line-discount-value]',
+        );
+
+        input.value = item.description?.trim() || item.name;
+
+        if (taxRateInput) {
+          taxRateInput.value = item.taxRate;
+        }
+
+        if (lineDiscountType) {
+          lineDiscountType.value = 'amount';
+        }
+
+        if (lineDiscountValue) {
+          lineDiscountValue.value = '0';
+        }
+
+        if (unitPriceInput) {
+          if (item.currency === currencySelect.value) {
+            unitPriceInput.value = item.unitPrice;
+          } else {
+            unitPriceInput.value = '';
+            unitPriceInput.focus();
+          }
+        }
+
+        hideCatalogSuggestions(input);
         updateTotals();
-      }
-    });
+      };
 
-    form.addEventListener("change", (event) => {
-      if (!(event.target instanceof HTMLSelectElement)) {
-        return;
-      }
+      const updateCurrency = () => {
+        const currency = currencySelect.value || 'EUR';
+        form.dataset.currency = currency;
+        currencyFormatter = new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency,
+        });
+        form
+          .querySelectorAll<HTMLOptionElement>('[data-invoice-currency-option]')
+          .forEach((option) => {
+            option.textContent = currency;
+          });
+      };
 
-      if (
-        event.target.matches("[data-invoice-line-discount-type]") ||
-        event.target.matches("[data-invoice-discount-type]") ||
-        event.target.matches("[data-invoice-currency-select]")
-      ) {
-        if (event.target.matches("[data-invoice-currency-select]")) {
-          updateCurrency();
+      const readLineInput = (row: HTMLElement) => {
+        const quantityInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-quantity]',
+        );
+        const unitPriceInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-unit-price]',
+        );
+        const discountType = row.querySelector<HTMLSelectElement>(
+          '[data-invoice-line-discount-type]',
+        );
+        const discountValue = row.querySelector<HTMLInputElement>(
+          '[data-invoice-line-discount-value]',
+        );
+        const taxRate = row.querySelector<HTMLInputElement>(
+          '[data-invoice-tax-rate]',
+        );
+
+        if (
+          !quantityInput ||
+          !unitPriceInput ||
+          !discountType ||
+          !discountValue ||
+          !taxRate
+        ) {
+          return {
+            quantity: 0,
+            unitPrice: 0,
+            discount: { type: 'amount' as const, value: 0 },
+            taxRate: 0,
+          };
         }
-        updateTotals();
-      }
-    });
 
-    form.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
-        return;
-      }
+        return {
+          quantity: parseNumberInput(quantityInput),
+          unitPrice: parseNumberInput(unitPriceInput),
+          discount: {
+            type: parseDiscountType(discountType),
+            value: parseNumberInput(discountValue),
+          },
+          taxRate: parseNumberInput(taxRate),
+        };
+      };
 
-      const addButton = event.target.closest<HTMLButtonElement>("[data-invoice-add-line]");
+      const updateRemoveButtons = (rows: HTMLElement[]) => {
+        const canRemove = rows.length > 1;
 
-      if (addButton) {
-        addLine();
-        return;
-      }
+        rows.forEach((row) => {
+          const removeButton = row.querySelector<HTMLButtonElement>(
+            '[data-invoice-remove-line]',
+          );
 
-      const removeButton = event.target.closest<HTMLButtonElement>("[data-invoice-remove-line]");
+          if (removeButton) {
+            removeButton.disabled = !canRemove;
+          }
+        });
+      };
 
-      if (!removeButton) {
-        return;
-      }
+      const updateTotals = () => {
+        const rows = getRows();
+        const totals = calculateInvoiceTotals(rows.map(readLineInput), {
+          type: parseDiscountType(invoiceDiscountType),
+          value: parseNumberInput(invoiceDiscountValue),
+        });
 
-      const rows = getRows();
+        rows.forEach((row, index) => {
+          const lineTotal = row.querySelector<HTMLElement>(
+            '[data-invoice-line-total]',
+          );
 
-      if (rows.length <= 1) {
+          if (lineTotal) {
+            lineTotal.textContent = formatCents(
+              totals.lines[index]?.totalCents ?? 0,
+            );
+          }
+        });
+
+        invoiceSubtotal.textContent = formatCents(totals.subtotalCents);
+        lineDiscountTotal.textContent = formatDiscountCents(
+          totals.lineDiscountCents,
+        );
+        invoiceDiscountTotal.textContent = formatDiscountCents(
+          totals.discountCents,
+        );
+        invoiceTax.textContent = formatCents(totals.taxCents);
+        invoiceTotal.textContent = formatCents(totals.totalCents);
         updateRemoveButtons(rows);
-        return;
-      }
+      };
 
-      removeButton.closest<HTMLElement>("[data-invoice-line]")?.remove();
+      const addLine = () => {
+        const line = lineTemplate.content.firstElementChild?.cloneNode(true);
+
+        if (!(line instanceof HTMLElement)) {
+          return;
+        }
+
+        linesContainer.append(line);
+        updateTotals();
+        line
+          .querySelector<HTMLInputElement>('[data-invoice-description]')
+          ?.focus();
+      };
+
+      const validateDateOrder = () => {
+        const hasDateOrderError =
+          issueDateInput.value !== '' &&
+          dueDateInput.value !== '' &&
+          issueDateInput.validity.valid &&
+          dueDateInput.validity.valid &&
+          dueDateInput.value < issueDateInput.value;
+        const message = hasDateOrderError ? dueDateBeforeIssueDateMessage : '';
+
+        setFieldError(dueDateInput, dueDateError, message);
+
+        return !message;
+      };
+
+      issueDateInput.addEventListener('input', validateDateOrder);
+      issueDateInput.addEventListener('change', validateDateOrder);
+      dueDateInput.addEventListener('input', validateDateOrder);
+      dueDateInput.addEventListener('change', validateDateOrder);
+
+      form.addEventListener('input', (event) => {
+        if (!(event.target instanceof HTMLInputElement)) {
+          return;
+        }
+
+        if (event.target.matches('[data-invoice-catalog-input]')) {
+          scheduleCatalogSearch(event.target);
+          return;
+        }
+
+        if (
+          event.target.matches('[data-invoice-quantity]') ||
+          event.target.matches('[data-invoice-unit-price]') ||
+          event.target.matches('[data-invoice-line-discount-value]') ||
+          event.target.matches('[data-invoice-tax-rate]') ||
+          event.target.matches('[data-invoice-discount-value]')
+        ) {
+          updateTotals();
+        }
+      });
+
+      form.addEventListener('keydown', (event) => {
+        if (!(event.target instanceof HTMLInputElement)) {
+          return;
+        }
+
+        if (!event.target.matches('[data-invoice-catalog-input]')) {
+          return;
+        }
+
+        const state = getCatalogSearchState(event.target);
+
+        if (event.key === 'Escape') {
+          hideCatalogSuggestions(event.target);
+          return;
+        }
+
+        if (state.items.length === 0) {
+          return;
+        }
+
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          state.activeIndex = Math.min(
+            state.activeIndex + 1,
+            state.items.length - 1,
+          );
+          updateCatalogActiveOption(event.target);
+          return;
+        }
+
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          state.activeIndex = Math.max(state.activeIndex - 1, 0);
+          updateCatalogActiveOption(event.target);
+          return;
+        }
+
+        if (event.key === 'Enter' && state.activeIndex >= 0) {
+          event.preventDefault();
+          selectCatalogSuggestion(event.target, state.items[state.activeIndex]);
+        }
+      });
+
+      form.addEventListener('change', (event) => {
+        if (!(event.target instanceof HTMLSelectElement)) {
+          return;
+        }
+
+        if (
+          event.target.matches('[data-invoice-line-discount-type]') ||
+          event.target.matches('[data-invoice-discount-type]') ||
+          event.target.matches('[data-invoice-currency-select]')
+        ) {
+          if (event.target.matches('[data-invoice-currency-select]')) {
+            updateCurrency();
+          }
+          updateTotals();
+        }
+      });
+
+      form.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+
+        const catalogOption = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-catalog-option]',
+        );
+
+        if (catalogOption) {
+          const row = catalogOption.closest<HTMLElement>('[data-invoice-line]');
+          const input = row?.querySelector<HTMLInputElement>(
+            '[data-invoice-catalog-input]',
+          );
+          const index = Number(catalogOption.dataset.invoiceCatalogOption);
+          const item =
+            input ? getCatalogSearchState(input).items[index] : undefined;
+
+          if (input && item) {
+            selectCatalogSuggestion(input, item);
+          }
+
+          return;
+        }
+
+        const addButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-add-line]',
+        );
+
+        if (addButton) {
+          addLine();
+          return;
+        }
+
+        const removeButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-remove-line]',
+        );
+
+        if (!removeButton) {
+          return;
+        }
+
+        const rows = getRows();
+
+        if (rows.length <= 1) {
+          updateRemoveButtons(rows);
+          return;
+        }
+
+        removeButton.closest<HTMLElement>('[data-invoice-line]')?.remove();
+        updateTotals();
+      });
+
+      form.addEventListener('focusout', (event) => {
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+
+        const combobox = event.target.closest<HTMLElement>(
+          '[data-invoice-catalog-combobox]',
+        );
+
+        if (!combobox) {
+          return;
+        }
+
+        const relatedTarget = event.relatedTarget;
+
+        if (relatedTarget instanceof Node && combobox.contains(relatedTarget)) {
+          return;
+        }
+
+        const input = combobox.querySelector<HTMLInputElement>(
+          '[data-invoice-catalog-input]',
+        );
+
+        if (input) {
+          window.setTimeout(() => {
+            if (
+              document.activeElement instanceof Node &&
+              combobox.contains(document.activeElement)
+            ) {
+              return;
+            }
+
+            hideCatalogSuggestions(input);
+          }, 100);
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-invoice-catalog-combobox]')
+        ) {
+          return;
+        }
+
+        hideAllCatalogSuggestions();
+      });
+
+      form.addEventListener('submit', (event) => {
+        if (!validateDateOrder()) {
+          event.preventDefault();
+          dueDateInput.focus();
+        }
+      });
+
+      updateCurrency();
       updateTotals();
     });
-
-    form.addEventListener("submit", (event) => {
-      if (!validateDateOrder()) {
-        event.preventDefault();
-        dueDateInput.focus();
-      }
-    });
-
-    updateCurrency();
-    updateTotals();
-  });
 };
 
 export const setupInlineEditors = () => {
-  document.querySelectorAll<HTMLElement>("[data-inline-editor]").forEach((editor) => {
-    const openButton = editor.querySelector<HTMLButtonElement>("[data-inline-editor-open]");
-    const cancelButton = editor.querySelector<HTMLButtonElement>("[data-inline-editor-cancel]");
-    const display = editor.querySelector<HTMLElement>("[data-inline-editor-display]");
-    const panel = editor.querySelector<HTMLElement>("[data-inline-editor-panel]");
-    const input = editor.querySelector<HTMLTextAreaElement>("[data-inline-editor-input]");
+  document
+    .querySelectorAll<HTMLElement>('[data-inline-editor]')
+    .forEach((editor) => {
+      const openButton = editor.querySelector<HTMLButtonElement>(
+        '[data-inline-editor-open]',
+      );
+      const cancelButton = editor.querySelector<HTMLButtonElement>(
+        '[data-inline-editor-cancel]',
+      );
+      const display = editor.querySelector<HTMLElement>(
+        '[data-inline-editor-display]',
+      );
+      const panel = editor.querySelector<HTMLElement>(
+        '[data-inline-editor-panel]',
+      );
+      const input = editor.querySelector<HTMLTextAreaElement>(
+        '[data-inline-editor-input]',
+      );
 
-    if (!openButton || !cancelButton || !display || !panel || !input) {
-      return;
-    }
-
-    const setOpen = (isOpen: boolean) => {
-      display.classList.toggle("hidden", isOpen);
-      panel.classList.toggle("hidden", !isOpen);
-      openButton.setAttribute("aria-expanded", String(isOpen));
-
-      if (isOpen) {
-        input.focus();
+      if (!openButton || !cancelButton || !display || !panel || !input) {
+        return;
       }
-    };
 
-    openButton.addEventListener("click", () => {
-      setOpen(true);
-    });
+      const setOpen = (isOpen: boolean) => {
+        display.classList.toggle('hidden', isOpen);
+        panel.classList.toggle('hidden', !isOpen);
+        openButton.setAttribute('aria-expanded', String(isOpen));
 
-    cancelButton.addEventListener("click", () => {
-      input.value = input.defaultValue;
-      setOpen(false);
+        if (isOpen) {
+          input.focus();
+        }
+      };
+
+      openButton.addEventListener('click', () => {
+        setOpen(true);
+      });
+
+      cancelButton.addEventListener('click', () => {
+        input.value = input.defaultValue;
+        setOpen(false);
+      });
     });
-  });
 };

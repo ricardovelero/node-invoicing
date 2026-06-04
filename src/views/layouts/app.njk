@@ -16,9 +16,9 @@
           {% if currentUser %}
             <nav class="flex items-center gap-1 text-sm">
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath == '/' else 'text-muted hover:text-ink' }}" href="/">Dashboard</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/invoices') else 'text-muted hover:text-ink' }}" href="/invoices">Invoices</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">Customers</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/items') else 'text-muted hover:text-ink' }}" href="/items">Items</a>
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/invoices') else 'text-muted hover:text-ink' }}" href="/invoices">Invoices</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">Settings</a>
               <form method="post" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">

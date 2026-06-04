@@ -1,8 +1,9 @@
-import type { getCatalogItems } from "./item.service";
+import type { getCatalogItems, searchCatalogItems } from "./item.service";
 import type { ItemFormValues } from "./item.schema";
 
 type CatalogItems = Awaited<ReturnType<typeof getCatalogItems>>;
 type CatalogItem = CatalogItems[number];
+type CatalogItemSearchItems = Awaited<ReturnType<typeof searchCatalogItems>>;
 
 const centsToAmountInput = (amountCents: number) =>
   (amountCents / 100).toFixed(2);
@@ -25,3 +26,10 @@ export const catalogItemToFormValues = (
   currency: item.currency,
   taxRate: String(item.taxRateBps / 100),
 });
+
+export const createCatalogItemSearchResults = (items: CatalogItemSearchItems) =>
+  items.map((item) => ({
+    ...item,
+    unitPrice: centsToAmountInput(item.unitPriceCents),
+    taxRate: String(item.taxRateBps / 100),
+  }));

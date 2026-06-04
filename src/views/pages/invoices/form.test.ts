@@ -16,3 +16,13 @@ test("invoice form includes payment instructions and internal notes fields", () 
   assert.match(template, /Internal notes for your team/);
   assert.match(template, /errors\.notes/);
 });
+
+test("invoice form includes catalog autocomplete hooks for line descriptions", () => {
+  assert.match(template, /data-invoice-catalog-combobox/);
+  assert.match(template, /data-invoice-catalog-input/);
+  assert.match(template, /data-invoice-catalog-results/);
+  assert.match(template, /role="combobox"/);
+  assert.match(template, /aria-autocomplete="list"/);
+  assert.match(template, /data-invoice-line-template/);
+  assert.match(template, /line\.unitPrice if line\.unitPrice is defined else 0/);
+});

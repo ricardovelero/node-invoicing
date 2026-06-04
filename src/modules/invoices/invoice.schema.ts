@@ -43,6 +43,31 @@ const dateInput = (requiredMessage: string, invalidMessage: string) =>
 const discountTypeSchema = z.enum(["amount", "percent"]);
 
 const discountValueSchema = z.coerce.number().nonnegative("Discount cannot be negative.");
+const unitPriceSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "string") {
+      return value.trim();
+    }
+
+    return value === undefined || value === null ? "" : String(value);
+  },
+  z.string()
+    .min(1, "Enter a unit price.")
+    .transform((value, ctx) => {
+      const amount = Number(value);
+
+      if (!Number.isFinite(amount)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Enter a valid unit price.",
+        });
+        return z.NEVER;
+      }
+
+      return amount;
+    })
+    .refine((amount) => amount >= 0, "Unit price cannot be negative."),
+);
 const statusActionSchema = z.enum(["send", "markOverdue", "void"], {
   error: "Choose a valid invoice status action.",
 });
@@ -50,7 +75,7 @@ const statusActionSchema = z.enum(["send", "markOverdue", "void"], {
 const lineItemSchema = z.object({
   description: z.string().trim().min(1, "Line description is required."),
   quantity: z.coerce.number().positive("Quantity must be greater than zero."),
-  unitPrice: z.coerce.number().nonnegative("Unit price cannot be negative."),
+  unitPrice: unitPriceSchema,
   discountType: discountTypeSchema.default("amount"),
   discountValue: discountValueSchema.default(0),
   taxRate: z.coerce

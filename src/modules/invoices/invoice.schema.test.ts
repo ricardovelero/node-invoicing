@@ -107,6 +107,24 @@ describe("invoiceFormSchema", () => {
     ]);
   });
 
+  test("rejects empty line unit prices but allows explicit zero", () => {
+    const emptyResult = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      unitPrice: "",
+    });
+    const zeroResult = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      unitPrice: "0",
+    });
+
+    assert.equal(emptyResult.success, false);
+    assert.deepEqual(formatInvoiceFormErrors(emptyResult.error).lines?.[0], {
+      unitPrice: ["Enter a unit price."],
+    });
+    assert.equal(zeroResult.success, true);
+    assert.equal(zeroResult.data.lines[0]?.unitPrice, 0);
+  });
+
   test("normalizes invoice discount, payment instructions, and notes", () => {
     const result = invoiceFormSchema.safeParse({
       ...validInvoiceForm,

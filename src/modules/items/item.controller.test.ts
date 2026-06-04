@@ -9,6 +9,7 @@ import {
   renderEditItem,
   renderNewItem,
   restoreItem,
+  searchItems,
   updateItem,
 } from "./item.controller";
 
@@ -22,6 +23,7 @@ type MockRequest = Request & {
 };
 
 type MockResponse = Response & {
+  jsonData?: unknown;
   statusCode?: number;
   renderedView?: string;
   renderedData?: unknown;
@@ -98,7 +100,9 @@ const createResponse = () => {
     statusCode?: number;
     renderedView?: string;
     renderedData?: unknown;
+    jsonData?: unknown;
     redirectPath?: string;
+    json?: (data: unknown) => MockResponse;
     status?: (statusCode: number) => MockResponse;
     render?: (view: string, data: unknown) => MockResponse;
     redirect?: (path: string) => MockResponse;
@@ -115,6 +119,10 @@ const createResponse = () => {
   };
   res.redirect = (path: string) => {
     res.redirectPath = path;
+    return res as unknown as MockResponse;
+  };
+  res.json = (data: unknown) => {
+    res.jsonData = data;
     return res as unknown as MockResponse;
   };
 
@@ -185,6 +193,66 @@ test("renderNewItem defaults currency to the current organization currency", () 
     errors: {},
     currencies,
   });
+});
+
+test("searchItems returns formatted catalog item matches", async () => {
+  let findManyArgs: unknown;
+  prismaMock.catalogItem.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [
+      {
+        id: "item_1",
+        name: "Consulting",
+        description: "Strategy session",
+        unitPriceCents: 12550,
+        currency: "EUR",
+        taxRateBps: 2100,
+      },
+    ];
+  };
+  const res = createResponse();
+
+  await searchItems(createRequest({ query: { q: "consult" } }), res, () => undefined);
+
+  assert.deepEqual(
+    (findManyArgs as { where: { organizationId: string; archivedAt: null } }).where,
+    {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+      OR: [
+        { name: { contains: "consult", mode: "insensitive" } },
+        { description: { contains: "consult", mode: "insensitive" } },
+      ],
+    },
+  );
+  assert.deepEqual(res.jsonData, {
+    items: [
+      {
+        id: "item_1",
+        name: "Consulting",
+        description: "Strategy session",
+        unitPriceCents: 12550,
+        unitPrice: "125.50",
+        currency: "EUR",
+        taxRateBps: 2100,
+        taxRate: "21",
+      },
+    ],
+  });
+});
+
+test("searchItems returns empty matches for short queries", async () => {
+  let findManyCalled = false;
+  prismaMock.catalogItem.findMany = async () => {
+    findManyCalled = true;
+    return [];
+  };
+  const res = createResponse();
+
+  await searchItems(createRequest({ query: { q: "c" } }), res, () => undefined);
+
+  assert.equal(findManyCalled, false);
+  assert.deepEqual(res.jsonData, { items: [] });
 });
 
 test("createItem renders validation errors with submitted values", async () => {

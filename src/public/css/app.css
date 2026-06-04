@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @source "../../views/**/*.njk";
 @source "../js/**/*.ts";
@@ -41,6 +41,22 @@
     padding: 18mm;
     background: white;
     box-shadow: 0 18px 60px rgb(23 33 29 / 14%);
+  }
+
+  [data-invoice-catalog-option][aria-selected='true'] {
+    @apply bg-panel;
+  }
+
+  .invoice-catalog-option {
+    @apply block w-full px-3 py-2 text-left hover:bg-panel;
+  }
+
+  .invoice-catalog-option-label {
+    @apply block font-medium text-ink;
+  }
+
+  .invoice-catalog-option-meta {
+    @apply mt-0.5 block text-xs text-muted;
   }
 }
 

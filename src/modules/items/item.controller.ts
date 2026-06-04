@@ -14,9 +14,11 @@ import {
   getCatalogItemForEdit,
   getCatalogItems,
   restoreCatalogItemRecord,
+  searchCatalogItems,
   updateCatalogItemRecord,
 } from "./item.service";
 import {
+  createCatalogItemSearchResults,
   catalogItemToFormValues,
   createCatalogItemRows,
 } from "./item.presenter";
@@ -69,6 +71,15 @@ export const listItems: RequestHandler = async (req, res) => {
     title: showingArchived ? "Archived items" : "Items",
     items: createCatalogItemRows(items),
     showingArchived,
+  });
+};
+
+export const searchItems: RequestHandler = async (req, res) => {
+  const query = typeof req.query.q === "string" ? req.query.q : "";
+  const items = await searchCatalogItems(req.auth!.organization.id, query);
+
+  return res.json({
+    items: createCatalogItemSearchResults(items),
   });
 };
 

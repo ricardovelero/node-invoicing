@@ -70,9 +70,10 @@
           {% for line in lineItems %}
             {% set lineErrors = errors.lines[loop.index0] if errors.lines and errors.lines[loop.index0] else {} %}
             <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[minmax(180px,1fr)_90px_120px_150px_90px_120px_40px] sm:items-start" data-invoice-line>
-              <div>
+              <div class="relative" data-invoice-catalog-combobox>
                 <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
-                <input name="lineDescription" value="{{ line.description or '' }}" placeholder="Consulting services" data-invoice-description>
+                <input name="lineDescription" value="{{ line.description or '' }}" placeholder="Consulting services" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
+                <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
                 {% if lineErrors.description %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.description[0] }}</p>{% endif %}
               </div>
               <div>
@@ -82,7 +83,7 @@
               </div>
               <div>
                 <label class="sm:sr-only">Unit price <span aria-hidden="true">*</span></label>
-                <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ line.unitPrice or 0 }}">
+                <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ line.unitPrice if line.unitPrice is defined else 0 }}">
                 {% if lineErrors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.unitPrice[0] }}</p>{% endif %}
               </div>
               <div>
@@ -153,9 +154,10 @@
 
       <template data-invoice-line-template>
         <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[minmax(180px,1fr)_90px_120px_150px_90px_120px_40px] sm:items-start" data-invoice-line>
-          <div>
+          <div class="relative" data-invoice-catalog-combobox>
             <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
-            <input name="lineDescription" value="" placeholder="Consulting services" data-invoice-description>
+            <input name="lineDescription" value="" placeholder="Consulting services" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
+            <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
           </div>
           <div>
             <label class="sm:sr-only">Quantity <span aria-hidden="true">*</span></label>

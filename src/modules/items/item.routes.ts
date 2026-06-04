@@ -6,12 +6,14 @@ import {
   renderEditItem,
   renderNewItem,
   restoreItem,
+  searchItems,
   updateItem,
 } from "./item.controller";
 
 export const itemRouter = Router();
 
 itemRouter.get("/", listItems);
+itemRouter.get("/search", searchItems);
 itemRouter.get("/new", renderNewItem);
 itemRouter.post("/", createItem);
 itemRouter.get("/:itemId/edit", renderEditItem);

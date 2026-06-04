@@ -7,6 +7,7 @@ import {
   getCatalogItemForEdit,
   getCatalogItems,
   restoreCatalogItemRecord,
+  searchCatalogItems,
   updateCatalogItemRecord,
 } from "./item.service";
 
@@ -87,6 +88,56 @@ test("getCatalogItemForEdit scopes lookup by organization", async () => {
       id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
       organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     },
+  });
+});
+
+test("searchCatalogItems returns no results for short queries without hitting the database", async () => {
+  let findManyCalled = false;
+  prismaMock.catalogItem.findMany = async () => {
+    findManyCalled = true;
+    return [];
+  };
+
+  const items = await searchCatalogItems(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    " c ",
+  );
+
+  assert.deepEqual(items, []);
+  assert.equal(findManyCalled, false);
+});
+
+test("searchCatalogItems scopes active case-insensitive name and description lookup", async () => {
+  let findManyArgs: unknown;
+  prismaMock.catalogItem.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [];
+  };
+
+  await searchCatalogItems(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    " consult ",
+  );
+
+  assert.deepEqual(findManyArgs, {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+      OR: [
+        { name: { contains: "consult", mode: "insensitive" } },
+        { description: { contains: "consult", mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      unitPriceCents: true,
+      currency: true,
+      taxRateBps: true,
+    },
+    orderBy: [{ name: "asc" }, { createdAt: "desc" }],
+    take: 8,
   });
 });
 
