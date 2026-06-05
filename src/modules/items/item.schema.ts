@@ -38,6 +38,92 @@ const stringValue = (value: unknown, fallback = "") => {
   return fallback;
 };
 
+const asQueryRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+const firstQueryValue = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return firstQueryValue(value[0]);
+  }
+
+  return typeof value === "string" ? value : "";
+};
+
+const integerQueryValue = (value: unknown, fallback: number) => {
+  const rawValue = firstQueryValue(value).trim();
+
+  if (!/^\d+$/.test(rawValue)) {
+    return fallback;
+  }
+
+  const parsed = Number(rawValue);
+
+  return Number.isSafeInteger(parsed) ? parsed : fallback;
+};
+
+export const itemListLimits = [10, 20, 50] as const;
+export type ItemListLimit = (typeof itemListLimits)[number];
+
+export const itemListSortableColumns = [
+  "name",
+  "unitPriceCents",
+  "taxRateBps",
+  "createdAt",
+] as const;
+export type ItemListSort = (typeof itemListSortableColumns)[number];
+export type ItemListDirection = "asc" | "desc";
+export type ItemListArchiveFilter = "active" | "archived";
+
+const sortableColumns = new Set<string>(itemListSortableColumns);
+
+const normalizeItemLimit = (value: unknown): ItemListLimit => {
+  const limit = integerQueryValue(value, 20);
+
+  return itemListLimits.includes(limit as ItemListLimit)
+    ? (limit as ItemListLimit)
+    : 20;
+};
+
+const normalizeItemSort = (value: unknown): ItemListSort => {
+  const sort = firstQueryValue(value);
+
+  return sortableColumns.has(sort) ? (sort as ItemListSort) : "createdAt";
+};
+
+const normalizeItemDirection = (value: unknown): ItemListDirection =>
+  firstQueryValue(value).toLowerCase() === "asc" ? "asc" : "desc";
+
+const normalizeArchivedFilter = (value: unknown): ItemListArchiveFilter => {
+  const archived = firstQueryValue(value).trim().toLowerCase();
+
+  return archived === "1" || archived === "archived" ? "archived" : "active";
+};
+
+export const itemListQuerySchema = z.preprocess((value) => {
+  const query = asQueryRecord(value);
+  const page = Math.max(integerQueryValue(query.page, 1), 1);
+
+  return {
+    page,
+    limit: normalizeItemLimit(query.limit),
+    q: firstQueryValue(query.q).trim(),
+    archived: normalizeArchivedFilter(query.archived),
+    sort: normalizeItemSort(query.sort),
+    direction: normalizeItemDirection(query.direction),
+  };
+}, z.object({
+  page: z.number().int().min(1),
+  limit: z.union([z.literal(10), z.literal(20), z.literal(50)]),
+  q: z.string(),
+  archived: z.enum(["active", "archived"]),
+  sort: z.enum(itemListSortableColumns),
+  direction: z.enum(["asc", "desc"]),
+}));
+
+export type ItemListQuery = z.infer<typeof itemListQuerySchema>;
+
 export const createItemFormValues = (
   values: Partial<ItemFormValues> = {},
 ): ItemFormValues => ({

@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import {
   formatItemFormErrors,
   itemFormSchema,
+  itemListQuerySchema,
   normalizeItemFormValues,
 } from "./item.schema";
 
@@ -65,4 +66,67 @@ test("normalizeItemFormValues preserves submitted form strings", () => {
       taxRate: "8.25",
     },
   );
+});
+
+describe("itemListQuerySchema", () => {
+  test("normalizes valid catalog item list query params", () => {
+    const result = itemListQuerySchema.parse({
+      page: "2",
+      limit: "50",
+      q: "  consult  ",
+      archived: "1",
+      sort: "name",
+      direction: "asc",
+    });
+
+    assert.deepEqual(result, {
+      page: 2,
+      limit: 50,
+      q: "consult",
+      archived: "archived",
+      sort: "name",
+      direction: "asc",
+    });
+  });
+
+  test("falls back to sensible defaults for invalid params", () => {
+    const result = itemListQuerySchema.parse({
+      page: "-2",
+      limit: "20abc",
+      q: 123,
+      archived: "all",
+      sort: "DROP TABLE",
+      direction: "sideways",
+    });
+
+    assert.deepEqual(result, {
+      page: 1,
+      limit: 20,
+      q: "",
+      archived: "active",
+      sort: "createdAt",
+      direction: "desc",
+    });
+  });
+
+  test("accepts only supported page sizes and sortable columns", () => {
+    assert.equal(itemListQuerySchema.parse({ limit: "10" }).limit, 10);
+    assert.equal(itemListQuerySchema.parse({ limit: "20" }).limit, 20);
+    assert.equal(itemListQuerySchema.parse({ limit: "50" }).limit, 50);
+    assert.equal(itemListQuerySchema.parse({ limit: "25" }).limit, 20);
+    assert.equal(itemListQuerySchema.parse({ sort: "taxRateBps" }).sort, "taxRateBps");
+    assert.equal(itemListQuerySchema.parse({ sort: "description" }).sort, "createdAt");
+  });
+
+  test("normalizes repeated query values from the first value", () => {
+    const result = itemListQuerySchema.parse({
+      page: ["3", "4"],
+      archived: ["archived", "active"],
+      direction: ["asc", "desc"],
+    });
+
+    assert.equal(result.page, 3);
+    assert.equal(result.archived, "archived");
+    assert.equal(result.direction, "asc");
+  });
 });

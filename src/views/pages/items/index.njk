@@ -1,4 +1,5 @@
 {% extends "layouts/app.njk" %}
+{% from "components/sort-indicator.njk" import sortIndicator %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -8,23 +9,80 @@
     </div>
     <div class="flex flex-wrap items-center gap-3">
       {% if showingArchived %}
-        <a class="text-sm font-medium text-muted hover:text-ink" href="/items">Active items</a>
+        <a class="text-sm font-medium text-muted hover:text-ink" href="{{ activeItemsHref }}">Active items</a>
       {% else %}
-        <a class="text-sm font-medium text-muted hover:text-ink" href="/items?archived=1">Archived items</a>
+        <a class="text-sm font-medium text-muted hover:text-ink" href="{{ archivedItemsHref }}">Archived items</a>
       {% endif %}
       <a href="/items/new" class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark">New item</a>
     </div>
   </div>
 
+  <form class="mb-4 rounded-lg border border-line bg-white p-4" method="get" action="/items">
+    <input type="hidden" name="page" value="1">
+    <input type="hidden" name="sort" value="{{ filters.sort }}">
+    <input type="hidden" name="direction" value="{{ filters.direction }}">
+    <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] md:items-end">
+      <label class="block">
+        <span class="text-sm font-medium text-ink">Search</span>
+        <input class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" type="search" name="q" value="{{ filters.q }}" placeholder="Item name or description">
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink">Status</span>
+        <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="archived">
+          {% for option in archivedOptions %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink">Rows</span>
+        <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="limit">
+          {% for option in limitOptions %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="flex gap-3">
+        <button class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Apply</button>
+        {% if hasActiveFilters %}
+          <a class="inline-flex items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-muted hover:text-ink" href="/items">Clear</a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
   <div class="overflow-hidden rounded-lg border border-line bg-white">
     <table class="min-w-full divide-y divide-line text-sm">
       <thead class="bg-panel text-left text-muted">
         <tr>
-          <th class="px-4 py-3 font-medium">Name</th>
+          <th class="px-4 py-3 font-medium">
+            <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.name.href }}">
+              Name
+              {{ sortIndicator(sortLinks.name) }}
+            </a>
+          </th>
           <th class="px-4 py-3 font-medium">Description</th>
-          <th class="px-4 py-3 text-right font-medium">Unit price</th>
-          <th class="px-4 py-3 text-right font-medium">Tax rate</th>
-          <th class="px-4 py-3 font-medium">Created</th>
+          <th class="px-4 py-3 text-right font-medium">
+            <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.unitPriceCents.href }}">
+              Unit price
+              {{ sortIndicator(sortLinks.unitPriceCents) }}
+            </a>
+          </th>
+          <th class="px-4 py-3 text-right font-medium">
+            <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.taxRateBps.href }}">
+              Tax rate
+              {{ sortIndicator(sortLinks.taxRateBps) }}
+            </a>
+          </th>
+          <th class="px-4 py-3 font-medium">
+            <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.createdAt.href }}">
+              Created
+              {{ sortIndicator(sortLinks.createdAt) }}
+            </a>
+          </th>
           <th class="px-4 py-3 text-right font-medium">Actions</th>
         </tr>
       </thead>
@@ -60,10 +118,38 @@
           </tr>
         {% else %}
           <tr>
-            <td class="px-4 py-6 text-muted" colspan="6">{{ 'No archived items.' if showingArchived else 'No items yet.' }}</td>
+            <td class="px-4 py-6 text-muted" colspan="6">{{ emptyMessage }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="mt-4 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+    <p>
+      Page {{ pagination.page }} of {{ pagination.totalPages }}
+      <span class="ml-1">({{ pagination.totalCount }} items)</span>
+    </p>
+    <nav class="flex flex-wrap items-center gap-2" aria-label="Catalog item pagination">
+      {% if pagination.previousHref %}
+        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.previousHref }}">Previous</a>
+      {% else %}
+        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">Previous</span>
+      {% endif %}
+
+      {% for pageLink in pagination.pages %}
+        {% if pageLink.isCurrent %}
+          <span class="rounded-md bg-action px-3 py-2 font-semibold text-white">{{ pageLink.page }}</span>
+        {% else %}
+          <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pageLink.href }}">{{ pageLink.page }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if pagination.nextHref %}
+        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.nextHref }}">Next</a>
+      {% else %}
+        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">Next</span>
+      {% endif %}
+    </nav>
   </div>
 {% endblock %}

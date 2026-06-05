@@ -13,6 +13,7 @@ import {
 
 const prismaMock = prisma as unknown as {
   catalogItem: {
+    count: unknown;
     create: unknown;
     findFirst: unknown;
     findMany: unknown;
@@ -20,53 +21,113 @@ const prismaMock = prisma as unknown as {
   };
 };
 
+const originalCount = prismaMock.catalogItem.count;
 const originalCreate = prismaMock.catalogItem.create;
 const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
 const originalUpdateMany = prismaMock.catalogItem.updateMany;
 
 afterEach(() => {
+  prismaMock.catalogItem.count = originalCount;
   prismaMock.catalogItem.create = originalCreate;
   prismaMock.catalogItem.findFirst = originalFindFirst;
   prismaMock.catalogItem.findMany = originalFindMany;
   prismaMock.catalogItem.updateMany = originalUpdateMany;
 });
 
-test("getCatalogItems hides archived items by default", async () => {
+test("getCatalogItems applies scoped active pagination and default sorting", async () => {
+  let countArgs: unknown;
   let findManyArgs: unknown;
+  prismaMock.catalogItem.count = async (args: unknown) => {
+    countArgs = args;
+    return 0;
+  };
   prismaMock.catalogItem.findMany = async (args: unknown) => {
     findManyArgs = args;
     return [];
   };
 
-  await getCatalogItems("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+  const result = await getCatalogItems("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    page: 2,
+    limit: 20,
+    q: "",
+    archived: "active",
+    sort: "createdAt",
+    direction: "desc",
+  });
 
+  assert.deepEqual(result.items, []);
+  assert.deepEqual(result.pagination, {
+    page: 2,
+    limit: 20,
+    totalPages: 1,
+    hasPreviousPage: true,
+    hasNextPage: false,
+    previousPage: 1,
+    nextPage: null,
+  });
+  assert.deepEqual(countArgs, {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+  });
   assert.deepEqual(findManyArgs, {
     where: {
       organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
       archivedAt: null,
     },
     orderBy: { createdAt: "desc" },
+    skip: 20,
+    take: 20,
   });
 });
 
-test("getCatalogItems can list archived items", async () => {
+test("getCatalogItems composes search and archived filters under the current organization", async () => {
+  let countArgs: unknown;
   let findManyArgs: unknown;
+  prismaMock.catalogItem.count = async (args: unknown) => {
+    countArgs = args;
+    return 25;
+  };
   prismaMock.catalogItem.findMany = async (args: unknown) => {
     findManyArgs = args;
     return [];
   };
 
-  await getCatalogItems("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
-    archived: true,
+  const result = await getCatalogItems("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    page: 1,
+    limit: 10,
+    q: "consult",
+    archived: "archived",
+    sort: "name",
+    direction: "asc",
   });
 
+  const expectedWhere = {
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    archivedAt: { not: null },
+    OR: [
+      { name: { contains: "consult", mode: "insensitive" } },
+      { description: { contains: "consult", mode: "insensitive" } },
+    ],
+  };
+
+  assert.deepEqual(result.pagination, {
+    page: 1,
+    limit: 10,
+    totalPages: 3,
+    hasPreviousPage: false,
+    hasNextPage: true,
+    previousPage: null,
+    nextPage: 2,
+  });
+  assert.deepEqual(countArgs, { where: expectedWhere });
   assert.deepEqual(findManyArgs, {
-    where: {
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      archivedAt: { not: null },
-    },
-    orderBy: { createdAt: "desc" },
+    where: expectedWhere,
+    orderBy: { name: "asc" },
+    skip: 0,
+    take: 10,
   });
 });
 

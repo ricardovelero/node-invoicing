@@ -1,6 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { amountToCents, percentToBasisPoints } from "../../lib/money";
-import type { ItemForm } from "./item.schema";
+import type { ItemForm, ItemListQuery, ItemListSort } from "./item.schema";
 
 const itemFormData = (organizationId: string, data: ItemForm) => ({
   organizationId,
@@ -11,17 +12,68 @@ const itemFormData = (organizationId: string, data: ItemForm) => ({
   taxRateBps: percentToBasisPoints(data.taxRate),
 });
 
-export const getCatalogItems = (
+const itemListOrderBy: Record<
+  ItemListSort,
+  (direction: ItemListQuery["direction"]) => Prisma.CatalogItemOrderByWithRelationInput
+> = {
+  name: (direction) => ({ name: direction }),
+  unitPriceCents: (direction) => ({ unitPriceCents: direction }),
+  taxRateBps: (direction) => ({ taxRateBps: direction }),
+  createdAt: (direction) => ({ createdAt: direction }),
+};
+
+const createCatalogItemListWhere = (
   organizationId: string,
-  options?: { archived?: boolean },
-) =>
-  prisma.catalogItem.findMany({
-    where: {
-      organizationId,
-      archivedAt: options?.archived ? { not: null } : null,
+  query: ItemListQuery,
+): Prisma.CatalogItemWhereInput => {
+  const where: Prisma.CatalogItemWhereInput = {
+    organizationId,
+    archivedAt: query.archived === "archived" ? { not: null } : null,
+  };
+
+  if (query.q) {
+    where.OR = [
+      { name: { contains: query.q, mode: "insensitive" } },
+      { description: { contains: query.q, mode: "insensitive" } },
+    ];
+  }
+
+  return where;
+};
+
+export const getCatalogItems = async (
+  organizationId: string,
+  query: ItemListQuery,
+) => {
+  const where = createCatalogItemListWhere(organizationId, query);
+  const skip = (query.page - 1) * query.limit;
+  const orderBy = itemListOrderBy[query.sort](query.direction);
+  const [totalCount, items] = await Promise.all([
+    prisma.catalogItem.count({ where }),
+    prisma.catalogItem.findMany({
+      where,
+      orderBy,
+      skip,
+      take: query.limit,
+    }),
+  ]);
+  const totalPages = Math.max(Math.ceil(totalCount / query.limit), 1);
+
+  return {
+    items,
+    totalCount,
+    query,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      totalPages,
+      hasPreviousPage: query.page > 1,
+      hasNextPage: query.page < totalPages,
+      previousPage: query.page > 1 ? query.page - 1 : null,
+      nextPage: query.page < totalPages ? query.page + 1 : null,
     },
-    orderBy: { createdAt: "desc" },
-  });
+  };
+};
 
 export const getCatalogItemForEdit = (
   organizationId: string,

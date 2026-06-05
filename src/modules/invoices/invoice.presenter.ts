@@ -194,8 +194,11 @@ const createPaginationPages = (
 
 export const invoiceIndexView = (invoiceList: InvoiceList) => {
   const hasActiveFilters = Boolean(invoiceList.query.q || invoiceList.query.status);
+  const hasRows = invoiceList.invoices.length > 0;
   const emptyMessage =
-    invoiceList.totalCount > 0
+    hasRows
+      ? ''
+      : invoiceList.totalCount > 0
       ? 'No invoices on this page.'
       : hasActiveFilters
         ? 'No invoices match these filters.'

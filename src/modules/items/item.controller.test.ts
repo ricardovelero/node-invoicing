@@ -33,6 +33,7 @@ type MockResponse = Response & {
 
 const prismaMock = prisma as unknown as {
   catalogItem: {
+    count: unknown;
     create: unknown;
     findFirst: unknown;
     findMany: unknown;
@@ -40,6 +41,7 @@ const prismaMock = prisma as unknown as {
   };
 };
 
+const originalCount = prismaMock.catalogItem.count;
 const originalCreate = prismaMock.catalogItem.create;
 const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
@@ -47,6 +49,7 @@ const originalUpdateMany = prismaMock.catalogItem.updateMany;
 const currencies = ["EUR", "USD", "GBP", "CAD", "AUD"];
 
 afterEach(() => {
+  prismaMock.catalogItem.count = originalCount;
   prismaMock.catalogItem.create = originalCreate;
   prismaMock.catalogItem.findFirst = originalFindFirst;
   prismaMock.catalogItem.findMany = originalFindMany;
@@ -131,6 +134,7 @@ const createResponse = () => {
 };
 
 test("listItems renders active catalog items", async () => {
+  let findManyArgs: unknown;
   const item = {
     id: "item_1",
     name: "Consulting",
@@ -141,13 +145,34 @@ test("listItems renders active catalog items", async () => {
     archivedAt: null,
     createdAt: new Date("2026-06-04T00:00:00.000Z"),
   };
-  prismaMock.catalogItem.findMany = async () => [item];
+  prismaMock.catalogItem.count = async () => 1;
+  prismaMock.catalogItem.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [item];
+  };
   const res = createResponse();
 
   await listItems(createRequest(), res, () => undefined);
 
   assert.equal(res.renderedView, "pages/items/index.njk");
-  assert.deepEqual(res.renderedData, {
+  assert.deepEqual(findManyArgs, {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+    orderBy: { createdAt: "desc" },
+    skip: 0,
+    take: 20,
+  });
+  assert.deepEqual(
+    (res.renderedData as {
+      title: string;
+      items: unknown[];
+      showingArchived: boolean;
+      filters: unknown;
+      pagination: unknown;
+    }),
+    {
     title: "Items",
     items: [
       {
@@ -156,19 +181,89 @@ test("listItems renders active catalog items", async () => {
       },
     ],
     showingArchived: false,
-  });
+      filters: {
+        q: "",
+        archived: "",
+        limit: 20,
+        sort: "createdAt",
+        direction: "desc",
+      },
+      pagination: {
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+        previousPage: null,
+        nextPage: null,
+        totalCount: 1,
+        pages: [
+          {
+            page: 1,
+            href: "/items?page=1&limit=20&sort=createdAt&direction=desc",
+            isCurrent: true,
+          },
+        ],
+        previousHref: null,
+        nextHref: null,
+      },
+      archivedOptions: [
+        { value: "", label: "Active items", selected: true },
+        { value: "1", label: "Archived items", selected: false },
+      ],
+      limitOptions: [
+        { value: "10", label: "10", selected: false },
+        { value: "20", label: "20", selected: true },
+        { value: "50", label: "50", selected: false },
+      ],
+      sortLinks: (res.renderedData as { sortLinks: unknown }).sortLinks,
+      activeItemsHref: "/items?page=1&limit=20&sort=createdAt&direction=desc",
+      archivedItemsHref: "/items?page=1&limit=20&archived=1&sort=createdAt&direction=desc",
+      hasActiveFilters: false,
+      emptyMessage: "",
+    },
+  );
 });
 
 test("listItems renders archived catalog items", async () => {
+  prismaMock.catalogItem.count = async () => 0;
   prismaMock.catalogItem.findMany = async () => [];
   const res = createResponse();
 
-  await listItems(createRequest({ query: { archived: "1" } }), res, () => undefined);
+  await listItems(
+    createRequest({
+      query: {
+        archived: "1",
+        q: "consult",
+        limit: "10",
+        sort: "name",
+        direction: "asc",
+      },
+    }),
+    res,
+    () => undefined,
+  );
 
-  assert.deepEqual(res.renderedData, {
+  const renderedData = res.renderedData as {
+    title: string;
+    filters: unknown;
+    emptyMessage: string;
+  };
+
+  assert.deepEqual({
+    title: renderedData.title,
+    filters: renderedData.filters,
+    emptyMessage: renderedData.emptyMessage,
+  }, {
     title: "Archived items",
-    items: [],
-    showingArchived: true,
+    filters: {
+      q: "consult",
+      archived: "1",
+      limit: 10,
+      sort: "name",
+      direction: "asc",
+    },
+    emptyMessage: "No catalog items match these filters.",
   });
 });
 

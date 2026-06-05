@@ -9,8 +9,9 @@ test("item index includes active archived toggles and item actions", () => {
     "utf8",
   );
 
-  assert.match(template, /href="\/items\?archived=1"/);
-  assert.match(template, /href="\/items"/);
+  assert.match(template, /from "components\/sort-indicator\.njk" import sortIndicator/);
+  assert.match(template, /href="{{ archivedItemsHref }}"/);
+  assert.match(template, /href="{{ activeItemsHref }}"/);
   assert.match(template, /Archived items/);
   assert.match(template, /href="\/items\/new"/);
   assert.match(template, /for item in items/);
@@ -19,4 +20,46 @@ test("item index includes active archived toggles and item actions", () => {
   assert.match(template, /action="\/items\/{{ item\.id }}\/archive"/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/restore"/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
+});
+
+test("item index renders query-driven filter controls", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "items", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /<form[^>]+method="get"[^>]+action="\/items"/);
+  assert.match(template, /name="q" value="{{ filters\.q }}"/);
+  assert.match(template, /name="archived"/);
+  assert.match(template, /for option in archivedOptions/);
+  assert.match(template, /name="limit"/);
+  assert.match(template, /for option in limitOptions/);
+  assert.match(template, /name="sort" value="{{ filters\.sort }}"/);
+  assert.match(template, /name="direction" value="{{ filters\.direction }}"/);
+});
+
+test("item index renders safe sortable column links and pagination links", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "items", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /href="{{ sortLinks\.name\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.unitPriceCents\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.taxRateBps\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.createdAt\.href }}"/);
+  assert.match(template, /sortIndicator\(sortLinks\.createdAt\)/);
+  assert.doesNotMatch(template, /sortLinks\.description/);
+  assert.match(template, /for pageLink in pagination\.pages/);
+  assert.match(template, /href="{{ pagination\.previousHref }}"/);
+  assert.match(template, /href="{{ pagination\.nextHref }}"/);
+});
+
+test("item index renders presenter empty state", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "items", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /{{ emptyMessage }}/);
 });

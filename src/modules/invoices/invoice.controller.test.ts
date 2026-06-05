@@ -1153,7 +1153,7 @@ test("invoiceIndexView prepares customer names and status badges", () => {
     rows.pagination.previousHref,
     "/invoices?page=1&limit=20&q=ada&status=sent&sort=createdAt&direction=desc",
   );
-  assert.equal(rows.emptyMessage, "No invoices on this page.");
+  assert.equal(rows.emptyMessage, "");
 });
 
 test("printInvoice renders issued invoices with snapshot data", async () => {

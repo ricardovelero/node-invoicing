@@ -3,6 +3,7 @@ import {
   createItemFormValues,
   formatItemFormErrors,
   itemFormSchema,
+  itemListQuerySchema,
   normalizeItemFormValues,
   supportedCurrencies,
   type ItemFormErrors,
@@ -21,7 +22,7 @@ import {
   createCatalogItemSearchResult,
   createCatalogItemSearchResults,
   catalogItemToFormValues,
-  createCatalogItemRows,
+  itemIndexView,
 } from "./item.presenter";
 
 type ItemFormRenderOptions = {
@@ -63,16 +64,10 @@ const renderItemForm = (
 };
 
 export const listItems: RequestHandler = async (req, res) => {
-  const showingArchived = req.query.archived === "1";
-  const items = await getCatalogItems(req.auth!.organization.id, {
-    archived: showingArchived,
-  });
+  const query = itemListQuerySchema.parse(req.query);
+  const items = await getCatalogItems(req.auth!.organization.id, query);
 
-  return res.render("pages/items/index.njk", {
-    title: showingArchived ? "Archived items" : "Items",
-    items: createCatalogItemRows(items),
-    showingArchived,
-  });
+  return res.render("pages/items/index.njk", itemIndexView(items));
 };
 
 export const searchItems: RequestHandler = async (req, res) => {
