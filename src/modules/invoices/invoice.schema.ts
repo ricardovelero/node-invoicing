@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { InvoiceStatus } from "@prisma/client";
 import {
   amountToCents,
   calculateDiscountCents,
@@ -33,6 +34,97 @@ const toArray = (value: unknown) => {
 
 const stringValue = (value: unknown, fallback = "") =>
   typeof value === "string" ? value : value === undefined ? fallback : String(value);
+
+const firstQueryValue = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return firstQueryValue(value[0]);
+  }
+
+  return typeof value === "string" ? value : "";
+};
+
+const integerQueryValue = (value: unknown, fallback: number) => {
+  const rawValue = firstQueryValue(value).trim();
+
+  if (!/^\d+$/.test(rawValue)) {
+    return fallback;
+  }
+
+  const parsed = Number(rawValue);
+
+  return Number.isSafeInteger(parsed) ? parsed : fallback;
+};
+
+export const invoiceListLimits = [10, 20, 50] as const;
+export type InvoiceListLimit = (typeof invoiceListLimits)[number];
+
+export const invoiceListSortableColumns = [
+  "number",
+  "issueDate",
+  "dueDate",
+  "status",
+  "totalCents",
+  "createdAt",
+] as const;
+export type InvoiceListSort = (typeof invoiceListSortableColumns)[number];
+export type InvoiceListDirection = "asc" | "desc";
+
+export const invoiceListStatusOptions = [
+  "DRAFT",
+  "SENT",
+  "PARTIALLY_PAID",
+  "PAID",
+  "OVERDUE",
+  "VOID",
+] as const satisfies readonly InvoiceStatus[];
+
+const statusQueryValues = new Map(
+  invoiceListStatusOptions.map((status) => [status.toLowerCase(), status]),
+);
+const sortableColumns = new Set<string>(invoiceListSortableColumns);
+
+const normalizeInvoiceStatusFilter = (value: unknown) =>
+  statusQueryValues.get(firstQueryValue(value).trim().toLowerCase());
+
+const normalizeInvoiceSort = (value: unknown): InvoiceListSort => {
+  const sort = firstQueryValue(value);
+
+  return sortableColumns.has(sort) ? (sort as InvoiceListSort) : "createdAt";
+};
+
+const normalizeInvoiceDirection = (value: unknown): InvoiceListDirection =>
+  firstQueryValue(value).toLowerCase() === "asc" ? "asc" : "desc";
+
+const normalizeInvoiceLimit = (value: unknown): InvoiceListLimit => {
+  const limit = integerQueryValue(value, 20);
+
+  return invoiceListLimits.includes(limit as InvoiceListLimit)
+    ? (limit as InvoiceListLimit)
+    : 20;
+};
+
+export const invoiceListQuerySchema = z.preprocess((value) => {
+  const form = asFormRecord(value);
+  const page = Math.max(integerQueryValue(form.page, 1), 1);
+
+  return {
+    page,
+    limit: normalizeInvoiceLimit(form.limit),
+    q: firstQueryValue(form.q).trim(),
+    status: normalizeInvoiceStatusFilter(form.status),
+    sort: normalizeInvoiceSort(form.sort),
+    direction: normalizeInvoiceDirection(form.direction),
+  };
+}, z.object({
+  page: z.number().int().min(1),
+  limit: z.union([z.literal(10), z.literal(20), z.literal(50)]),
+  q: z.string(),
+  status: z.enum(invoiceListStatusOptions).optional(),
+  sort: z.enum(invoiceListSortableColumns),
+  direction: z.enum(["asc", "desc"]),
+}));
+
+export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>;
 
 const dateInput = (requiredMessage: string, invalidMessage: string) =>
   z.preprocess(

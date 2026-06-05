@@ -5,6 +5,7 @@ import {
   formatInvoiceFormErrors,
   formatInvoicePaymentErrors,
   invoiceFormSchema,
+  invoiceListQuerySchema,
   invoiceMetadataSchema,
   invoicePaymentSchema,
   invoiceStatusActionSchema,
@@ -123,7 +124,8 @@ const metadataValuesAfterInvalidSubmission = (
 };
 
 export const listInvoices: RequestHandler = async (req, res) => {
-  const invoices = await getInvoices(req.auth!.organization.id);
+  const query = invoiceListQuerySchema.parse(req.query);
+  const invoices = await getInvoices(req.auth!.organization.id, query);
 
   res.render('pages/invoices/index.njk', invoiceIndexView(invoices));
 };

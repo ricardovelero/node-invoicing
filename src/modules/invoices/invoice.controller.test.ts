@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import {
   createInvoice,
   editInvoice,
+  listInvoices,
   printInvoice,
   recordInvoicePaymentController,
   renderEditInvoice,
@@ -25,6 +26,7 @@ import * as invoiceEmailService from "./invoice-email.service";
 type MockRequest = Request & {
   body: Record<string, unknown>;
   params: Record<string, string>;
+  query: Record<string, unknown>;
   auth: NonNullable<Request["auth"]>;
   path: string;
   flashMessages: Record<string, string[]>;
@@ -46,8 +48,10 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
   };
   invoice: {
+    count: unknown;
     create: unknown;
     findFirst: unknown;
+    findMany: unknown;
     update: unknown;
   };
   invoiceSnapshot: {
@@ -62,8 +66,10 @@ const invoiceEmailServiceMock = invoiceEmailService as unknown as {
 const originalTransaction = prismaMock.$transaction;
 const originalFindMany = prismaMock.customer.findMany;
 const originalOrganizationFindFirst = prismaMock.organization.findFirst;
+const originalInvoiceCount = prismaMock.invoice.count;
 const originalInvoiceCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
+const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalInvoiceUpdate = prismaMock.invoice.update;
 const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
@@ -73,18 +79,25 @@ afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findMany = originalFindMany;
   prismaMock.organization.findFirst = originalOrganizationFindFirst;
+  prismaMock.invoice.count = originalInvoiceCount;
   prismaMock.invoice.create = originalInvoiceCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
+  prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.invoice.update = originalInvoiceUpdate;
   prismaMock.invoiceSnapshot.create = originalInvoiceSnapshotCreate;
   prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
   invoiceEmailServiceMock.sendInvoiceEmail = originalSendInvoiceEmail;
 });
 
-const createRequest = (body: Record<string, unknown> = {}, params: Record<string, string> = {}) =>
+const createRequest = (
+  body: Record<string, unknown> = {},
+  params: Record<string, string> = {},
+  query: Record<string, unknown> = {},
+) =>
   ({
     body,
     params,
+    query,
     path: params.invoiceId ? `/invoices/${params.invoiceId}` : "/invoices/new",
     auth: {
       user: {
@@ -401,6 +414,117 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     },
     errors: {},
     formError: undefined,
+  });
+});
+
+test("listInvoices renders normalized filters and paginated invoice rows", async () => {
+  let findManyArgs: unknown;
+
+  prismaMock.invoice.count = async () => 11;
+  prismaMock.invoice.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [
+      {
+        id: "invoice_1",
+        number: "INV-2026-0001",
+        status: "PAID",
+        issueDate: new Date("2026-05-27T00:00:00.000Z"),
+        dueDate: new Date("2026-06-27T00:00:00.000Z"),
+        totalCents: 10000,
+        currency: "EUR",
+        createdAt: new Date("2026-05-27T00:00:00.000Z"),
+        customer: { name: "Live Ada Co" },
+        snapshot: { customerName: "Snapshot Ada Co" },
+      },
+    ];
+  };
+
+  const req = createRequest(
+    {},
+    {},
+    {
+      page: "2",
+      limit: "10",
+      q: "  acme  ",
+      status: "paid",
+      sort: "dueDate",
+      direction: "asc",
+    },
+  );
+  const res = createResponse();
+
+  await listInvoices(req, res, () => undefined);
+
+  const renderedData = res.renderedData as {
+    filters: {
+      q: string;
+      status: string;
+      limit: number;
+      sort: string;
+      direction: string;
+    };
+    invoiceRows: Array<{ customerName: string }>;
+    pagination: unknown;
+  };
+
+  assert.equal(res.renderedView, "pages/invoices/index.njk");
+  assert.deepEqual(renderedData.filters, {
+    q: "acme",
+    status: "paid",
+    limit: 10,
+    sort: "dueDate",
+    direction: "asc",
+  });
+  assert.deepEqual(renderedData.pagination, {
+    page: 2,
+    limit: 10,
+    totalPages: 2,
+    hasPreviousPage: true,
+    hasNextPage: false,
+    previousPage: 1,
+    nextPage: null,
+    totalCount: 11,
+    pages: [
+      {
+        page: 1,
+        href: "/invoices?page=1&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+        isCurrent: false,
+      },
+      {
+        page: 2,
+        href: "/invoices?page=2&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+        isCurrent: true,
+      },
+    ],
+    previousHref:
+      "/invoices?page=1&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+    nextHref: null,
+  });
+  assert.equal(renderedData.invoiceRows[0]?.customerName, "Snapshot Ada Co");
+  assert.deepEqual(findManyArgs, {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      status: "PAID",
+      OR: [
+        { number: { contains: "acme", mode: "insensitive" } },
+        {
+          customer: {
+            name: { contains: "acme", mode: "insensitive" },
+          },
+        },
+        {
+          snapshot: {
+            is: {
+              customerName: { contains: "acme", mode: "insensitive" },
+            },
+          },
+        },
+      ],
+    },
+    include: { customer: true, snapshot: true },
+    orderBy: { dueDate: "asc" },
+    skip: 10,
+    take: 10,
   });
 });
 
@@ -955,30 +1079,61 @@ test("email delivery status badges use readable labels and semantic variants", (
 });
 
 test("invoiceIndexView prepares customer names and status badges", () => {
-  const rows = invoiceIndexView([
-    {
-      id: "invoice_1",
-      number: "INV-2026-0001",
-      status: "DRAFT",
-      dueDate: new Date("2026-06-27T00:00:00.000Z"),
-      totalCents: 10000,
-      currency: "EUR",
-      customer: { name: "Live Ada Co" },
-      snapshot: { customerName: "Snapshot Ada Co" },
-    },
-    {
-      id: "invoice_2",
-      number: "INV-2026-0002",
+  const rows = invoiceIndexView({
+    invoices: [
+      {
+        id: "invoice_1",
+        number: "INV-2026-0001",
+        status: "DRAFT",
+        issueDate: new Date("2026-05-27T00:00:00.000Z"),
+        dueDate: new Date("2026-06-27T00:00:00.000Z"),
+        totalCents: 10000,
+        currency: "EUR",
+        createdAt: new Date("2026-05-27T00:00:00.000Z"),
+        customer: { name: "Live Ada Co" },
+        snapshot: { customerName: "Snapshot Ada Co" },
+      },
+      {
+        id: "invoice_2",
+        number: "INV-2026-0002",
+        status: "SENT",
+        issueDate: new Date("2026-05-28T00:00:00.000Z"),
+        dueDate: new Date("2026-06-28T00:00:00.000Z"),
+        totalCents: 20000,
+        currency: "EUR",
+        createdAt: new Date("2026-05-28T00:00:00.000Z"),
+        customer: { name: "Live Byron Co" },
+        snapshot: { customerName: "Snapshot Byron Co" },
+      },
+    ],
+    totalCount: 22,
+    query: {
+      page: 2,
+      limit: 20,
+      q: "ada",
       status: "SENT",
-      dueDate: new Date("2026-06-28T00:00:00.000Z"),
-      totalCents: 20000,
-      currency: "EUR",
-      customer: { name: "Live Byron Co" },
-      snapshot: { customerName: "Snapshot Byron Co" },
+      sort: "createdAt",
+      direction: "desc",
     },
-  ] as Parameters<typeof invoiceIndexView>[0]);
+    pagination: {
+      page: 2,
+      limit: 20,
+      totalPages: 2,
+      hasPreviousPage: true,
+      hasNextPage: false,
+      previousPage: 1,
+      nextPage: null,
+    },
+  } as Parameters<typeof invoiceIndexView>[0]);
 
   assert.equal(rows.title, "Invoices");
+  assert.deepEqual(rows.filters, {
+    q: "ada",
+    status: "sent",
+    limit: 20,
+    sort: "createdAt",
+    direction: "desc",
+  });
   assert.equal(rows.invoiceRows[0]?.customerName, "Live Ada Co");
   assert.deepEqual(rows.invoiceRows[0]?.statusBadge, {
     label: "Draft",
@@ -989,6 +1144,16 @@ test("invoiceIndexView prepares customer names and status badges", () => {
     label: "Sent",
     variant: "info",
   });
+  assert.equal(rows.statusOptions.find((option) => option.value === "sent")?.selected, true);
+  assert.equal(
+    rows.sortLinks.createdAt.href,
+    "/invoices?page=1&limit=20&q=ada&status=sent&sort=createdAt&direction=asc",
+  );
+  assert.equal(
+    rows.pagination.previousHref,
+    "/invoices?page=1&limit=20&q=ada&status=sent&sort=createdAt&direction=desc",
+  );
+  assert.equal(rows.emptyMessage, "No invoices on this page.");
 });
 
 test("printInvoice renders issued invoices with snapshot data", async () => {

@@ -5,6 +5,7 @@ import {
   formatInvoiceFormErrors,
   formatInvoiceMetadataErrors,
   invoiceFormSchema,
+  invoiceListQuerySchema,
   invoiceMetadataSchema,
   invoicePaymentSchema,
   invoiceStatusActionSchema,
@@ -352,5 +353,74 @@ describe("invoicePaymentSchema", () => {
     assert.deepEqual(missingDate.error.flatten().fieldErrors.paidAt, [paidAtRequiredMessage]);
     assert.equal(invalidDate.success, false);
     assert.deepEqual(invalidDate.error.flatten().fieldErrors.paidAt, [paidAtInvalidMessage]);
+  });
+});
+
+describe("invoiceListQuerySchema", () => {
+  test("normalizes valid list query params", () => {
+    const result = invoiceListQuerySchema.parse({
+      page: "2",
+      limit: "50",
+      q: "  acme  ",
+      status: "paid",
+      sort: "dueDate",
+      direction: "asc",
+    });
+
+    assert.deepEqual(result, {
+      page: 2,
+      limit: 50,
+      q: "acme",
+      status: "PAID",
+      sort: "dueDate",
+      direction: "asc",
+    });
+  });
+
+  test("falls back to sensible defaults for invalid params", () => {
+    const result = invoiceListQuerySchema.parse({
+      page: "-4",
+      limit: "20abc",
+      q: 123,
+      status: "deleted",
+      sort: "customer.name",
+      direction: "sideways",
+    });
+
+    assert.deepEqual(result, {
+      page: 1,
+      limit: 20,
+      q: "",
+      status: undefined,
+      sort: "createdAt",
+      direction: "desc",
+    });
+  });
+
+  test("accepts only supported page sizes and sortable columns", () => {
+    assert.equal(invoiceListQuerySchema.parse({ limit: "10" }).limit, 10);
+    assert.equal(invoiceListQuerySchema.parse({ limit: "20" }).limit, 20);
+    assert.equal(invoiceListQuerySchema.parse({ limit: "50" }).limit, 50);
+    assert.equal(invoiceListQuerySchema.parse({ limit: "25" }).limit, 20);
+    assert.equal(
+      invoiceListQuerySchema.parse({ sort: "totalCents" }).sort,
+      "totalCents",
+    );
+    assert.equal(
+      invoiceListQuerySchema.parse({ sort: "customer" }).sort,
+      "createdAt",
+    );
+  });
+
+  test("normalizes repeated query values from the first value", () => {
+    const result = invoiceListQuerySchema.parse({
+      page: ["3", "4"],
+      status: ["overdue", "paid"],
+      direction: ["asc", "desc"],
+    });
+
+    assert.equal(result.page, 3);
+    assert.equal(result.status, "OVERDUE");
+    assert.equal(result.direction, "asc");
   });
 });

@@ -24,3 +24,48 @@ test("invoice index renders status badges from presenter rows", () => {
   assert.match(template, /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/);
   assert.doesNotMatch(template, /invoice\.status }}<\/td>/);
 });
+
+test("invoice index renders query-driven filter controls", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /<form[^>]+method="get"[^>]+action="\/invoices"/);
+  assert.match(template, /name="q" value="{{ filters\.q }}"/);
+  assert.match(template, /name="status"/);
+  assert.match(template, /for option in statusOptions/);
+  assert.match(template, /name="limit"/);
+  assert.match(template, /for option in limitOptions/);
+  assert.match(template, /name="sort" value="{{ filters\.sort }}"/);
+  assert.match(template, /name="direction" value="{{ filters\.direction }}"/);
+});
+
+test("invoice index renders safe sortable column links and pagination links", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /href="{{ sortLinks\.number\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.issueDate\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.dueDate\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.status\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.totalCents\.href }}"/);
+  assert.match(template, /href="{{ sortLinks\.createdAt\.href }}"/);
+  assert.doesNotMatch(template, /sortLinks\.customer/);
+  assert.match(template, /for pageLink in pagination\.pages/);
+  assert.match(template, /href="{{ pagination\.previousHref }}"/);
+  assert.match(template, /href="{{ pagination\.nextHref }}"/);
+});
+
+test("invoice index renders issue and created dates plus presenter empty state", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /{{ invoice\.issueDate \| date }}/);
+  assert.match(template, /{{ invoice\.createdAt \| date }}/);
+  assert.match(template, /{{ emptyMessage }}/);
+});

@@ -2,10 +2,16 @@ import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
 import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
+  invoiceListLimits,
+  invoiceListSortableColumns,
+  invoiceListStatusOptions,
   type InvoiceMetadataErrors,
   type InvoiceMetadataIntent,
   type InvoiceMetadataValues,
   type InvoiceFormValues,
+  type InvoiceListDirection,
+  type InvoiceListQuery,
+  type InvoiceListSort,
   type InvoicePaymentErrors,
   type InvoicePaymentValues,
 } from './invoice.schema';
@@ -25,7 +31,7 @@ import {
 
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
 type InvoiceList = Awaited<ReturnType<typeof getInvoices>>;
-type InvoiceListItem = InvoiceList[number];
+type InvoiceListItem = InvoiceList['invoices'][number];
 
 type BadgeVariant =
   | 'neutral'
@@ -96,10 +102,153 @@ export const createInvoiceLineDisplays = <Line extends InvoiceLineDisplayInput>(
     displayTotalCents: line.totalCents + line.taxCents,
   }));
 
-export const invoiceIndexView = (invoices: InvoiceList) => ({
-  title: 'Invoices',
-  invoiceRows: createInvoiceTableRows(invoices),
-});
+const invoiceListSortLabels: Record<InvoiceListSort, string> = {
+  number: 'Number',
+  issueDate: 'Issue',
+  dueDate: 'Due',
+  status: 'Status',
+  totalCents: 'Total',
+  createdAt: 'Created',
+};
+
+const statusToQueryValue = (status: InvoiceStatus) => status.toLowerCase();
+
+const createInvoiceListUrl = (
+  query: InvoiceListQuery,
+  overrides: Partial<InvoiceListQuery> = {},
+) => {
+  const nextQuery = { ...query, ...overrides };
+  const params = new URLSearchParams();
+
+  params.set('page', String(nextQuery.page));
+  params.set('limit', String(nextQuery.limit));
+
+  if (nextQuery.q) {
+    params.set('q', nextQuery.q);
+  }
+
+  if (nextQuery.status) {
+    params.set('status', statusToQueryValue(nextQuery.status));
+  }
+
+  params.set('sort', nextQuery.sort);
+  params.set('direction', nextQuery.direction);
+
+  return `/invoices?${params.toString()}`;
+};
+
+const nextSortDirection = (
+  query: InvoiceListQuery,
+  sort: InvoiceListSort,
+): InvoiceListDirection =>
+  query.sort === sort && query.direction === 'asc' ? 'desc' : 'asc';
+
+const createSortLinks = (query: InvoiceListQuery) =>
+  Object.fromEntries(
+    invoiceListSortableColumns.map((sort) => {
+      const direction = nextSortDirection(query, sort);
+
+      return [
+        sort,
+        {
+          label: invoiceListSortLabels[sort],
+          href: createInvoiceListUrl(query, {
+            page: 1,
+            sort,
+            direction,
+          }),
+          isCurrent: query.sort === sort,
+          direction: query.sort === sort ? query.direction : null,
+          nextDirection: direction,
+        },
+      ];
+    }),
+  ) as Record<
+    InvoiceListSort,
+    {
+      label: string;
+      href: string;
+      isCurrent: boolean;
+      direction: InvoiceListDirection | null;
+      nextDirection: InvoiceListDirection;
+    }
+  >;
+
+const createPaginationPages = (
+  query: InvoiceListQuery,
+  totalPages: number,
+) => {
+  const start = Math.max(1, query.page - 2);
+  const end = Math.min(totalPages, query.page + 2);
+
+  return Array.from({ length: end - start + 1 }, (_, index) => {
+    const page = start + index;
+
+    return {
+      page,
+      href: createInvoiceListUrl(query, { page }),
+      isCurrent: page === query.page,
+    };
+  });
+};
+
+export const invoiceIndexView = (invoiceList: InvoiceList) => {
+  const hasActiveFilters = Boolean(invoiceList.query.q || invoiceList.query.status);
+  const emptyMessage =
+    invoiceList.totalCount > 0
+      ? 'No invoices on this page.'
+      : hasActiveFilters
+        ? 'No invoices match these filters.'
+        : 'No invoices yet.';
+
+  return {
+    title: 'Invoices',
+    invoiceRows: createInvoiceTableRows(invoiceList.invoices),
+    filters: {
+      q: invoiceList.query.q,
+      status: invoiceList.query.status
+        ? statusToQueryValue(invoiceList.query.status)
+        : '',
+      limit: invoiceList.query.limit,
+      sort: invoiceList.query.sort,
+      direction: invoiceList.query.direction,
+    },
+    limitOptions: invoiceListLimits.map((limit) => ({
+      value: String(limit),
+      label: String(limit),
+      selected: limit === invoiceList.query.limit,
+    })),
+    statusOptions: [
+      { value: '', label: 'All statuses', selected: !invoiceList.query.status },
+      ...invoiceListStatusOptions.map((status) => ({
+        value: statusToQueryValue(status),
+        label: createInvoiceStatusBadge(status).label,
+        selected: status === invoiceList.query.status,
+      })),
+    ],
+    sortLinks: createSortLinks(invoiceList.query),
+    pagination: {
+      ...invoiceList.pagination,
+      totalCount: invoiceList.totalCount,
+      pages: createPaginationPages(
+        invoiceList.query,
+        invoiceList.pagination.totalPages,
+      ),
+      previousHref: invoiceList.pagination.previousPage
+        ? createInvoiceListUrl(invoiceList.query, {
+            page: invoiceList.pagination.previousPage,
+          })
+        : null,
+      nextHref: invoiceList.pagination.nextPage
+        ? createInvoiceListUrl(invoiceList.query, {
+            page: invoiceList.pagination.nextPage,
+          })
+        : null,
+    },
+    hasActiveFilters,
+    emptyMessage,
+  };
+};
 
 export const createInvoiceTableRows = <Invoice extends InvoiceListItem>(
   invoices: Invoice[],

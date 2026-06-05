@@ -4,6 +4,8 @@ import { calculateInvoiceTotals } from '../../lib/money';
 import { nextInvoiceNumber } from './invoice-numbering';
 import type {
   InvoiceForm,
+  InvoiceListQuery,
+  InvoiceListSort,
   InvoiceMetadataForm,
   InvoicePaymentForm,
   InvoiceStatusActionForm,
@@ -202,12 +204,83 @@ const replaceInvoiceLines = async (
   };
 };
 
-export const getInvoices = (organizationId: string) =>
-  prisma.invoice.findMany({
-    where: { organizationId },
-    include: { customer: true, snapshot: true },
-    orderBy: { createdAt: 'desc' },
-  });
+const invoiceListOrderBy: Record<
+  InvoiceListSort,
+  (direction: InvoiceListQuery['direction']) => Prisma.InvoiceOrderByWithRelationInput
+> = {
+  number: (direction) => ({ number: direction }),
+  issueDate: (direction) => ({ issueDate: direction }),
+  dueDate: (direction) => ({ dueDate: direction }),
+  status: (direction) => ({ status: direction }),
+  totalCents: (direction) => ({ totalCents: direction }),
+  createdAt: (direction) => ({ createdAt: direction }),
+};
+
+const createInvoiceListWhere = (
+  organizationId: string,
+  query: InvoiceListQuery,
+): Prisma.InvoiceWhereInput => {
+  const where: Prisma.InvoiceWhereInput = { organizationId };
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  if (query.q) {
+    where.OR = [
+      { number: { contains: query.q, mode: 'insensitive' } },
+      {
+        customer: {
+          name: { contains: query.q, mode: 'insensitive' },
+        },
+      },
+      {
+        snapshot: {
+          is: {
+            customerName: { contains: query.q, mode: 'insensitive' },
+          },
+        },
+      },
+    ];
+  }
+
+  return where;
+};
+
+export const getInvoices = async (
+  organizationId: string,
+  query: InvoiceListQuery,
+) => {
+  const where = createInvoiceListWhere(organizationId, query);
+  const skip = (query.page - 1) * query.limit;
+  const orderBy = invoiceListOrderBy[query.sort](query.direction);
+  const [totalCount, invoices] = await Promise.all([
+    prisma.invoice.count({ where }),
+    prisma.invoice.findMany({
+      where,
+      include: { customer: true, snapshot: true },
+      orderBy,
+      skip,
+      take: query.limit,
+    }),
+  ]);
+  const totalPages = Math.max(Math.ceil(totalCount / query.limit), 1);
+
+  return {
+    invoices,
+    totalCount,
+    query,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      totalPages,
+      hasPreviousPage: query.page > 1,
+      hasNextPage: query.page < totalPages,
+      previousPage: query.page > 1 ? query.page - 1 : null,
+      nextPage: query.page < totalPages ? query.page + 1 : null,
+    },
+  };
+};
 
 export const getInvoiceFormOptions = (organizationId: string) =>
   prisma.customer.findMany({

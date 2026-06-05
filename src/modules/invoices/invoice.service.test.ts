@@ -26,6 +26,7 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
   };
   invoice: {
+    count: unknown;
     create: unknown;
     findFirst: unknown;
     findMany: unknown;
@@ -83,6 +84,7 @@ const originalTransaction = prismaMock.$transaction;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalCustomerFindMany = prismaMock.customer.findMany;
 const originalOrganizationFindFirst = prismaMock.organization.findFirst;
+const originalInvoiceCount = prismaMock.invoice.count;
 const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
@@ -98,6 +100,7 @@ afterEach(() => {
   prismaMock.customer.findFirst = originalFindFirst;
   prismaMock.customer.findMany = originalCustomerFindMany;
   prismaMock.organization.findFirst = originalOrganizationFindFirst;
+  prismaMock.invoice.count = originalInvoiceCount;
   prismaMock.invoice.create = originalCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
@@ -1525,21 +1528,108 @@ test("updateInvoiceStatus rejects invalid and terminal transitions without snaps
   assert.equal(snapshotCreateCalls, 0);
 });
 
-test("getInvoices includes invoice snapshots for display", async () => {
+test("getInvoices applies scoped pagination and default sorting", async () => {
+  let countArgs: unknown;
   let findManyArgs: unknown;
 
+  prismaMock.invoice.count = async (args: unknown) => {
+    countArgs = args;
+    return 0;
+  };
   prismaMock.invoice.findMany = async (args: unknown) => {
     findManyArgs = args;
     return [];
   };
 
-  const invoices = await getInvoices("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+  const result = await getInvoices("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    page: 2,
+    limit: 20,
+    q: "",
+    status: undefined,
+    sort: "createdAt",
+    direction: "desc",
+  });
 
-  assert.deepEqual(invoices, []);
+  assert.deepEqual(result.invoices, []);
+  assert.deepEqual(result.pagination, {
+    page: 2,
+    limit: 20,
+    totalPages: 1,
+    hasPreviousPage: true,
+    hasNextPage: false,
+    previousPage: 1,
+    nextPage: null,
+  });
+  assert.deepEqual(countArgs, {
+    where: { organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+  });
   assert.deepEqual(findManyArgs, {
     where: { organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     include: { customer: true, snapshot: true },
     orderBy: { createdAt: "desc" },
+    skip: 20,
+    take: 20,
+  });
+});
+
+test("getInvoices composes search and status filters under the current organization", async () => {
+  let countArgs: unknown;
+  let findManyArgs: unknown;
+
+  prismaMock.invoice.count = async (args: unknown) => {
+    countArgs = args;
+    return 25;
+  };
+  prismaMock.invoice.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [];
+  };
+
+  const result = await getInvoices("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    page: 1,
+    limit: 10,
+    q: "acme",
+    status: "PAID",
+    sort: "dueDate",
+    direction: "asc",
+  });
+
+  const expectedWhere = {
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    status: "PAID",
+    OR: [
+      { number: { contains: "acme", mode: "insensitive" } },
+      {
+        customer: {
+          name: { contains: "acme", mode: "insensitive" },
+        },
+      },
+      {
+        snapshot: {
+          is: {
+            customerName: { contains: "acme", mode: "insensitive" },
+          },
+        },
+      },
+    ],
+  };
+
+  assert.deepEqual(result.pagination, {
+    page: 1,
+    limit: 10,
+    totalPages: 3,
+    hasPreviousPage: false,
+    hasNextPage: true,
+    previousPage: null,
+    nextPage: 2,
+  });
+  assert.deepEqual(countArgs, { where: expectedWhere });
+  assert.deepEqual(findManyArgs, {
+    where: expectedWhere,
+    include: { customer: true, snapshot: true },
+    orderBy: { dueDate: "asc" },
+    skip: 0,
+    take: 10,
   });
 });
 
