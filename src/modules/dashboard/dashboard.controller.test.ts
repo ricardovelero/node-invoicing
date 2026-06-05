@@ -15,9 +15,7 @@ type MockResponse = Response & {
     metrics: {
       customerCount: number;
       invoiceCount: number;
-      openBalanceCents: number;
-      openBalanceCurrency: string;
-      openBalanceIsMixedCurrency: boolean;
+      openBalances: { currency: string; totalCents: number }[];
     };
     latestInvoiceRows: unknown[];
   };
@@ -114,9 +112,7 @@ test("renderDashboard exposes a single-currency open balance", async () => {
   assert.deepEqual(res.renderedData?.metrics, {
     customerCount: 2,
     invoiceCount: 3,
-    openBalanceCents: 12345,
-    openBalanceCurrency: "GBP",
-    openBalanceIsMixedCurrency: false,
+    openBalances: [{ currency: "GBP", totalCents: 12345 }],
   });
   assert.deepEqual(res.renderedData?.latestInvoiceRows, [
     {
@@ -137,10 +133,10 @@ test("renderDashboard exposes a single-currency open balance", async () => {
   ]);
 });
 
-test("renderDashboard flags mixed-currency open balances", async () => {
+test("renderDashboard exposes mixed-currency open balances by currency", async () => {
   mockDashboardQueries([
-    { currency: "EUR", _sum: { totalCents: 10000 } },
     { currency: "USD", _sum: { totalCents: 20000 } },
+    { currency: "EUR", _sum: { totalCents: 10000 } },
   ]);
   const res = createResponse();
 
@@ -149,8 +145,22 @@ test("renderDashboard flags mixed-currency open balances", async () => {
   assert.deepEqual(res.renderedData?.metrics, {
     customerCount: 2,
     invoiceCount: 3,
-    openBalanceCents: 0,
-    openBalanceCurrency: "EUR",
-    openBalanceIsMixedCurrency: true,
+    openBalances: [
+      { currency: "EUR", totalCents: 10000 },
+      { currency: "USD", totalCents: 20000 },
+    ],
+  });
+});
+
+test("renderDashboard falls back to organization currency when no open balance exists", async () => {
+  mockDashboardQueries([]);
+  const res = createResponse();
+
+  await renderDashboard(createRequest(), res, () => undefined);
+
+  assert.deepEqual(res.renderedData?.metrics, {
+    customerCount: 2,
+    invoiceCount: 3,
+    openBalances: [{ currency: "EUR", totalCents: 0 }],
   });
 });

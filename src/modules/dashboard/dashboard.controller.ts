@@ -5,7 +5,7 @@ import { createInvoiceTableRows } from "../invoices/invoice.presenter";
 export const renderDashboard: RequestHandler = async (req, res) => {
   const organizationId = req.auth!.organization.id;
 
-  const [customerCount, invoiceCount, openBalances, latestInvoices] = await Promise.all([
+  const [customerCount, invoiceCount, openBalanceGroups, latestInvoices] = await Promise.all([
     prisma.customer.count({ where: { organizationId } }),
     prisma.invoice.count({ where: { organizationId } }),
     prisma.invoice.groupBy({
@@ -24,14 +24,22 @@ export const renderDashboard: RequestHandler = async (req, res) => {
     }),
   ]);
 
+  const openBalances =
+    openBalanceGroups.length > 0
+      ? openBalanceGroups
+          .map((balance) => ({
+            currency: balance.currency,
+            totalCents: balance._sum.totalCents ?? 0,
+          }))
+          .sort((left, right) => left.currency.localeCompare(right.currency))
+      : [{ currency: req.auth!.organization.currency, totalCents: 0 }];
+
   res.render("pages/dashboard.njk", {
     title: "Dashboard",
     metrics: {
       customerCount,
       invoiceCount,
-      openBalanceCents: openBalances.length === 1 ? openBalances[0]._sum.totalCents ?? 0 : 0,
-      openBalanceCurrency: openBalances[0]?.currency ?? req.auth!.organization.currency,
-      openBalanceIsMixedCurrency: openBalances.length > 1,
+      openBalances,
     },
     latestInvoiceRows: createInvoiceTableRows(latestInvoices),
   });
