@@ -37,6 +37,10 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(source, /\.slice\(0, 80\)\.trim\(\)/);
   assert.match(source, /inputHasExactCatalogMatch/);
   assert.match(source, /itemName === value \|\| itemDescription === value/);
+  assert.match(source, /lineHasEnteredUnitPrice/);
+  assert.match(source, /querySelector<HTMLInputElement>\(\s*'\[data-invoice-unit-price\]'/);
+  assert.match(source, /parseNumberInput\(unitPriceInput\) > 0/);
+  assert.match(source, /if \(!lineHasEnteredUnitPrice\(input\)\)/);
   assert.match(source, /savedCatalogDescriptions/);
   assert.match(source, /fetch\('\/items\/inline'/);
   assert.match(source, /_csrf: csrfInput\.value/);
@@ -51,6 +55,7 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(source, /setCatalogSaveStatus\(input, 'hidden'\)/);
   assert.match(source, /}, 2000\)/);
   assert.match(source, /data-invoice-catalog-save-cancel/);
-  assert.match(source, /setCatalogSaveStatus\(input, 'prompt'\)/);
+  assert.match(source, /event\.target\.matches\('\[data-invoice-unit-price\]'\)/);
+  assert.match(source, /updateCatalogSavePrompt\(input\)/);
   assert.match(source, /data-invoice-catalog-save-retry/);
 });

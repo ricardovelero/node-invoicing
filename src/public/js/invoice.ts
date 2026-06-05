@@ -242,10 +242,24 @@ export const setupInvoiceForms = () => {
         });
       };
 
+      const lineHasEnteredUnitPrice = (input: HTMLInputElement) => {
+        const row = input.closest<HTMLElement>('[data-invoice-line]');
+        const unitPriceInput = row?.querySelector<HTMLInputElement>(
+          '[data-invoice-unit-price]',
+        );
+
+        return Boolean(unitPriceInput && parseNumberInput(unitPriceInput) > 0);
+      };
+
       const updateCatalogSavePrompt = (input: HTMLInputElement) => {
         const value = normalizeCatalogText(input.value);
 
         if (!value) {
+          setCatalogSaveStatus(input, 'hidden');
+          return;
+        }
+
+        if (!lineHasEnteredUnitPrice(input)) {
           setCatalogSaveStatus(input, 'hidden');
           return;
         }
@@ -685,6 +699,16 @@ export const setupInvoiceForms = () => {
           event.target.matches('[data-invoice-discount-value]')
         ) {
           updateTotals();
+
+          if (event.target.matches('[data-invoice-unit-price]')) {
+            const input = event.target
+              .closest<HTMLElement>('[data-invoice-line]')
+              ?.querySelector<HTMLInputElement>('[data-invoice-catalog-input]');
+
+            if (input) {
+              updateCatalogSavePrompt(input);
+            }
+          }
         }
       });
 
@@ -844,7 +868,7 @@ export const setupInvoiceForms = () => {
           );
 
           if (input) {
-            setCatalogSaveStatus(input, 'prompt');
+            updateCatalogSavePrompt(input);
           }
 
           return;
