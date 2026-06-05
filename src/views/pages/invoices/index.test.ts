@@ -59,6 +59,17 @@ test("invoice index renders safe sortable column links and pagination links", ()
   assert.match(template, /href="{{ pagination\.nextHref }}"/);
 });
 
+test("invoice index uses chevrons instead of text labels for sort direction", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /from "components\/sort-indicator\.njk" import sortIndicator/);
+  assert.match(template, /sortIndicator\(sortLinks\.createdAt\)/);
+  assert.doesNotMatch(template, /text-xs uppercase/);
+});
+
 test("invoice index renders issue and created dates plus presenter empty state", () => {
   const template = readFileSync(
     path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),

@@ -1,5 +1,6 @@
 {% extends "layouts/app.njk" %}
 {% from "components/badge.njk" import badge %}
+{% from "components/sort-indicator.njk" import sortIndicator %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -54,38 +55,38 @@
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.number.href }}">
               Number
-              {% if sortLinks.number.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.number.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.number) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">Customer</th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.issueDate.href }}">
               Issue
-              {% if sortLinks.issueDate.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.issueDate.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.issueDate) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.dueDate.href }}">
               Due
-              {% if sortLinks.dueDate.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.dueDate.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.dueDate) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.status.href }}">
               Status
-              {% if sortLinks.status.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.status.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.status) }}
             </a>
           </th>
           <th class="px-4 py-3 text-right font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.totalCents.href }}">
               Total
-              {% if sortLinks.totalCents.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.totalCents.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.totalCents) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.createdAt.href }}">
               Created
-              {% if sortLinks.createdAt.isCurrent %}<span class="text-xs uppercase">{{ sortLinks.createdAt.direction }}</span>{% endif %}
+              {{ sortIndicator(sortLinks.createdAt) }}
             </a>
           </th>
         </tr>
