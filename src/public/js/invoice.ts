@@ -1,5 +1,9 @@
 import { calculateInvoiceTotals, type DiscountType } from '../../lib/money';
 import { setFieldError } from './form-errors';
+import {
+  clearUnsavedChangesDirty,
+  markUnsavedChangesDirty,
+} from './unsaved-changes';
 
 const dueDateBeforeIssueDateMessage =
   'Due date cannot be before the issue date.';
@@ -325,6 +329,7 @@ export const setupInvoiceForms = () => {
         }
 
         hideCatalogSuggestions(input);
+        markUnsavedChangesDirty(form);
         updateTotals();
       };
 
@@ -438,6 +443,7 @@ export const setupInvoiceForms = () => {
         }
 
         linesContainer.append(line);
+        markUnsavedChangesDirty(form);
         updateTotals();
         line
           .querySelector<HTMLInputElement>('[data-invoice-description]')
@@ -594,6 +600,7 @@ export const setupInvoiceForms = () => {
         }
 
         removeButton.closest<HTMLElement>('[data-invoice-line]')?.remove();
+        markUnsavedChangesDirty(form);
         updateTotals();
       });
 
@@ -697,6 +704,7 @@ export const setupInlineEditors = () => {
 
       cancelButton.addEventListener('click', () => {
         input.value = input.defaultValue;
+        clearUnsavedChangesDirty(panel.closest('form'));
         setOpen(false);
       });
     });

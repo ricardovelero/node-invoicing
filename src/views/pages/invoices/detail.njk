@@ -86,7 +86,7 @@
                 <p class="text-muted">No payment instructions saved.</p>
               {% endif %}
             </div>
-            <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-3 space-y-3" data-inline-editor-panel>
+            <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-3 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
               <input type="hidden" name="_csrf" value="{{ csrfToken }}">
               <input type="hidden" name="intent" value="paymentInstructions">
               <label class="sr-only" for="paymentInstructions">Payment instructions</label>
@@ -118,7 +118,7 @@
               <p class="text-muted">No payment instructions saved.</p>
             {% endif %}
           </div>
-          <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel>
+          <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
             <input type="hidden" name="_csrf" value="{{ csrfToken }}">
             <input type="hidden" name="intent" value="paymentInstructions">
             <label class="sr-only" for="paymentInstructions">Payment instructions</label>
@@ -179,7 +179,7 @@
             <p class="text-muted">No internal notes saved.</p>
           {% endif %}
         </div>
-        <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isNotesEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel>
+        <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isNotesEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
           <input type="hidden" name="intent" value="notes">
           <div>

@@ -11,6 +11,7 @@ test("item form includes csrf and configurable create/edit fields", () => {
 
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
   assert.match(template, /action="{{ formAction or '\/items' }}"/);
+  assert.match(template, /data-unsaved-changes-guard/);
   assert.match(template, /name="name"/);
   assert.match(template, /name="description"/);
   assert.match(template, /name="unitPrice"/);

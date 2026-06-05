@@ -9,6 +9,7 @@ const template = readFileSync(
 );
 
 test("invoice form includes payment instructions and internal notes fields", () => {
+  assert.match(template, /data-unsaved-changes-guard/);
   assert.match(template, /name="paymentInstructions"/);
   assert.match(template, /values\.paymentInstructions/);
   assert.match(template, /errors\.paymentInstructions/);

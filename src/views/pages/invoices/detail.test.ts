@@ -77,6 +77,7 @@ test("invoice detail includes separate inline metadata editors", () => {
   const template = readTemplate("detail.njk");
 
   assert.match(template, /action="\/invoices\/{{ invoice\.id }}\/metadata"/);
+  assert.equal(template.match(/data-unsaved-changes-guard/g)?.length, 3);
   assert.match(template, /data-inline-editor/);
   assert.match(template, /data-inline-editor-open/);
   assert.match(template, /data-inline-editor-panel/);

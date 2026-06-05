@@ -22,3 +22,11 @@ test("invoice frontend includes catalog autocomplete behavior", () => {
   assert.match(source, /unitPriceInput\.value = ['"]{2}/);
   assert.match(source, /unitPriceInput\.focus\(\)/);
 });
+
+test("invoice frontend marks custom invoice changes as dirty", () => {
+  assert.match(source, /markUnsavedChangesDirty/);
+  assert.match(source, /hideCatalogSuggestions\(input\);\s*markUnsavedChangesDirty\(form\);/);
+  assert.match(source, /linesContainer\.append\(line\);\s*markUnsavedChangesDirty\(form\);/);
+  assert.match(source, /\.remove\(\);\s*markUnsavedChangesDirty\(form\);/);
+  assert.match(source, /clearUnsavedChangesDirty\(panel\.closest\('form'\)\)/);
+});

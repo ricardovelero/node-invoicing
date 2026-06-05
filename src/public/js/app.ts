@@ -1,5 +1,6 @@
 import { setupPasswordToggles, setupRegisterForms } from "./auth";
 import { setupInlineEditors, setupInvoiceForms } from "./invoice";
+import { setupUnsavedChangesGuards } from "./unsaved-changes";
 
 const setupFlashMessages = () => {
   document.querySelectorAll<HTMLElement>("[data-auto-dismiss]").forEach((element) => {
@@ -22,6 +23,7 @@ const setupPrintButtons = () => {
 
 setupInvoiceForms();
 setupInlineEditors();
+setupUnsavedChangesGuards();
 setupFlashMessages();
 setupPrintButtons();
 setupRegisterForms();
