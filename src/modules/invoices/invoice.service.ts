@@ -32,7 +32,7 @@ const allowedStatusActions: Record<InvoiceStatus, InvoiceStatusAction[]> = {
 export const getAllowedInvoiceStatusActions = (status: InvoiceStatus) =>
   allowedStatusActions[status];
 
-export const paymentEligibleStatuses: InvoiceStatus[] = [
+const paymentEligibleStatuses: InvoiceStatus[] = [
   'SENT',
   'PARTIALLY_PAID',
   'OVERDUE',
@@ -206,7 +206,9 @@ const replaceInvoiceLines = async (
 
 const invoiceListOrderBy: Record<
   InvoiceListSort,
-  (direction: InvoiceListQuery['direction']) => Prisma.InvoiceOrderByWithRelationInput
+  (
+    direction: InvoiceListQuery['direction'],
+  ) => Prisma.InvoiceOrderByWithRelationInput
 > = {
   number: (direction) => ({ number: direction }),
   issueDate: (direction) => ({ issueDate: direction }),
@@ -320,7 +322,11 @@ export const createInvoiceRecord = async (
   const totals = calculateTotalsFromInvoiceForm(data);
 
   return prisma.$transaction(async (tx) => {
-    const customer = await findActiveCustomer(tx, organizationId, data.customerId);
+    const customer = await findActiveCustomer(
+      tx,
+      organizationId,
+      data.customerId,
+    );
 
     if (!customer) {
       return { ok: false as const, reason: 'invalidCustomer' as const };
@@ -375,7 +381,10 @@ export const createSentInvoiceRecord = async (
       return { ok: false as const, reason: 'missingCustomerEmail' as const };
     }
 
-    const organization = await findOrganizationEmailSettings(tx, organizationId);
+    const organization = await findOrganizationEmailSettings(
+      tx,
+      organizationId,
+    );
 
     if (!organization?.billingEmail?.trim()) {
       return { ok: false as const, reason: 'missingBillingEmail' as const };
@@ -456,7 +465,11 @@ export const updateDraftInvoiceRecord = async (
     }
 
     const { invoice } = editableInvoice;
-    const customer = await findActiveCustomer(tx, organizationId, data.customerId);
+    const customer = await findActiveCustomer(
+      tx,
+      organizationId,
+      data.customerId,
+    );
 
     if (!customer) {
       return { ok: false as const, reason: 'invalidCustomer' as const };
@@ -509,7 +522,7 @@ type InvoiceSnapshotSource = {
   snapshot: { invoiceId: string } | null;
 };
 
-export const captureInvoiceSnapshot = (
+const captureInvoiceSnapshot = (
   tx: Prisma.TransactionClient,
   invoice: InvoiceSnapshotSource,
 ) => {
@@ -728,11 +741,10 @@ export const recordInvoicePayment = (
 
     const nextOutstandingCents = outstandingCents - data.amountCents;
     const status: InvoiceStatus =
-      nextOutstandingCents === 0
-        ? 'PAID'
-        : invoice.status === 'OVERDUE' || isPastDueDate(invoice.dueDate)
-          ? 'OVERDUE'
-          : 'PARTIALLY_PAID';
+      nextOutstandingCents === 0 ? 'PAID'
+      : invoice.status === 'OVERDUE' || isPastDueDate(invoice.dueDate) ?
+        'OVERDUE'
+      : 'PARTIALLY_PAID';
 
     const payment = await tx.payment.create({
       data: {

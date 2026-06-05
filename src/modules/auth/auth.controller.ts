@@ -62,7 +62,7 @@ export const renderLogin: RequestHandler = (req, res) => {
   });
 };
 
-export const registerUser: RequestHandler = async (req, res, next) => {
+export const handleRegister: RequestHandler = async (req, res, next) => {
   try {
     const result = registerSchema.safeParse(req.body);
     const values = registerValuesSchema.parse(req.body);

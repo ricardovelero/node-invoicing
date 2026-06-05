@@ -1,5 +1,5 @@
-export const defaultCurrency = "EUR";
-export const defaultLocale = "en-GB";
+const defaultCurrency = 'EUR';
+const defaultLocale = 'en-GB';
 
 export const formatMoney = (
   amountMinorUnits: number,
@@ -7,14 +7,14 @@ export const formatMoney = (
   locale = defaultLocale,
 ) =>
   new Intl.NumberFormat(locale, {
-    style: "currency",
+    style: 'currency',
     currency,
   }).format(amountMinorUnits / 100);
 
 export const lineTotalCents = (quantity: number, unitPriceCents: number) =>
   Math.round(quantity * unitPriceCents);
 
-export type DiscountType = "amount" | "percent";
+export type DiscountType = 'amount' | 'percent';
 
 export type DiscountInput = {
   type: DiscountType;
@@ -50,17 +50,23 @@ export type InvoiceCalculation = {
 
 export const amountToCents = (amount: number) => Math.round(amount * 100);
 
-export const percentToBasisPoints = (percent: number) => Math.round(percent * 100);
+export const percentToBasisPoints = (percent: number) =>
+  Math.round(percent * 100);
 
-export const calculateDiscountCents = (subtotalCents: number, discount: DiscountInput) => {
+export const calculateDiscountCents = (
+  subtotalCents: number,
+  discount: DiscountInput,
+) => {
   if (subtotalCents <= 0 || discount.value <= 0) {
     return 0;
   }
 
   const discountCents =
-    discount.type === "amount"
-      ? amountToCents(discount.value)
-      : Math.round((subtotalCents * percentToBasisPoints(discount.value)) / 10_000);
+    discount.type === 'amount' ?
+      amountToCents(discount.value)
+    : Math.round(
+        (subtotalCents * percentToBasisPoints(discount.value)) / 10_000,
+      );
 
   return Math.min(discountCents, subtotalCents);
 };
@@ -84,7 +90,8 @@ const allocateCents = (amountCents: number, weights: number[]) => {
       remainder: rawShare - Math.floor(rawShare),
     };
   });
-  let remainingCents = amountCents - shares.reduce((total, share) => total + share.cents, 0);
+  let remainingCents =
+    amountCents - shares.reduce((total, share) => total + share.cents, 0);
 
   [...shares]
     .sort((left, right) => right.remainder - left.remainder)
@@ -97,7 +104,9 @@ const allocateCents = (amountCents: number, weights: number[]) => {
       remainingCents -= 1;
     });
 
-  return shares.sort((left, right) => left.index - right.index).map((share) => share.cents);
+  return shares
+    .sort((left, right) => left.index - right.index)
+    .map((share) => share.cents);
 };
 
 export const calculateInvoiceTotals = (
@@ -132,7 +141,10 @@ export const calculateInvoiceTotals = (
     (total, line) => total + line.taxableCents,
     0,
   );
-  const discountCents = calculateDiscountCents(taxableSubtotalCents, invoiceDiscount);
+  const discountCents = calculateDiscountCents(
+    taxableSubtotalCents,
+    invoiceDiscount,
+  );
   const invoiceDiscountAllocations = allocateCents(
     discountCents,
     linesBeforeInvoiceDiscount.map((line) => line.taxableCents),

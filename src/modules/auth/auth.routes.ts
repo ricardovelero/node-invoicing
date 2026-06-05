@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { loginUser, logoutUser, registerUser, renderLogin, renderRegister } from "./auth.controller";
+import { handleRegister, loginUser, logoutUser, renderLogin, renderRegister } from "./auth.controller";
 
 export const authRouter = Router();
 
 authRouter.get("/register", renderRegister);
-authRouter.post("/register", registerUser);
+authRouter.post("/register", handleRegister);
 
 authRouter.get("/login", renderLogin);
 authRouter.post("/login", loginUser);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { NextFunction, Request, Response } from "express";
-import { loginUser, logoutUser, registerUser } from "./auth.controller";
+import { handleRegister, loginUser, logoutUser } from "./auth.controller";
 import * as authService from "./auth.service";
 
 type MockSession = {
@@ -119,7 +119,7 @@ const createNext = () => {
   };
 };
 
-test("registerUser stores the service result in session after creating an account", async () => {
+test("handleRegister stores the service result in session after creating an account", async () => {
   let serviceData: unknown;
   authServiceMock.registerUser = async (data) => {
     serviceData = data;
@@ -135,7 +135,7 @@ test("registerUser stores the service result in session after creating an accoun
   const res = createResponse();
   const next = createNext();
 
-  await registerUser(req, res, next.next);
+  await handleRegister(req, res, next.next);
 
   assert.equal(next.error, undefined);
   assert.deepEqual(serviceData, {
@@ -151,7 +151,7 @@ test("registerUser stores the service result in session after creating an accoun
   assert.equal(res.redirectedTo, "/");
 });
 
-test("registerUser rejects weak passwords and missing organization before creating records", async () => {
+test("handleRegister rejects weak passwords and missing organization before creating records", async () => {
   let serviceCalls = 0;
 
   authServiceMock.registerUser = async () => {
@@ -168,7 +168,7 @@ test("registerUser rejects weak passwords and missing organization before creati
   const res = createResponse();
   const next = createNext();
 
-  await registerUser(req, res, next.next);
+  await handleRegister(req, res, next.next);
 
   assert.equal(next.error, undefined);
   assert.equal(serviceCalls, 0);
@@ -189,7 +189,7 @@ test("registerUser rejects weak passwords and missing organization before creati
   });
 });
 
-test("registerUser renders duplicate email errors returned by the service", async () => {
+test("handleRegister renders duplicate email errors returned by the service", async () => {
   authServiceMock.registerUser = async () => ({
     ok: false,
     reason: "emailAlreadyExists",
@@ -204,7 +204,7 @@ test("registerUser renders duplicate email errors returned by the service", asyn
   const res = createResponse();
   const next = createNext();
 
-  await registerUser(req, res, next.next);
+  await handleRegister(req, res, next.next);
 
   assert.equal(next.error, undefined);
   assert.equal(req.session.regenerateCalls, 0);

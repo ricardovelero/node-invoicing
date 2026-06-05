@@ -1,7 +1,7 @@
-import { Prisma, type OrganizationRole } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import { prisma } from "../../db/prisma";
-import type { RegisterForm } from "./auth.schema";
+import { Prisma, type OrganizationRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { prisma } from '../../db/prisma';
+import type { RegisterForm } from './auth.schema';
 
 export type AuthSessionContext = {
   userId: string;
@@ -10,17 +10,26 @@ export type AuthSessionContext = {
 
 export type RegisterUserResult =
   | ({ ok: true } & AuthSessionContext)
-  | { ok: false; reason: "emailAlreadyExists" | "databaseError" };
+  | { ok: false; reason: 'emailAlreadyExists' | 'databaseError' };
 
 export type AuthenticateUserResult =
   | ({ ok: true } & AuthSessionContext)
-  | { ok: false; reason: "invalidCredentials" | "noOrganizationMembership" | "databaseError" };
+  | {
+      ok: false;
+      reason:
+        | 'invalidCredentials'
+        | 'noOrganizationMembership'
+        | 'databaseError';
+    };
 
 export type InitialOrganizationResult =
   | { ok: true; organizationId: string; role: OrganizationRole }
-  | { ok: false; reason: "noOrganizationMembership" | "userNotFound" | "databaseError" };
+  | {
+      ok: false;
+      reason: 'noOrganizationMembership' | 'userNotFound' | 'databaseError';
+    };
 
-export const normalizeEmail = (email: string) => email.toLowerCase().trim();
+const normalizeEmail = (email: string) => email.toLowerCase().trim();
 
 const hashPassword = (password: string) => bcrypt.hash(password, 12);
 
@@ -33,7 +42,9 @@ const isPrismaDatabaseError = (error: unknown) =>
   error instanceof Prisma.PrismaClientRustPanicError ||
   error instanceof Prisma.PrismaClientInitializationError;
 
-export const registerUser = async (data: RegisterForm): Promise<RegisterUserResult> => {
+export const registerUser = async (
+  data: RegisterForm,
+): Promise<RegisterUserResult> => {
   try {
     const passwordHash = await hashPassword(data.password);
 
@@ -56,7 +67,7 @@ export const registerUser = async (data: RegisterForm): Promise<RegisterUserResu
         data: {
           userId: createdUser.id,
           organizationId: organization.id,
-          role: "OWNER",
+          role: 'OWNER',
         },
       });
 
@@ -69,13 +80,13 @@ export const registerUser = async (data: RegisterForm): Promise<RegisterUserResu
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
+      error.code === 'P2002'
     ) {
-      return { ok: false, reason: "emailAlreadyExists" };
+      return { ok: false, reason: 'emailAlreadyExists' };
     }
 
     if (isPrismaDatabaseError(error)) {
-      return { ok: false, reason: "databaseError" };
+      return { ok: false, reason: 'databaseError' };
     }
 
     throw error;
@@ -91,26 +102,29 @@ export const authenticateUser = async (data: {
       where: { email: normalizeEmail(data.email) },
       include: {
         memberships: {
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: 'asc' },
           take: 1,
         },
       },
     });
 
     if (!user) {
-      return { ok: false, reason: "invalidCredentials" };
+      return { ok: false, reason: 'invalidCredentials' };
     }
 
-    const isPasswordValid = await verifyPassword(data.password, user.passwordHash);
+    const isPasswordValid = await verifyPassword(
+      data.password,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
-      return { ok: false, reason: "invalidCredentials" };
+      return { ok: false, reason: 'invalidCredentials' };
     }
 
     const membership = user.memberships[0];
 
     if (!membership) {
-      return { ok: false, reason: "noOrganizationMembership" };
+      return { ok: false, reason: 'noOrganizationMembership' };
     }
 
     return {
@@ -120,7 +134,7 @@ export const authenticateUser = async (data: {
     };
   } catch (error) {
     if (isPrismaDatabaseError(error)) {
-      return { ok: false, reason: "databaseError" };
+      return { ok: false, reason: 'databaseError' };
     }
 
     throw error;
@@ -135,7 +149,7 @@ export const getInitialOrganizationForUser = async (
       where: { id: userId },
       include: {
         memberships: {
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: 'asc' },
           take: 1,
           select: {
             organizationId: true,
@@ -146,13 +160,13 @@ export const getInitialOrganizationForUser = async (
     });
 
     if (!user) {
-      return { ok: false, reason: "userNotFound" };
+      return { ok: false, reason: 'userNotFound' };
     }
 
     const membership = user.memberships[0];
 
     if (!membership) {
-      return { ok: false, reason: "noOrganizationMembership" };
+      return { ok: false, reason: 'noOrganizationMembership' };
     }
 
     return {
@@ -162,7 +176,7 @@ export const getInitialOrganizationForUser = async (
     };
   } catch (error) {
     if (isPrismaDatabaseError(error)) {
-      return { ok: false, reason: "databaseError" };
+      return { ok: false, reason: 'databaseError' };
     }
 
     throw error;

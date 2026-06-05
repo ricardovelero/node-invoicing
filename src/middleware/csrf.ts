@@ -1,19 +1,20 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import type { RequestHandler } from "express";
+import type { RequestHandler } from 'express';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 
-export const csrfFieldName = "_csrf";
-export const csrfErrorMessage = "Invalid CSRF token. Please refresh the page and try again.";
+const csrfFieldName = '_csrf';
+export const csrfErrorMessage =
+  'Invalid CSRF token. Please refresh the page and try again.';
 
-const createCsrfToken = () => randomBytes(32).toString("hex");
+const createCsrfToken = () => randomBytes(32).toString('hex');
 
 const readSubmittedToken = (body: unknown) => {
-  if (!body || typeof body !== "object") {
-    return "";
+  if (!body || typeof body !== 'object') {
+    return '';
   }
 
   const token = (body as Record<string, unknown>)[csrfFieldName];
 
-  return typeof token === "string" ? token : "";
+  return typeof token === 'string' ? token : '';
 };
 
 const isValidCsrfToken = (submittedToken: string, sessionToken: string) => {
@@ -32,7 +33,7 @@ export const csrfProtection: RequestHandler = (req, res, next) => {
   req.session.csrfToken ??= createCsrfToken();
   res.locals.csrfToken = req.session.csrfToken;
 
-  if (req.method !== "POST") {
+  if (req.method !== 'POST') {
     return next();
   }
 

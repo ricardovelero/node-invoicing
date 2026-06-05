@@ -11,6 +11,7 @@ import {
   invoiceStatusActionSchema,
   paidAtInvalidMessage,
   paidAtRequiredMessage,
+  paymentAmountInvalidMessage,
   paymentAmountPositiveMessage,
   paymentAmountRequiredMessage,
 } from "./invoice.schema";
@@ -329,6 +330,10 @@ describe("invoicePaymentSchema", () => {
       amount: "0",
       paidAt: "2026-05-29",
     });
+    const invalidAmount = invoicePaymentSchema.safeParse({
+      amount: "not-a-number",
+      paidAt: "2026-05-29",
+    });
 
     assert.equal(missingAmount.success, false);
     assert.deepEqual((missingAmount.error.flatten().fieldErrors as Record<string, string[]>).amount, [
@@ -337,6 +342,10 @@ describe("invoicePaymentSchema", () => {
     assert.equal(zeroAmount.success, false);
     assert.deepEqual((zeroAmount.error.flatten().fieldErrors as Record<string, string[]>).amount, [
       paymentAmountPositiveMessage,
+    ]);
+    assert.equal(invalidAmount.success, false);
+    assert.deepEqual((invalidAmount.error.flatten().fieldErrors as Record<string, string[]>).amount, [
+      paymentAmountInvalidMessage,
     ]);
   });
 

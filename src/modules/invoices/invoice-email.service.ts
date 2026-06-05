@@ -1,23 +1,22 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import path from "node:path";
-import type {
-  InvoiceEmailDeliveryStatus,
-  Prisma,
-} from "@prisma/client";
-import nunjucks from "nunjucks";
-import { env } from "../../config/env";
-import { prisma } from "../../db/prisma";
-import { formatDate } from "../../lib/dates";
-import { formatMoney } from "../../lib/money";
+import type { InvoiceEmailDeliveryStatus, Prisma } from '@prisma/client';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import path from 'node:path';
+import nunjucks from 'nunjucks';
+import { env } from '../../config/env';
+import { prisma } from '../../db/prisma';
+import { formatDate } from '../../lib/dates';
+import { formatMoney } from '../../lib/money';
+import type { InvoiceEmailForm } from './invoice-email.schema';
+import { createInvoiceDisplay } from './invoice.presenter';
 import {
   calculateInvoicePaymentSummary,
   isInvoiceEffectivelyOverdue,
-} from "./invoice.service";
-import { createInvoiceDisplay } from "./invoice.presenter";
-import type { InvoiceEmailForm } from "./invoice-email.schema";
+} from './invoice.service';
 
 type EmailInvoice = NonNullable<Awaited<ReturnType<typeof getEmailInvoice>>>;
-type PublicInvoice = NonNullable<Awaited<ReturnType<typeof getPublicInvoiceByToken>>>;
+type PublicInvoice = NonNullable<
+  Awaited<ReturnType<typeof getPublicInvoiceByToken>>
+>;
 
 export type PostmarkWebhookPayload = {
   RecordType?: string;
@@ -40,12 +39,10 @@ export type PostmarkEmailPayload = {
   Metadata: Record<string, string>;
   MessageStream: string;
   TrackOpens: boolean;
-  TrackLinks: "None";
+  TrackLinks: 'None';
 };
 
-export type SendPostmarkEmail = (
-  payload: PostmarkEmailPayload,
-) => Promise<
+export type SendPostmarkEmail = (payload: PostmarkEmailPayload) => Promise<
   | {
       ok: true;
       providerMessageId: string;
@@ -55,28 +52,27 @@ export type SendPostmarkEmail = (
   | { ok: false; errorMessage: string; response?: unknown }
 >;
 
-const emailViewsPath = path.join(process.cwd(), "src", "views");
+const emailViewsPath = path.join(process.cwd(), 'src', 'views');
 const emailNunjucksEnv = nunjucks.configure(emailViewsPath, {
   autoescape: true,
-  noCache: env.NODE_ENV === "development",
+  noCache: env.NODE_ENV === 'development',
 });
 
-emailNunjucksEnv.addFilter("money", formatMoney);
-emailNunjucksEnv.addFilter("date", formatDate);
+emailNunjucksEnv.addFilter('money', formatMoney);
+emailNunjucksEnv.addFilter('date', formatDate);
 
 const getAppUrl = () =>
-  (env.APP_URL ?? `http://localhost:${env.PORT}`).replace(/\/$/, "");
+  (env.APP_URL ?? `http://localhost:${env.PORT}`).replace(/\/$/, '');
 
 const hashToken = (token: string) =>
-  createHash("sha256").update(token).digest("hex");
+  createHash('sha256').update(token).digest('hex');
 
-const createPublicToken = () => randomBytes(32).toString("base64url");
+const createPublicToken = () => randomBytes(32).toString('base64url');
 
 const toJsonValue = (value: unknown): Prisma.InputJsonValue =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
-const normalizeBasicAuthValue = (value: string) =>
-  Buffer.from(value, "utf8");
+const normalizeBasicAuthValue = (value: string) => Buffer.from(value, 'utf8');
 
 const safeEqual = (left: string, right: string) => {
   const leftBuffer = normalizeBasicAuthValue(left);
@@ -95,12 +91,14 @@ export const isValidPostmarkWebhookBasicAuth = (authorization?: string) => {
     return false;
   }
 
-  if (!authorization?.startsWith("Basic ")) {
+  if (!authorization?.startsWith('Basic ')) {
     return false;
   }
 
-  const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
-  const separatorIndex = decoded.indexOf(":");
+  const decoded = Buffer.from(authorization.slice(6), 'base64').toString(
+    'utf8',
+  );
+  const separatorIndex = decoded.indexOf(':');
 
   if (separatorIndex === -1) {
     return false;
@@ -115,21 +113,21 @@ export const isValidPostmarkWebhookBasicAuth = (authorization?: string) => {
   );
 };
 
-export const postmarkEmailProvider: SendPostmarkEmail = async (payload) => {
+const postmarkEmailProvider: SendPostmarkEmail = async (payload) => {
   if (!env.POSTMARK_SERVER_TOKEN || !env.POSTMARK_FROM) {
     return {
       ok: false,
       errorMessage:
-        "Postmark is not configured. Set POSTMARK_SERVER_TOKEN and POSTMARK_FROM.",
+        'Postmark is not configured. Set POSTMARK_SERVER_TOKEN and POSTMARK_FROM.',
     };
   }
 
   const response = await fetch(env.POSTMARK_API_URL, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Postmark-Server-Token": env.POSTMARK_SERVER_TOKEN,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Postmark-Server-Token': env.POSTMARK_SERVER_TOKEN,
     },
     body: JSON.stringify(payload),
   });
@@ -153,7 +151,7 @@ export const postmarkEmailProvider: SendPostmarkEmail = async (payload) => {
   if (!responseBody.MessageID) {
     return {
       ok: false,
-      errorMessage: "Postmark did not return a message id.",
+      errorMessage: 'Postmark did not return a message id.',
       response: responseBody,
     };
   }
@@ -171,13 +169,13 @@ const invoiceEmailInclude = {
   organization: true,
   snapshot: true,
   lines: {
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: 'asc' },
   },
   payments: {
-    orderBy: { paidAt: "desc" },
+    orderBy: { paidAt: 'desc' },
   },
   emailDeliveries: {
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: 10,
   },
 } satisfies Prisma.InvoiceInclude;
@@ -245,11 +243,11 @@ const renderInvoiceEmailBodies = (data: {
 
   return {
     htmlBody: emailNunjucksEnv.render(
-      "emails/invoices/send-html.njk",
+      'emails/invoices/send-html.njk',
       templateData,
     ),
     textBody: emailNunjucksEnv.render(
-      "emails/invoices/send-text.njk",
+      'emails/invoices/send-text.njk',
       templateData,
     ),
   };
@@ -268,13 +266,13 @@ const buildPostmarkPayload = (
   });
 
   return {
-    From: env.POSTMARK_FROM ?? "",
+    From: env.POSTMARK_FROM ?? '',
     To: form.toEmail,
     Subject: subject,
     HtmlBody: htmlBody,
     TextBody: textBody,
     ReplyTo: invoice.organization.billingEmail ?? undefined,
-    Tag: "invoice",
+    Tag: 'invoice',
     Metadata: {
       invoiceId: invoice.id,
       organizationId: invoice.organizationId,
@@ -283,7 +281,7 @@ const buildPostmarkPayload = (
     },
     MessageStream: env.POSTMARK_MESSAGE_STREAM,
     TrackOpens: false,
-    TrackLinks: "None" as const,
+    TrackLinks: 'None' as const,
   };
 };
 
@@ -296,15 +294,15 @@ export const sendInvoiceEmail = async (
   const invoice = await getEmailInvoice(organizationId, invoiceId);
 
   if (!invoice) {
-    return { ok: false as const, reason: "notFound" as const };
+    return { ok: false as const, reason: 'notFound' as const };
   }
 
   if (!isInvoiceEmailReady(invoice)) {
-    return { ok: false as const, reason: "notPrintable" as const };
+    return { ok: false as const, reason: 'notPrintable' as const };
   }
 
   if (!invoice.organization.billingEmail) {
-    return { ok: false as const, reason: "missingBillingEmail" as const };
+    return { ok: false as const, reason: 'missingBillingEmail' as const };
   }
 
   const subject = createEmailSubject(invoice);
@@ -318,7 +316,7 @@ export const sendInvoiceEmail = async (
           publicAccessTokenId: access.publicAccessToken.id,
           toEmail: form.toEmail,
           subject,
-          status: "PENDING",
+          status: 'PENDING',
         },
       });
 
@@ -338,7 +336,7 @@ export const sendInvoiceEmail = async (
     await prisma.invoiceEmailDelivery.update({
       where: { id: createdDelivery.id },
       data: {
-        status: "FAILED",
+        status: 'FAILED',
         failedAt: new Date(),
         errorMessage: sendResult.errorMessage,
         metadata: {
@@ -350,7 +348,7 @@ export const sendInvoiceEmail = async (
 
     return {
       ok: false as const,
-      reason: "providerFailure" as const,
+      reason: 'providerFailure' as const,
       deliveryId: createdDelivery.id,
       errorMessage: sendResult.errorMessage,
     };
@@ -359,11 +357,10 @@ export const sendInvoiceEmail = async (
   const sentDelivery = await prisma.invoiceEmailDelivery.update({
     where: { id: createdDelivery.id },
     data: {
-      status: "SENT",
+      status: 'SENT',
       providerMessageId: sendResult.providerMessageId,
-      sentAt: sendResult.submittedAt
-        ? new Date(sendResult.submittedAt)
-        : new Date(),
+      sentAt:
+        sendResult.submittedAt ? new Date(sendResult.submittedAt) : new Date(),
       metadata: {
         postmarkPayload: toJsonValue(payload),
         postmarkResponse: toJsonValue(sendResult.response),
@@ -378,32 +375,29 @@ export const sendInvoiceEmail = async (
   };
 };
 
-const webhookStatusMap: Partial<
-  Record<string, InvoiceEmailDeliveryStatus>
-> = {
-  Delivery: "DELIVERED",
-  Bounce: "BOUNCED",
-  SpamComplaint: "SPAM_COMPLAINT",
-  SmtpApiError: "FAILED",
-  SMTPAPIError: "FAILED",
+const webhookStatusMap: Partial<Record<string, InvoiceEmailDeliveryStatus>> = {
+  Delivery: 'DELIVERED',
+  Bounce: 'BOUNCED',
+  SpamComplaint: 'SPAM_COMPLAINT',
+  SmtpApiError: 'FAILED',
+  SMTPAPIError: 'FAILED',
 };
 
 const messageIdFromWebhook = (payload: PostmarkWebhookPayload) =>
-  typeof payload.MessageID === "string"
-    ? payload.MessageID
-    : typeof payload.MessageId === "string"
-      ? payload.MessageId
-      : null;
+  typeof payload.MessageID === 'string' ? payload.MessageID
+  : typeof payload.MessageId === 'string' ? payload.MessageId
+  : null;
 
 export const recordPostmarkWebhookEvent = async (
   payload: PostmarkWebhookPayload,
 ) => {
   const providerMessageId = messageIdFromWebhook(payload);
   const recordType =
-    typeof payload.RecordType === "string" ? payload.RecordType : "Unknown";
+    typeof payload.RecordType === 'string' ? payload.RecordType : 'Unknown';
   const status = webhookStatusMap[recordType];
-  const delivery = providerMessageId
-    ? await prisma.invoiceEmailDelivery.findFirst({
+  const delivery =
+    providerMessageId ?
+      await prisma.invoiceEmailDelivery.findFirst({
         where: { providerMessageId },
       })
     : null;
@@ -425,33 +419,32 @@ export const recordPostmarkWebhookEvent = async (
   const updateData: Prisma.InvoiceEmailDeliveryUpdateInput = {
     status,
     metadata: {
-      ...(delivery.metadata &&
-      typeof delivery.metadata === "object" &&
-      !Array.isArray(delivery.metadata)
-        ? delivery.metadata
-        : {}),
+      ...((
+        delivery.metadata &&
+        typeof delivery.metadata === 'object' &&
+        !Array.isArray(delivery.metadata)
+      ) ?
+        delivery.metadata
+      : {}),
       lastWebhookPayload: toJsonValue(payload),
     },
   };
 
-  if (status === "DELIVERED") {
+  if (status === 'DELIVERED') {
     updateData.deliveredAt = now;
   }
 
   if (
-    status === "FAILED" ||
-    status === "BOUNCED" ||
-    status === "SPAM_COMPLAINT"
+    status === 'FAILED' ||
+    status === 'BOUNCED' ||
+    status === 'SPAM_COMPLAINT'
   ) {
     updateData.failedAt = now;
     updateData.errorMessage =
-      typeof payload.Description === "string"
-        ? payload.Description
-        : typeof payload.Details === "string"
-          ? payload.Details
-          : typeof payload.Type === "string"
-            ? payload.Type
-            : null;
+      typeof payload.Description === 'string' ? payload.Description
+      : typeof payload.Details === 'string' ? payload.Details
+      : typeof payload.Type === 'string' ? payload.Type
+      : null;
   }
 
   await prisma.invoiceEmailDelivery.update({
