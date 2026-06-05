@@ -27,3 +27,15 @@ test("invoice form includes catalog autocomplete hooks for line descriptions", (
   assert.match(template, /data-invoice-line-template/);
   assert.match(template, /line\.unitPrice if line\.unitPrice is defined else 0/);
 });
+
+test("invoice form includes inline save-to-catalog hooks", () => {
+  assert.match(template, /data-invoice-catalog-save/);
+  assert.match(template, /Not in catalog/);
+  assert.match(template, /Save for future use\?/);
+  assert.match(template, /data-invoice-catalog-save-name/);
+  assert.match(template, /data-invoice-catalog-save-submit/);
+  assert.match(template, /data-invoice-catalog-save-cancel>Cancel/);
+  assert.match(template, /data-invoice-catalog-save-success>Item saved successfully/);
+  assert.match(template, /Error saving new item/);
+  assert.match(template, /data-invoice-catalog-save-retry>Retry/);
+});

@@ -27,6 +27,8 @@ type CatalogSearchState = {
   timeout?: number;
 };
 
+type CatalogSaveStatus = 'hidden' | 'prompt' | 'form' | 'saving' | 'saved' | 'error';
+
 const parseNumberInput = (input: HTMLInputElement) => {
   const value = Number(input.value);
 
@@ -35,6 +37,12 @@ const parseNumberInput = (input: HTMLInputElement) => {
 
 const parseDiscountType = (select: HTMLSelectElement): DiscountType =>
   select.value === 'percent' ? 'percent' : 'amount';
+
+const normalizeCatalogText = (value: string) =>
+  value.trim().replace(/\s+/g, ' ').toLowerCase();
+
+const shortCatalogName = (value: string) =>
+  value.trim().replace(/\s+/g, ' ').slice(0, 80).trim();
 
 export const setupInvoiceForms = () => {
   document
@@ -113,6 +121,8 @@ export const setupInvoiceForms = () => {
         HTMLInputElement,
         CatalogSearchState
       >();
+      const savedCatalogDescriptions = new WeakMap<HTMLInputElement, string>();
+      const catalogSaveHideTimeouts = new WeakMap<HTMLInputElement, number>();
 
       const getCatalogSearchState = (
         input: HTMLInputElement,
@@ -136,6 +146,188 @@ export const setupInvoiceForms = () => {
         input
           .closest<HTMLElement>('[data-invoice-catalog-combobox]')
           ?.querySelector<HTMLElement>('[data-invoice-catalog-results]');
+
+      const catalogSaveForInput = (input: HTMLInputElement) =>
+        input
+          .closest<HTMLElement>('[data-invoice-line]')
+          ?.querySelector<HTMLElement>('[data-invoice-catalog-save]');
+
+      const setCatalogSaveStatus = (
+        input: HTMLInputElement,
+        status: CatalogSaveStatus,
+      ) => {
+        const container = catalogSaveForInput(input);
+        const helper = container?.querySelector<HTMLElement>(
+          '[data-invoice-catalog-save-helper]',
+        );
+        const saveForm = container?.querySelector<HTMLElement>(
+          '[data-invoice-catalog-save-form]',
+        );
+        const nameInput = container?.querySelector<HTMLInputElement>(
+          '[data-invoice-catalog-save-name]',
+        );
+        const submitButton = container?.querySelector<HTMLButtonElement>(
+          '[data-invoice-catalog-save-submit]',
+        );
+        const cancelButton = container?.querySelector<HTMLButtonElement>(
+          '[data-invoice-catalog-save-cancel]',
+        );
+        const success = container?.querySelector<HTMLElement>(
+          '[data-invoice-catalog-save-success]',
+        );
+        const error = container?.querySelector<HTMLElement>(
+          '[data-invoice-catalog-save-error]',
+        );
+
+        if (!container || !helper || !saveForm || !success || !error) {
+          return;
+        }
+
+        const existingTimeout = catalogSaveHideTimeouts.get(input);
+
+        if (existingTimeout) {
+          window.clearTimeout(existingTimeout);
+          catalogSaveHideTimeouts.delete(input);
+        }
+
+        const showForm = status === 'form' || status === 'saving';
+
+        container.classList.toggle('hidden', status === 'hidden');
+        helper.classList.toggle('hidden', status !== 'prompt');
+        saveForm.classList.toggle('hidden', !showForm);
+        saveForm.classList.toggle('grid', showForm);
+        success.classList.toggle('hidden', status !== 'saved');
+        error.classList.toggle('hidden', status !== 'error');
+
+        if (nameInput) {
+          nameInput.disabled = status === 'saving';
+        }
+
+        if (submitButton) {
+          submitButton.disabled = status === 'saving';
+        }
+
+        if (cancelButton) {
+          cancelButton.disabled = status === 'saving';
+        }
+
+        if (status === 'saved') {
+          const timeout = window.setTimeout(() => {
+            catalogSaveHideTimeouts.delete(input);
+
+            if (
+              savedCatalogDescriptions.get(input) ===
+              normalizeCatalogText(input.value)
+            ) {
+              setCatalogSaveStatus(input, 'hidden');
+            }
+          }, 2000);
+
+          catalogSaveHideTimeouts.set(input, timeout);
+        }
+      };
+
+      const inputHasExactCatalogMatch = (input: HTMLInputElement) => {
+        const value = normalizeCatalogText(input.value);
+
+        if (!value) {
+          return false;
+        }
+
+        return getCatalogSearchState(input).items.some((item) => {
+          const itemName = normalizeCatalogText(item.name);
+          const itemDescription = normalizeCatalogText(item.description ?? '');
+
+          return itemName === value || itemDescription === value;
+        });
+      };
+
+      const updateCatalogSavePrompt = (input: HTMLInputElement) => {
+        const value = normalizeCatalogText(input.value);
+
+        if (!value) {
+          setCatalogSaveStatus(input, 'hidden');
+          return;
+        }
+
+        if (savedCatalogDescriptions.get(input) === value) {
+          setCatalogSaveStatus(input, 'saved');
+          return;
+        }
+
+        setCatalogSaveStatus(
+          input,
+          inputHasExactCatalogMatch(input) ? 'hidden' : 'prompt',
+        );
+      };
+
+      const submitCatalogSave = async (row: HTMLElement) => {
+        const descriptionInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-catalog-input]',
+        );
+        const nameInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-catalog-save-name]',
+        );
+        const unitPriceInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-unit-price]',
+        );
+        const taxRateInput = row.querySelector<HTMLInputElement>(
+          '[data-invoice-tax-rate]',
+        );
+        const csrfInput = form.querySelector<HTMLInputElement>(
+          'input[name="_csrf"]',
+        );
+
+        if (!descriptionInput || !nameInput || !csrfInput) {
+          return;
+        }
+
+        markUnsavedChangesDirty(form);
+        setCatalogSaveStatus(descriptionInput, 'saving');
+
+        try {
+          const response = await fetch('/items/inline', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              _csrf: csrfInput.value,
+              name: nameInput.value,
+              description: descriptionInput.value,
+              unitPrice: unitPriceInput?.value ?? '0',
+              currency: currencySelect.value,
+              taxRate: taxRateInput?.value ?? '0',
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Error saving new item');
+          }
+
+          const payload = (await response.json()) as {
+            item?: CatalogItemSuggestion;
+          };
+
+          if (payload.item) {
+            const state = getCatalogSearchState(descriptionInput);
+
+            state.items = [
+              payload.item,
+              ...state.items.filter((item) => item.id !== payload.item?.id),
+            ];
+          }
+
+          savedCatalogDescriptions.set(
+            descriptionInput,
+            normalizeCatalogText(descriptionInput.value),
+          );
+          setCatalogSaveStatus(descriptionInput, 'saved');
+        } catch {
+          setCatalogSaveStatus(descriptionInput, 'error');
+        }
+      };
 
       const updateCatalogActiveOption = (input: HTMLInputElement) => {
         const state = getCatalogSearchState(input);
@@ -255,12 +447,14 @@ export const setupInvoiceForms = () => {
             input,
             Array.isArray(payload.items) ? payload.items : [],
           );
+          updateCatalogSavePrompt(input);
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') {
             return;
           }
 
           hideCatalogSuggestions(input);
+          updateCatalogSavePrompt(input);
         } finally {
           if (state.controller === controller) {
             state.controller = undefined;
@@ -278,6 +472,7 @@ export const setupInvoiceForms = () => {
 
         if (query.length < 2) {
           hideCatalogSuggestions(input);
+          updateCatalogSavePrompt(input);
           return;
         }
 
@@ -329,6 +524,8 @@ export const setupInvoiceForms = () => {
         }
 
         hideCatalogSuggestions(input);
+        savedCatalogDescriptions.delete(input);
+        setCatalogSaveStatus(input, 'hidden');
         markUnsavedChangesDirty(form);
         updateTotals();
       };
@@ -476,6 +673,7 @@ export const setupInvoiceForms = () => {
 
         if (event.target.matches('[data-invoice-catalog-input]')) {
           scheduleCatalogSearch(event.target);
+          updateCatalogSavePrompt(event.target);
           return;
         }
 
@@ -492,6 +690,20 @@ export const setupInvoiceForms = () => {
 
       form.addEventListener('keydown', (event) => {
         if (!(event.target instanceof HTMLInputElement)) {
+          return;
+        }
+
+        if (event.target.matches('[data-invoice-catalog-save-name]')) {
+          if (event.key === 'Enter') {
+            const row = event.target.closest<HTMLElement>('[data-invoice-line]');
+
+            event.preventDefault();
+
+            if (row) {
+              void submitCatalogSave(row);
+            }
+          }
+
           return;
         }
 
@@ -581,6 +793,74 @@ export const setupInvoiceForms = () => {
 
         if (addButton) {
           addLine();
+          return;
+        }
+
+        const saveOpenButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-catalog-save-open]',
+        );
+
+        if (saveOpenButton) {
+          const row = saveOpenButton.closest<HTMLElement>('[data-invoice-line]');
+          const input = row?.querySelector<HTMLInputElement>(
+            '[data-invoice-catalog-input]',
+          );
+          const nameInput = row?.querySelector<HTMLInputElement>(
+            '[data-invoice-catalog-save-name]',
+          );
+
+          if (input && nameInput) {
+            nameInput.value = shortCatalogName(input.value);
+            setCatalogSaveStatus(input, 'form');
+            markUnsavedChangesDirty(form);
+            nameInput.focus();
+          }
+
+          return;
+        }
+
+        const saveSubmitButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-catalog-save-submit]',
+        );
+
+        if (saveSubmitButton) {
+          const row = saveSubmitButton.closest<HTMLElement>('[data-invoice-line]');
+
+          if (row) {
+            void submitCatalogSave(row);
+          }
+
+          return;
+        }
+
+        const saveCancelButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-catalog-save-cancel]',
+        );
+
+        if (saveCancelButton) {
+          const row = saveCancelButton.closest<HTMLElement>('[data-invoice-line]');
+          const input = row?.querySelector<HTMLInputElement>(
+            '[data-invoice-catalog-input]',
+          );
+
+          if (input) {
+            setCatalogSaveStatus(input, 'prompt');
+          }
+
+          return;
+        }
+
+        const saveRetryButton = event.target.closest<HTMLButtonElement>(
+          '[data-invoice-catalog-save-retry]',
+        );
+
+        if (saveRetryButton) {
+          const row = saveRetryButton.closest<HTMLElement>('[data-invoice-line]');
+
+          if (row) {
+            void submitCatalogSave(row);
+          }
+
           return;
         }
 

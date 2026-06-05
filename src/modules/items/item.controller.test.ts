@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import {
   archiveItem,
+  createInlineItem,
   createItem,
   listItems,
   renderEditItem,
@@ -324,6 +325,95 @@ test("createItem creates valid catalog items and redirects", async () => {
   });
   assert.deepEqual(req.flashMessages.success, ["Item created."]);
   assert.equal(res.redirectPath, "/items");
+});
+
+test("createInlineItem creates a catalog item and returns JSON", async () => {
+  let createArgs: unknown;
+  prismaMock.catalogItem.create = async (args: unknown) => {
+    createArgs = args;
+    return {
+      id: "item_1",
+      name: "Strategy session",
+      description: "Long-form strategy workshop",
+      unitPriceCents: 22575,
+      currency: "USD",
+      taxRateBps: 825,
+      archivedAt: null,
+      createdAt: new Date("2026-06-05T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-05T00:00:00.000Z"),
+    };
+  };
+  const req = createRequest({
+    body: {
+      name: "Strategy session",
+      description: "Long-form strategy workshop",
+      unitPrice: "225.75",
+      currency: "USD",
+      taxRate: "8.25",
+    },
+  });
+  const res = createResponse();
+
+  await createInlineItem(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(createArgs, {
+    data: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      name: "Strategy session",
+      description: "Long-form strategy workshop",
+      unitPriceCents: 22575,
+      currency: "USD",
+      taxRateBps: 825,
+    },
+  });
+  assert.deepEqual(res.jsonData, {
+    item: {
+      id: "item_1",
+      name: "Strategy session",
+      description: "Long-form strategy workshop",
+      unitPriceCents: 22575,
+      unitPrice: "225.75",
+      currency: "USD",
+      taxRateBps: 825,
+      taxRate: "8.25",
+    },
+  });
+  assert.deepEqual(req.flashMessages, {});
+  assert.equal(res.redirectPath, undefined);
+});
+
+test("createInlineItem returns JSON validation errors without redirecting", async () => {
+  let createCalled = false;
+  prismaMock.catalogItem.create = async () => {
+    createCalled = true;
+    return { id: "item_1" };
+  };
+  const req = createRequest({
+    body: {
+      name: "",
+      description: "Saved from an invoice line",
+      unitPrice: "-1",
+      currency: "JPY",
+      taxRate: "101",
+    },
+  });
+  const res = createResponse();
+
+  await createInlineItem(req, res, () => undefined);
+
+  assert.equal(createCalled, false);
+  assert.equal(res.statusCode, 422);
+  assert.deepEqual(res.jsonData, {
+    errors: {
+      name: ["Item name is required."],
+      unitPrice: ["Unit price cannot be negative."],
+      currency: ["Choose a supported currency."],
+      taxRate: ["Tax rate cannot exceed 100%."],
+    },
+  });
+  assert.deepEqual(req.flashMessages, {});
+  assert.equal(res.redirectPath, undefined);
 });
 
 test("renderEditItem renders existing catalog item values", async () => {

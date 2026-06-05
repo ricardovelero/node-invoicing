@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   archiveItem,
+  createInlineItem,
   createItem,
   listItems,
   renderEditItem,
@@ -15,6 +16,7 @@ export const itemRouter = Router();
 itemRouter.get("/", listItems);
 itemRouter.get("/search", searchItems);
 itemRouter.get("/new", renderNewItem);
+itemRouter.post("/inline", createInlineItem);
 itemRouter.post("/", createItem);
 itemRouter.get("/:itemId/edit", renderEditItem);
 itemRouter.post("/:itemId/edit", updateItem);

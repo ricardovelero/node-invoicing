@@ -74,6 +74,21 @@
                 <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
                 <input name="lineDescription" value="{{ line.description or '' }}" placeholder="Consulting services" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
                 <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
+                <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
+                  <div data-invoice-catalog-save-helper class="text-muted">
+                    <span>Not in catalog · </span><button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-open>Save for future use?</button>
+                  </div>
+                  <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
+                    <input type="text" maxlength="120" aria-label="Catalog item name" data-invoice-catalog-save-name>
+                    <button class="rounded-md bg-action px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>Save</button>
+                    <button class="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>Cancel</button>
+                  </div>
+                  <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>Item saved successfully</p>
+                  <p class="hidden text-red-700" data-invoice-catalog-save-error>
+                    Error saving new item
+                    <button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-retry>Retry</button>
+                  </p>
+                </div>
                 {% if lineErrors.description %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.description[0] }}</p>{% endif %}
               </div>
               <div>
@@ -158,6 +173,21 @@
             <label class="sm:sr-only">Description <span aria-hidden="true">*</span></label>
             <input name="lineDescription" value="" placeholder="Consulting services" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
             <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
+            <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
+              <div data-invoice-catalog-save-helper class="text-muted">
+                <span>Not in catalog · </span><button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-open>Save for future use?</button>
+              </div>
+              <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
+                <input type="text" maxlength="120" aria-label="Catalog item name" data-invoice-catalog-save-name>
+                <button class="rounded-md bg-action px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>Save</button>
+                <button class="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>Cancel</button>
+              </div>
+              <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>Item saved successfully</p>
+              <p class="hidden text-red-700" data-invoice-catalog-save-error>
+                Error saving new item
+                <button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-retry>Retry</button>
+              </p>
+            </div>
           </div>
           <div>
             <label class="sm:sr-only">Quantity <span aria-hidden="true">*</span></label>

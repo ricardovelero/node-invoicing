@@ -18,6 +18,7 @@ import {
   updateCatalogItemRecord,
 } from "./item.service";
 import {
+  createCatalogItemSearchResult,
   createCatalogItemSearchResults,
   catalogItemToFormValues,
   createCatalogItemRows,
@@ -81,6 +82,31 @@ export const searchItems: RequestHandler = async (req, res) => {
   return res.json({
     items: createCatalogItemSearchResults(items),
   });
+};
+
+export const createInlineItem: RequestHandler = async (req, res) => {
+  const result = itemFormSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(422).json({
+      errors: formatItemFormErrors(result.error),
+    });
+  }
+
+  try {
+    const item = await createCatalogItemRecord(
+      req.auth!.organization.id,
+      result.data,
+    );
+
+    return res.status(201).json({
+      item: createCatalogItemSearchResult(item),
+    });
+  } catch {
+    return res.status(500).json({
+      error: "Unable to save item.",
+    });
+  }
 };
 
 export const renderNewItem: RequestHandler = (req, res) =>
