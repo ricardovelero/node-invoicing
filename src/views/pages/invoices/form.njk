@@ -236,9 +236,17 @@
         {% if errors.notes %}<p class="mt-1 text-sm text-red-700">{{ errors.notes[0] }}</p>{% endif %}
       </div>
 
-      <div class="flex items-center gap-3 pt-2">
-        <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create invoice' }}</button>
-        <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/invoices' }}">Cancel</a>
+      <div class="space-y-3 pt-2">
+        {% if formError %}<p class="text-sm text-red-700">{{ formError }}</p>{% endif %}
+        <div class="flex items-center justify-end gap-3">
+          <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/invoices' }}">Cancel</a>
+          {% if sendSubmitLabel %}
+            <button class="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" type="submit" name="intent" value="saveDraft">{{ submitLabel or 'Save Draft' }}</button>
+            <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit" name="intent" value="saveAndSend">{{ sendSubmitLabel }}</button>
+          {% else %}
+            <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create invoice' }}</button>
+          {% endif %}
+        </div>
       </div>
     </form>
   {% else %}

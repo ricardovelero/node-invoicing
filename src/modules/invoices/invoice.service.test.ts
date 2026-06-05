@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import {
   calculateInvoicePaymentSummary,
   createInvoiceRecord,
+  createSentInvoiceRecord,
   getAllowedInvoiceStatusActions,
   getInvoiceDetails,
   getInvoiceFormOptions,
@@ -21,6 +22,9 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
     findMany: unknown;
   };
+  organization: {
+    findFirst: unknown;
+  };
   invoice: {
     create: unknown;
     findFirst: unknown;
@@ -31,6 +35,7 @@ const prismaMock = prisma as unknown as {
     deleteMany: unknown;
   };
   invoiceSnapshot: {
+    create: unknown;
     update: unknown;
   };
   payment: {
@@ -48,7 +53,16 @@ type InvoiceCreateTransactionMock = {
     findFirst: (args: unknown) => Promise<unknown>;
   };
   invoice: {
-    create: (args: { data: unknown }) => Promise<unknown>;
+    create: (args: { data: unknown; include?: unknown }) => Promise<unknown>;
+  };
+};
+
+type SentInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
+  organization: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
+  invoiceSnapshot: {
+    create: (args: unknown) => Promise<unknown>;
   };
 };
 
@@ -68,11 +82,13 @@ type DraftUpdateTransactionMock = {
 const originalTransaction = prismaMock.$transaction;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalCustomerFindMany = prismaMock.customer.findMany;
+const originalOrganizationFindFirst = prismaMock.organization.findFirst;
 const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalInvoiceUpdate = prismaMock.invoice.update;
 const originalInvoiceLineDeleteMany = prismaMock.invoiceLine.deleteMany;
+const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 const originalPaymentAggregate = prismaMock.payment.aggregate;
 const originalPaymentCreate = prismaMock.payment.create;
@@ -81,11 +97,13 @@ afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findFirst = originalFindFirst;
   prismaMock.customer.findMany = originalCustomerFindMany;
+  prismaMock.organization.findFirst = originalOrganizationFindFirst;
   prismaMock.invoice.create = originalCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.invoice.update = originalInvoiceUpdate;
   prismaMock.invoiceLine.deleteMany = originalInvoiceLineDeleteMany;
+  prismaMock.invoiceSnapshot.create = originalInvoiceSnapshotCreate;
   prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
   prismaMock.payment.aggregate = originalPaymentAggregate;
   prismaMock.payment.create = originalPaymentCreate;
@@ -219,6 +237,295 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
       ],
     },
   });
+});
+
+test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", async () => {
+  let createdInvoiceData: unknown;
+  let createdInvoiceInclude: unknown;
+  let snapshotCreateArgs: unknown;
+  let customerFindFirstArgs: unknown;
+  let organizationFindFirstArgs: unknown;
+  let reservedNumberOrganizationId: unknown;
+
+  const issueDate = new Date("2026-05-27T00:00:00.000Z");
+  const dueDate = new Date("2026-06-27T00:00:00.000Z");
+  const createdInvoice = {
+    id: "invoice_1",
+    subtotalCents: 10000,
+    discountCents: 0,
+    taxCents: 2100,
+    totalCents: 12100,
+    paymentInstructions: "Pay this invoice by bank transfer.",
+    customer: {
+      name: "Ada Co",
+      email: "billing@ada.example",
+      taxId: null,
+      addressLine1: null,
+      city: null,
+      country: null,
+    },
+    organization: {
+      name: "Analytical Engines",
+      legalName: "Analytical Engines Ltd",
+      taxId: "VAT123",
+      addressLine1: "1 Seller St",
+      city: "Madrid",
+      country: "ES",
+    },
+    snapshot: null,
+  };
+
+  prismaMock.$transaction = async (
+    callback: (tx: SentInvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async (_strings, organizationId) => {
+        reservedNumberOrganizationId = organizationId;
+        return [{ reservedValue: 3 }];
+      },
+      customer: {
+        async findFirst(args) {
+          customerFindFirstArgs = args;
+          return { id: "customer_1", email: " billing@ada.example " };
+        },
+      },
+      organization: {
+        async findFirst(args) {
+          organizationFindFirstArgs = args;
+          return { billingEmail: "billing@example.com" };
+        },
+      },
+      invoice: {
+        async create(args) {
+          createdInvoiceData = args.data;
+          createdInvoiceInclude = args.include;
+          return createdInvoice;
+        },
+      },
+      invoiceSnapshot: {
+        async create(args) {
+          snapshotCreateArgs = args;
+          return { invoiceId: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await createSentInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR",
+    issueDate,
+    dueDate,
+    invoiceDiscountType: "amount",
+    invoiceDiscountValue: 0,
+    paymentInstructions: "Pay this invoice by bank transfer.",
+    notes: "",
+    lines: [
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPrice: 100,
+        discountType: "amount",
+        discountValue: 0,
+        taxRate: 21,
+      },
+    ],
+  });
+
+  const year = new Date().getFullYear();
+
+  assert.deepEqual(result, {
+    ok: true,
+    invoice: createdInvoice,
+    customerEmail: "billing@ada.example",
+  });
+  assert.equal(reservedNumberOrganizationId, "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+  assert.deepEqual(customerFindFirstArgs, {
+    where: {
+      id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      archivedAt: null,
+    },
+    select: { id: true, email: true },
+  });
+  assert.deepEqual(organizationFindFirstArgs, {
+    where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    select: { billingEmail: true },
+  });
+  assert.deepEqual(createdInvoiceData, {
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    number: `INV-${year}-0003`,
+    status: "SENT",
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    issueDate,
+    dueDate,
+    subtotalCents: 10000,
+    discountCents: 0,
+    taxCents: 2100,
+    totalCents: 12100,
+    currency: "EUR",
+    paymentInstructions: "Pay this invoice by bank transfer.",
+    notes: null,
+    lines: {
+      create: [
+        {
+          description: "Consulting services",
+          quantity: 1,
+          unitPriceCents: 10000,
+          discountCents: 0,
+          invoiceDiscountCents: 0,
+          taxRateBps: 2100,
+          taxCents: 2100,
+          totalCents: 10000,
+        },
+      ],
+    },
+  });
+  assert.deepEqual(createdInvoiceInclude, {
+    customer: {
+      select: {
+        name: true,
+        email: true,
+        taxId: true,
+        addressLine1: true,
+        city: true,
+        country: true,
+      },
+    },
+    organization: {
+      select: {
+        name: true,
+        legalName: true,
+        taxId: true,
+        addressLine1: true,
+        city: true,
+        country: true,
+      },
+    },
+    snapshot: {
+      select: {
+        invoiceId: true,
+      },
+    },
+  });
+  assert.deepEqual(snapshotCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      customerName: "Ada Co",
+      customerEmail: "billing@ada.example",
+      customerTaxId: null,
+      customerAddressLine1: null,
+      customerCity: null,
+      customerCountry: null,
+      sellerName: "Analytical Engines",
+      sellerLegalName: "Analytical Engines Ltd",
+      sellerTaxId: "VAT123",
+      sellerAddressLine1: "1 Seller St",
+      sellerCity: "Madrid",
+      sellerCountry: "ES",
+      paymentInstructions: "Pay this invoice by bank transfer.",
+      subtotalCents: 10000,
+      discountCents: 0,
+      taxCents: 2100,
+      totalCents: 12100,
+    },
+  });
+});
+
+test("createSentInvoiceRecord rejects send preconditions before creating invoices", async () => {
+  const form = {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR" as const,
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "amount" as const,
+    invoiceDiscountValue: 0,
+    paymentInstructions: "",
+    notes: "",
+    lines: [
+      {
+        description: "Consulting",
+        quantity: 1,
+        unitPrice: 100,
+        discountType: "amount" as const,
+        discountValue: 0,
+        taxRate: 0,
+      },
+    ],
+  };
+  const cases = [
+    {
+      name: "invalid customer",
+      customer: null,
+      organization: { billingEmail: "billing@example.com" },
+      expected: { ok: false, reason: "invalidCustomer" },
+      expectedOrganizationLookups: 0,
+    },
+    {
+      name: "missing customer email",
+      customer: { id: "customer_1", email: " " },
+      organization: { billingEmail: "billing@example.com" },
+      expected: { ok: false, reason: "missingCustomerEmail" },
+      expectedOrganizationLookups: 0,
+    },
+    {
+      name: "missing billing email",
+      customer: { id: "customer_1", email: "billing@ada.example" },
+      organization: { billingEmail: "" },
+      expected: { ok: false, reason: "missingBillingEmail" },
+      expectedOrganizationLookups: 1,
+    },
+  ];
+
+  for (const testCase of cases) {
+    let organizationLookups = 0;
+    let invoiceNumberReservationCalls = 0;
+    let invoiceCreateCalls = 0;
+    let snapshotCreateCalls = 0;
+
+    prismaMock.$transaction = async (
+      callback: (tx: SentInvoiceCreateTransactionMock) => Promise<unknown>,
+    ) =>
+      callback({
+        $queryRaw: async () => {
+          invoiceNumberReservationCalls += 1;
+          return [{ reservedValue: 1 }];
+        },
+        customer: {
+          async findFirst() {
+            return testCase.customer;
+          },
+        },
+        organization: {
+          async findFirst() {
+            organizationLookups += 1;
+            return testCase.organization;
+          },
+        },
+        invoice: {
+          async create() {
+            invoiceCreateCalls += 1;
+            return { id: "invoice_1" };
+          },
+        },
+        invoiceSnapshot: {
+          async create() {
+            snapshotCreateCalls += 1;
+            return { invoiceId: "invoice_1" };
+          },
+        },
+      });
+
+    const result = await createSentInvoiceRecord(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      form,
+    );
+
+    assert.deepEqual(result, testCase.expected, testCase.name);
+    assert.equal(organizationLookups, testCase.expectedOrganizationLookups, testCase.name);
+    assert.equal(invoiceNumberReservationCalls, 0, testCase.name);
+    assert.equal(invoiceCreateCalls, 0, testCase.name);
+    assert.equal(snapshotCreateCalls, 0, testCase.name);
+  }
 });
 
 test("createInvoiceRecord rejects archived customers", async () => {

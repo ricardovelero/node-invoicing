@@ -137,6 +137,29 @@ const findActiveCustomer = (
     select: { id: true },
   });
 
+const findActiveCustomerForSending = (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  customerId: string,
+) =>
+  tx.customer.findFirst({
+    where: {
+      id: customerId,
+      organizationId,
+      archivedAt: null,
+    },
+    select: { id: true, email: true },
+  });
+
+const findOrganizationEmailSettings = (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+) =>
+  tx.organization.findFirst({
+    where: { id: organizationId },
+    select: { billingEmail: true },
+  });
+
 const findEditableDraftInvoice = async (
   tx: Prisma.TransactionClient,
   organizationId: string,
@@ -253,6 +276,91 @@ export const createInvoiceRecord = async (
     });
 
     return { ok: true as const, invoice };
+  });
+};
+
+export const createSentInvoiceRecord = async (
+  organizationId: string,
+  data: InvoiceForm,
+) => {
+  const totals = calculateTotalsFromInvoiceForm(data);
+
+  return prisma.$transaction(async (tx) => {
+    const customer = await findActiveCustomerForSending(
+      tx,
+      organizationId,
+      data.customerId,
+    );
+
+    if (!customer) {
+      return { ok: false as const, reason: 'invalidCustomer' as const };
+    }
+
+    const customerEmail = customer.email?.trim();
+
+    if (!customerEmail) {
+      return { ok: false as const, reason: 'missingCustomerEmail' as const };
+    }
+
+    const organization = await findOrganizationEmailSettings(tx, organizationId);
+
+    if (!organization?.billingEmail?.trim()) {
+      return { ok: false as const, reason: 'missingBillingEmail' as const };
+    }
+
+    const number = await nextInvoiceNumber(tx, organizationId);
+
+    const invoice = await tx.invoice.create({
+      data: {
+        organizationId,
+        number,
+        status: 'SENT',
+        customerId: data.customerId,
+        issueDate: data.issueDate,
+        dueDate: data.dueDate,
+        subtotalCents: totals.subtotalCents,
+        discountCents: totals.discountCents,
+        taxCents: totals.taxCents,
+        totalCents: totals.totalCents,
+        currency: data.currency,
+        paymentInstructions: data.paymentInstructions || null,
+        notes: data.notes || null,
+        lines: {
+          create: invoiceLineCreateData(data, totals),
+        },
+      },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+          },
+        },
+        organization: {
+          select: {
+            name: true,
+            legalName: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+          },
+        },
+        snapshot: {
+          select: {
+            invoiceId: true,
+          },
+        },
+      },
+    });
+
+    await captureInvoiceSnapshot(tx, invoice);
+
+    return { ok: true as const, invoice, customerEmail };
   });
 };
 

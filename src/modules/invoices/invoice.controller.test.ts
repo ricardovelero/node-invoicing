@@ -20,6 +20,7 @@ import {
   createInvoiceStatusBadge,
   invoiceIndexView,
 } from "./invoice.presenter";
+import * as invoiceEmailService from "./invoice-email.service";
 
 type MockRequest = Request & {
   body: Record<string, unknown>;
@@ -41,27 +42,43 @@ const prismaMock = prisma as unknown as {
   customer: {
     findMany: unknown;
   };
+  organization: {
+    findFirst: unknown;
+  };
   invoice: {
+    create: unknown;
     findFirst: unknown;
     update: unknown;
   };
   invoiceSnapshot: {
+    create: unknown;
     update: unknown;
   };
+};
+const invoiceEmailServiceMock = invoiceEmailService as unknown as {
+  sendInvoiceEmail: typeof invoiceEmailService.sendInvoiceEmail;
 };
 
 const originalTransaction = prismaMock.$transaction;
 const originalFindMany = prismaMock.customer.findMany;
+const originalOrganizationFindFirst = prismaMock.organization.findFirst;
+const originalInvoiceCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceUpdate = prismaMock.invoice.update;
+const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
+const originalSendInvoiceEmail = invoiceEmailServiceMock.sendInvoiceEmail;
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.customer.findMany = originalFindMany;
+  prismaMock.organization.findFirst = originalOrganizationFindFirst;
+  prismaMock.invoice.create = originalInvoiceCreate;
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.update = originalInvoiceUpdate;
+  prismaMock.invoiceSnapshot.create = originalInvoiceSnapshotCreate;
   prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
+  invoiceEmailServiceMock.sendInvoiceEmail = originalSendInvoiceEmail;
 });
 
 const createRequest = (body: Record<string, unknown> = {}, params: Record<string, string> = {}) =>
@@ -246,6 +263,107 @@ const mockStatusTransaction = ({
     });
 };
 
+const validCreateInvoiceBody = {
+  customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+  currency: "EUR",
+  issueDate: "2026-05-27",
+  dueDate: "2026-06-27",
+  invoiceDiscountType: "amount",
+  invoiceDiscountValue: "0",
+  paymentInstructions: "Pay by bank transfer.",
+  notes: "",
+  lineDescription: "Consulting services",
+  quantity: "1",
+  unitPrice: "100",
+  lineDiscountType: "amount",
+  lineDiscountValue: "0",
+  taxRate: "21",
+};
+
+const mockCreateInvoiceTransaction = ({
+  customer = { id: "customer_1", email: "billing@ada.example" },
+  organization = { billingEmail: "billing@example.com" },
+  createdInvoiceId = "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+  onInvoiceCreate,
+  onSnapshotCreate,
+}: {
+  customer?: unknown;
+  organization?: unknown;
+  createdInvoiceId?: string;
+  onInvoiceCreate?: (args: unknown) => void;
+  onSnapshotCreate?: (args: unknown) => void;
+} = {}) => {
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      $queryRaw: (
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) => Promise<Array<{ reservedValue: number }>>;
+      customer: {
+        findFirst: () => Promise<unknown>;
+      };
+      organization: {
+        findFirst: () => Promise<unknown>;
+      };
+      invoice: {
+        create: (args: unknown) => Promise<unknown>;
+      };
+      invoiceSnapshot: {
+        create: (args: unknown) => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [{ reservedValue: 1 }],
+      customer: {
+        async findFirst() {
+          return customer;
+        },
+      },
+      organization: {
+        async findFirst() {
+          return organization;
+        },
+      },
+      invoice: {
+        async create(args) {
+          onInvoiceCreate?.(args);
+          return {
+            id: createdInvoiceId,
+            subtotalCents: 10000,
+            discountCents: 0,
+            taxCents: 2100,
+            totalCents: 12100,
+            paymentInstructions: "Pay by bank transfer.",
+            customer: {
+              name: "Ada Co",
+              email: "billing@ada.example",
+              taxId: null,
+              addressLine1: null,
+              city: null,
+              country: null,
+            },
+            organization: {
+              name: "Analytical Engines",
+              legalName: null,
+              taxId: null,
+              addressLine1: null,
+              city: null,
+              country: null,
+            },
+            snapshot: null,
+          };
+        },
+      },
+      invoiceSnapshot: {
+        async create(args) {
+          onSnapshotCreate?.(args);
+          return { invoiceId: createdInvoiceId };
+        },
+      },
+    });
+};
+
 test("renderNewInvoice defaults payment instructions from organization settings and leaves notes empty", async () => {
   const customers = [{ id: "customer_1", name: "Ada Co" }];
   prismaMock.customer.findMany = async () => customers;
@@ -259,7 +377,8 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     title: "New invoice",
     heading: "New invoice",
     formAction: "/invoices",
-    submitLabel: "Create invoice",
+    submitLabel: "Save Draft",
+    sendSubmitLabel: "Save and send to customer",
     cancelHref: "/invoices",
     customers,
     values: {
@@ -281,6 +400,7 @@ test("renderNewInvoice defaults payment instructions from organization settings 
       ],
     },
     errors: {},
+    formError: undefined,
   });
 });
 
@@ -303,6 +423,163 @@ test("createInvoice preserves submitted notes after validation errors", async ()
     (res.renderedData as { values: { notes: string } }).values.notes,
     "Use these submitted notes.",
   );
+  assert.equal(
+    (res.renderedData as { sendSubmitLabel: string }).sendSubmitLabel,
+    "Save and send to customer",
+  );
+});
+
+test("createInvoice saveDraft uses the draft create path", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  let invoiceCreateArgs: unknown;
+  prismaMock.customer.findMany = async () => customers;
+  mockCreateInvoiceTransaction({
+    onInvoiceCreate(args) {
+      invoiceCreateArgs = args;
+    },
+  });
+  invoiceEmailServiceMock.sendInvoiceEmail = async () => {
+    throw new Error("email should not be sent for drafts");
+  };
+  const req = createRequest({
+    ...validCreateInvoiceBody,
+    intent: "saveDraft",
+  });
+  const res = createResponse();
+
+  await createInvoice(req, res, () => undefined);
+
+  assert.equal(res.redirectedTo, "/invoices");
+  assert.deepEqual(req.flashMessages.success, ["Invoice created."]);
+  assert.equal(
+    (invoiceCreateArgs as { data: { status?: string } }).data.status,
+    undefined,
+  );
+});
+
+test("createInvoice saveAndSend creates a sent invoice, emails the customer, and flashes success", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  let invoiceCreateArgs: unknown;
+  let snapshotCreateArgs: unknown;
+  let sendInvoiceEmailArgs: unknown[];
+  prismaMock.customer.findMany = async () => customers;
+  mockCreateInvoiceTransaction({
+    onInvoiceCreate(args) {
+      invoiceCreateArgs = args;
+    },
+    onSnapshotCreate(args) {
+      snapshotCreateArgs = args;
+    },
+  });
+  invoiceEmailServiceMock.sendInvoiceEmail = (async (...args) => {
+    sendInvoiceEmailArgs = args;
+    return {
+      ok: true,
+      delivery: { id: "delivery_1" },
+      publicInvoiceUrl: "https://billing.example.com/public/invoices/token",
+    };
+  }) as typeof invoiceEmailService.sendInvoiceEmail;
+  const req = createRequest({
+    ...validCreateInvoiceBody,
+    intent: "saveAndSend",
+  });
+  const res = createResponse();
+
+  await createInvoice(req, res, () => undefined);
+
+  assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
+  assert.deepEqual(req.flashMessages.success, [
+    "Invoice saved and sent to the customer's email address.",
+  ]);
+  assert.equal(
+    (invoiceCreateArgs as { data: { status: string } }).data.status,
+    "SENT",
+  );
+  assert.ok(snapshotCreateArgs);
+  assert.deepEqual(sendInvoiceEmailArgs!, [
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    { toEmail: "billing@ada.example" },
+  ]);
+});
+
+test("createInvoice saveAndSend rejects customers without email", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  let invoiceCreateCalls = 0;
+  prismaMock.customer.findMany = async () => customers;
+  mockCreateInvoiceTransaction({
+    customer: { id: "customer_1", email: " " },
+    onInvoiceCreate() {
+      invoiceCreateCalls += 1;
+    },
+  });
+  const req = createRequest({
+    ...validCreateInvoiceBody,
+    intent: "saveAndSend",
+  });
+  const res = createResponse();
+
+  await createInvoice(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/form.njk");
+  assert.equal(invoiceCreateCalls, 0);
+  assert.deepEqual(
+    (res.renderedData as { errors: { customerId: string[] } }).errors.customerId,
+    ["Choose a customer with an email address before sending."],
+  );
+});
+
+test("createInvoice saveAndSend rejects missing organization billing email", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  let invoiceCreateCalls = 0;
+  prismaMock.customer.findMany = async () => customers;
+  mockCreateInvoiceTransaction({
+    organization: { billingEmail: "" },
+    onInvoiceCreate() {
+      invoiceCreateCalls += 1;
+    },
+  });
+  const req = createRequest({
+    ...validCreateInvoiceBody,
+    intent: "saveAndSend",
+  });
+  const res = createResponse();
+
+  await createInvoice(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/invoices/form.njk");
+  assert.equal(invoiceCreateCalls, 0);
+  assert.equal(
+    (res.renderedData as { formError: string }).formError,
+    "Please, add a billing email in your organization settings before sending invoice emails.",
+  );
+});
+
+test("createInvoice saveAndSend redirects with an error flash when the provider fails", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  prismaMock.customer.findMany = async () => customers;
+  mockCreateInvoiceTransaction();
+  invoiceEmailServiceMock.sendInvoiceEmail = async () => ({
+    ok: false,
+    reason: "providerFailure",
+    deliveryId: "delivery_1",
+    errorMessage: "Inactive recipient",
+  });
+  const req = createRequest({
+    ...validCreateInvoiceBody,
+    intent: "saveAndSend",
+  });
+  const res = createResponse();
+
+  await createInvoice(req, res, () => undefined);
+
+  assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
+  assert.deepEqual(req.flashMessages.error, [
+    "Invoice email could not be sent: Inactive recipient",
+  ]);
+  assert.equal(req.flashMessages.success, undefined);
 });
 
 test("renderEditInvoice renders draft invoices with edit form values", async () => {
@@ -325,6 +602,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
     heading: "Edit INV-2026-0001",
     formAction: `/invoices/${invoice.id}/edit`,
     submitLabel: "Save invoice",
+    sendSubmitLabel: undefined,
     cancelHref: `/invoices/${invoice.id}`,
     customers,
     values: {
@@ -348,6 +626,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
       ],
     },
     errors: {},
+    formError: undefined,
   });
 });
 

@@ -18,6 +18,7 @@ import {
 import {
   canEditInvoice,
   createInvoiceRecord,
+  createSentInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
@@ -33,6 +34,7 @@ import {
   invoicePrintView,
   invoiceToFormValues,
 } from './invoice.presenter';
+import { sendInvoiceEmail } from './invoice-email.service';
 
 type InvoiceFormCustomers = Awaited<ReturnType<typeof getInvoiceFormOptions>>;
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
@@ -43,10 +45,12 @@ type InvoiceFormRenderOptions = {
   heading?: string;
   formAction: string;
   submitLabel: string;
+  sendSubmitLabel?: string;
   cancelHref: string;
   customers: InvoiceFormCustomers;
   values: InvoiceFormValues;
   errors: InvoiceFormErrors;
+  formError?: string;
 };
 
 const renderInvoiceForm = (
@@ -57,10 +61,12 @@ const renderInvoiceForm = (
     heading = title,
     formAction,
     submitLabel,
+    sendSubmitLabel,
     cancelHref,
     customers,
     values,
     errors,
+    formError,
   }: InvoiceFormRenderOptions,
 ) => {
   const response = status ? res.status(status) : res;
@@ -70,12 +76,25 @@ const renderInvoiceForm = (
     heading,
     formAction,
     submitLabel,
+    sendSubmitLabel,
     cancelHref,
     customers,
     values,
     errors,
+    formError,
   });
 };
+
+const newInvoiceFormOptions = {
+  title: 'New invoice',
+  formAction: '/invoices',
+  submitLabel: 'Save Draft',
+  sendSubmitLabel: 'Save and send to customer',
+  cancelHref: '/invoices',
+};
+
+const invoiceCreateIntentFromBody = (body: Record<string, unknown>) =>
+  body.intent === 'saveAndSend' ? 'saveAndSend' : 'saveDraft';
 
 const metadataIntentFromBody = (
   body: Record<string, unknown>,
@@ -113,10 +132,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
   const customers = await getInvoiceFormOptions(req.auth!.organization.id);
 
   renderInvoiceForm(res, {
-    title: 'New invoice',
-    formAction: '/invoices',
-    submitLabel: 'Create invoice',
-    cancelHref: '/invoices',
+    ...newInvoiceFormOptions,
     customers,
     values: createInvoiceFormValues(
       req.auth!.organization.paymentInstructions ?? '',
@@ -130,18 +146,85 @@ export const createInvoice: RequestHandler = async (req, res) => {
   const result = invoiceFormSchema.safeParse(req.body);
   const organizationId = req.auth!.organization.id;
   const customers = await getInvoiceFormOptions(organizationId);
+  const intent = invoiceCreateIntentFromBody(req.body);
 
   if (!result.success) {
     return renderInvoiceForm(res, {
       status: 422,
-      title: 'New invoice',
-      formAction: '/invoices',
-      submitLabel: 'Create invoice',
-      cancelHref: '/invoices',
+      ...newInvoiceFormOptions,
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
     });
+  }
+
+  if (intent === 'saveAndSend') {
+    const createResult = await createSentInvoiceRecord(
+      organizationId,
+      result.data,
+    );
+
+    if (!createResult.ok && createResult.reason === 'invalidCustomer') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: { customerId: ['Choose a customer.'] },
+      });
+    }
+
+    if (!createResult.ok && createResult.reason === 'missingCustomerEmail') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: {
+          customerId: [
+            'Choose a customer with an email address before sending.',
+          ],
+        },
+      });
+    }
+
+    if (!createResult.ok && createResult.reason === 'missingBillingEmail') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: {},
+        formError:
+          'Please, add a billing email in your organization settings before sending invoice emails.',
+      });
+    }
+
+    const sendResult = await sendInvoiceEmail(
+      organizationId,
+      createResult.invoice.id,
+      { toEmail: createResult.customerEmail },
+    );
+    const invoicePath = `/invoices/${createResult.invoice.id}`;
+
+    if (!sendResult.ok && sendResult.reason === 'providerFailure') {
+      req.flash(
+        'error',
+        `Invoice email could not be sent: ${sendResult.errorMessage}`,
+      );
+      return res.redirect(invoicePath);
+    }
+
+    if (!sendResult.ok) {
+      req.flash('error', 'Invoice email could not be sent.');
+      return res.redirect(invoicePath);
+    }
+
+    req.flash(
+      'success',
+      "Invoice saved and sent to the customer's email address.",
+    );
+    return res.redirect(invoicePath);
   }
 
   const createResult = await createInvoiceRecord(organizationId, result.data);
@@ -149,10 +232,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
   if (!createResult.ok && createResult.reason === 'invalidCustomer') {
     return renderInvoiceForm(res, {
       status: 422,
-      title: 'New invoice',
-      formAction: '/invoices',
-      submitLabel: 'Create invoice',
-      cancelHref: '/invoices',
+      ...newInvoiceFormOptions,
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: ['Choose a customer.'] },

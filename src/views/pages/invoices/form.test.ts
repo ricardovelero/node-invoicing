@@ -39,3 +39,13 @@ test("invoice form includes inline save-to-catalog hooks", () => {
   assert.match(template, /Error saving new item/);
   assert.match(template, /data-invoice-catalog-save-retry>Retry/);
 });
+
+test("invoice form renders right-aligned new invoice draft and send actions", () => {
+  assert.match(template, /flex items-center justify-end gap-3/);
+  assert.match(template, /href="{{ cancelHref or '\/invoices' }}">Cancel/);
+  assert.match(template, /name="intent" value="saveDraft"/);
+  assert.match(template, /name="intent" value="saveAndSend"/);
+  assert.match(template, /{{ sendSubmitLabel }}/);
+  assert.match(template, /{% if sendSubmitLabel %}/);
+  assert.match(template, /{% else %}/);
+});
