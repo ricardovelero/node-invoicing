@@ -23,7 +23,7 @@
         <div class="grid gap-5 sm:grid-cols-3">
           <div>
             <p class="text-sm text-muted">Status</p>
-            <p class="mt-1 font-semibold">{{ 'OVERDUE' if isEffectivelyOverdue else invoice.status }}</p>
+            <div class="mt-1">{{ badge(invoiceStatusBadge.label, invoiceStatusBadge.variant) }}</div>
             {% if isEffectivelyOverdue %}
               <p class="mt-1 text-xs text-muted">Stored as SENT</p>
             {% endif %}

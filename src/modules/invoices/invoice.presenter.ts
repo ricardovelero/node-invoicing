@@ -154,6 +154,7 @@ export const invoiceDetailView = (
 ) => {
   const paymentSummary = calculateInvoicePaymentSummary(invoice);
   const invoiceDisplay = createInvoiceDisplay(invoice);
+  const isEffectivelyOverdue = isInvoiceEffectivelyOverdue(invoice);
 
   return {
     title: invoice.number,
@@ -165,7 +166,10 @@ export const invoiceDetailView = (
     canRecordPayment:
       canRecordInvoicePayment(invoice.status) &&
       paymentSummary.outstandingCents > 0,
-    isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
+    isEffectivelyOverdue,
+    invoiceStatusBadge: createInvoiceStatusBadge(
+      isEffectivelyOverdue ? 'OVERDUE' : invoice.status,
+    ),
     paymentSummary,
     paymentValues:
       paymentValues ??

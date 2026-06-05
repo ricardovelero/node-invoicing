@@ -41,6 +41,20 @@ test("invoice detail includes email delivery history", () => {
   assert.doesNotMatch(template, /Provider message/);
 });
 
+test("invoice detail renders the invoice status with the badge component", () => {
+  const template = readTemplate("detail.njk");
+
+  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(
+    template,
+    /badge\(invoiceStatusBadge\.label, invoiceStatusBadge\.variant\)/,
+  );
+  assert.doesNotMatch(
+    template,
+    /'OVERDUE' if isEffectivelyOverdue else invoice\.status/,
+  );
+});
+
 test("invoice detail uses clear line item display columns", () => {
   const template = readTemplate("detail.njk");
 

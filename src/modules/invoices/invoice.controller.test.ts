@@ -502,6 +502,10 @@ test("showInvoice renders invoice details and available actions", async () => {
     canEditInvoice: true,
     canRecordPayment: false,
     isEffectivelyOverdue: false,
+    invoiceStatusBadge: {
+      label: "Draft",
+      variant: "neutral",
+    },
     paymentSummary: {
       paidCents: 0,
       outstandingCents: 10000,
