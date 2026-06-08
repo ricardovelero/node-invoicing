@@ -482,7 +482,6 @@ export const getDashboardData = async (
   const recentActivity = [
     ...recentCreatedInvoices.map((invoice) => ({
       type: "created",
-      label: "Invoice created",
       occurredAt: invoice.createdAt,
       href: `/invoices/${invoice.id}`,
       invoiceNumber: invoice.number,
@@ -492,7 +491,6 @@ export const getDashboardData = async (
     })),
     ...recentSentDeliveries.map((delivery) => ({
       type: "sent",
-      label: "Invoice sent",
       occurredAt: delivery.sentAt ?? delivery.createdAt,
       href: `/invoices/${delivery.invoice.id}`,
       invoiceNumber: delivery.invoice.number,
@@ -502,7 +500,6 @@ export const getDashboardData = async (
     })),
     ...recentRecordedPayments.map((payment) => ({
       type: "payment",
-      label: "Payment recorded",
       occurredAt: payment.createdAt,
       href: `/invoices/${payment.invoice.id}`,
       invoiceNumber: payment.invoice.number,
@@ -512,7 +509,6 @@ export const getDashboardData = async (
     })),
     ...recentVoidedInvoices.map((invoice) => ({
       type: "voided",
-      label: "Invoice voided",
       occurredAt: invoice.updatedAt,
       href: `/invoices/${invoice.id}`,
       invoiceNumber: invoice.number,
@@ -545,54 +541,57 @@ export const getDashboardData = async (
     },
     quickActions: [
       {
-        label: "New Invoice",
-        description: "Create and send a customer invoice.",
+        labelKey: "dashboard.quickActions.newInvoice.label",
+        descriptionKey: "dashboard.quickActions.newInvoice.description",
         href: "/invoices/new",
         variant: "primary",
       },
       {
-        label: "New Customer",
-        description: "Add billing details before invoicing.",
+        labelKey: "dashboard.quickActions.newCustomer.label",
+        descriptionKey: "dashboard.quickActions.newCustomer.description",
         href: "/customers/new",
         variant: "secondary",
       },
       {
-        label: "Record Payment",
-        description: paymentTarget
-          ? `Apply payment to ${paymentTarget.number}.`
-          : "Open invoices that can accept payments.",
+        labelKey: "dashboard.quickActions.recordPayment.label",
+        descriptionKey: paymentTarget
+          ? "dashboard.quickActions.recordPayment.targetDescription"
+          : "dashboard.quickActions.recordPayment.fallbackDescription",
+        descriptionParams: paymentTarget
+          ? { invoiceNumber: paymentTarget.number }
+          : {},
         href: recordPaymentHref,
         variant: "secondary",
       },
       {
-        label: "View Overdue Invoices",
-        description: "Prioritize collection follow-ups.",
+        labelKey: "dashboard.quickActions.viewOverdueInvoices.label",
+        descriptionKey: "dashboard.quickActions.viewOverdueInvoices.description",
         href: "/invoices?status=overdue",
         variant: "secondary",
       },
     ],
     attentionSections: [
       {
-        title: "Overdue invoices",
-        emptyMessage: "No overdue invoices.",
+        titleKey: "dashboard.attention.overdue.title",
+        emptyMessageKey: "dashboard.attention.overdue.empty",
         href: "/invoices?status=overdue",
         rows: overdueInvoices,
       },
       {
-        title: "Due soon",
-        emptyMessage: "No invoices due in the next 7 days.",
+        titleKey: "dashboard.attention.dueSoon.title",
+        emptyMessageKey: "dashboard.attention.dueSoon.empty",
         href: "/invoices?status=sent",
         rows: dueSoonInvoices,
       },
       {
-        title: "Draft invoices",
-        emptyMessage: "No draft invoices waiting to be sent.",
+        titleKey: "dashboard.attention.drafts.title",
+        emptyMessageKey: "dashboard.attention.drafts.empty",
         href: "/invoices?status=draft",
         rows: draftRows,
       },
       {
-        title: "Partially paid",
-        emptyMessage: "No partially paid invoices.",
+        titleKey: "dashboard.attention.partiallyPaid.title",
+        emptyMessageKey: "dashboard.attention.partiallyPaid.empty",
         href: "/invoices?status=partially_paid",
         rows: partiallyPaidInvoices,
       },

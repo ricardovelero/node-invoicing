@@ -1,0 +1,83 @@
+{
+  "section": "Resumen",
+  "title": "Dashboard",
+  "actions": {
+    "newInvoice": "Nueva factura",
+    "viewAllInvoices": "Ver todas las facturas",
+    "openInvoiceList": "Abrir lista de facturas",
+    "view": "Ver"
+  },
+  "kpis": {
+    "ariaLabel": "Indicadores de facturas",
+    "totalInvoicedThisMonth": "Total facturado este mes",
+    "paidThisMonth": "Cobrado este mes",
+    "outstandingBalance": "Saldo pendiente",
+    "overdueAmount": "Importe vencido"
+  },
+  "quickActions": {
+    "section": "Atajos",
+    "title": "Acciones rápidas",
+    "newInvoice": {
+      "label": "Nueva factura",
+      "description": "Crea y envía una factura a un cliente."
+    },
+    "newCustomer": {
+      "label": "Nuevo cliente",
+      "description": "Añade los datos de facturación antes de facturar."
+    },
+    "recordPayment": {
+      "label": "Registrar pago",
+      "targetDescription": "Aplica un pago a {invoiceNumber}.",
+      "fallbackDescription": "Abre facturas que puedan aceptar pagos."
+    },
+    "viewOverdueInvoices": {
+      "label": "Ver facturas vencidas",
+      "description": "Prioriza el seguimiento de cobros."
+    }
+  },
+  "attention": {
+    "section": "Cobros",
+    "title": "Facturas que requieren atención",
+    "duePrefix": "Vence",
+    "overdue": {
+      "title": "Facturas vencidas",
+      "empty": "No hay facturas vencidas."
+    },
+    "dueSoon": {
+      "title": "Vencen pronto",
+      "empty": "No hay facturas que venzan en los próximos 7 días."
+    },
+    "drafts": {
+      "title": "Facturas en borrador",
+      "empty": "No hay borradores pendientes de enviar."
+    },
+    "partiallyPaid": {
+      "title": "Parcialmente pagadas",
+      "empty": "No hay facturas parcialmente pagadas."
+    }
+  },
+  "monthly": {
+    "section": "Meses recientes",
+    "title": "Facturado vs cobrado",
+    "invoiced": "Facturado",
+    "paid": "Cobrado"
+  },
+  "activity": {
+    "section": "Últimos cambios",
+    "title": "Actividad reciente",
+    "types": {
+      "created": "Factura creada",
+      "sent": "Factura enviada",
+      "payment": "Pago registrado",
+      "voided": "Factura anulada"
+    },
+    "table": {
+      "activity": "Actividad",
+      "invoice": "Factura",
+      "customer": "Cliente",
+      "amount": "Importe",
+      "date": "Fecha"
+    },
+    "empty": "No hay actividad reciente de facturas."
+  }
+}

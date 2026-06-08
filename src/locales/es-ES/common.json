@@ -12,7 +12,7 @@
     "save": "Guardar"
   },
   "navigation": {
-    "dashboard": "Panel",
+    "dashboard": "Dashboard",
     "invoices": "Facturas",
     "customers": "Clientes",
     "items": "Artículos",

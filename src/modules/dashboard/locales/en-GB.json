@@ -1,0 +1,83 @@
+{
+  "section": "Overview",
+  "title": "Dashboard",
+  "actions": {
+    "newInvoice": "New invoice",
+    "viewAllInvoices": "View all invoices",
+    "openInvoiceList": "Open invoice list",
+    "view": "View"
+  },
+  "kpis": {
+    "ariaLabel": "Invoice KPIs",
+    "totalInvoicedThisMonth": "Total Invoiced This Month",
+    "paidThisMonth": "Paid This Month",
+    "outstandingBalance": "Outstanding Balance",
+    "overdueAmount": "Overdue Amount"
+  },
+  "quickActions": {
+    "section": "Shortcuts",
+    "title": "Quick Actions",
+    "newInvoice": {
+      "label": "New Invoice",
+      "description": "Create and send a customer invoice."
+    },
+    "newCustomer": {
+      "label": "New Customer",
+      "description": "Add billing details before invoicing."
+    },
+    "recordPayment": {
+      "label": "Record Payment",
+      "targetDescription": "Apply payment to {invoiceNumber}.",
+      "fallbackDescription": "Open invoices that can accept payments."
+    },
+    "viewOverdueInvoices": {
+      "label": "View Overdue Invoices",
+      "description": "Prioritise collection follow-ups."
+    }
+  },
+  "attention": {
+    "section": "Collections",
+    "title": "Invoices Requiring Attention",
+    "duePrefix": "Due",
+    "overdue": {
+      "title": "Overdue invoices",
+      "empty": "No overdue invoices."
+    },
+    "dueSoon": {
+      "title": "Due soon",
+      "empty": "No invoices due in the next 7 days."
+    },
+    "drafts": {
+      "title": "Draft invoices",
+      "empty": "No draft invoices waiting to be sent."
+    },
+    "partiallyPaid": {
+      "title": "Partially paid",
+      "empty": "No partially paid invoices."
+    }
+  },
+  "monthly": {
+    "section": "Recent months",
+    "title": "Invoiced vs Paid",
+    "invoiced": "Invoiced",
+    "paid": "Paid"
+  },
+  "activity": {
+    "section": "Latest changes",
+    "title": "Recent Activity",
+    "types": {
+      "created": "Invoice created",
+      "sent": "Invoice sent",
+      "payment": "Payment recorded",
+      "voided": "Invoice voided"
+    },
+    "table": {
+      "activity": "Activity",
+      "invoice": "Invoice",
+      "customer": "Customer",
+      "amount": "Amount",
+      "date": "Date"
+    },
+    "empty": "No recent invoice activity."
+  }
+}

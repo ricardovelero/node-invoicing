@@ -12,10 +12,10 @@ const readDashboardTemplate = () =>
 test("dashboard renders practical KPI labels", () => {
   const template = readDashboardTemplate();
 
-  assert.match(template, /Total Invoiced This Month/);
-  assert.match(template, /Paid This Month/);
-  assert.match(template, /Outstanding Balance/);
-  assert.match(template, /Overdue Amount/);
+  assert.match(template, /t\('dashboard\.kpis\.totalInvoicedThisMonth'\)/);
+  assert.match(template, /t\('dashboard\.kpis\.paidThisMonth'\)/);
+  assert.match(template, /t\('dashboard\.kpis\.outstandingBalance'\)/);
+  assert.match(template, /t\('dashboard\.kpis\.overdueAmount'\)/);
 });
 
 test("dashboard renders quick action shortcuts", () => {
@@ -23,7 +23,8 @@ test("dashboard renders quick action shortcuts", () => {
 
   assert.match(template, /for action in quickActions/);
   assert.match(template, /href="{{ action\.href }}"/);
-  assert.match(template, /{{ action\.label }}/);
+  assert.match(template, /t\(action\.labelKey\)/);
+  assert.match(template, /t\(action\.descriptionKey, action\.descriptionParams\)/);
   assert.match(template, /\/invoices\/new/);
 });
 
@@ -43,7 +44,7 @@ test("dashboard monthly visual uses lightweight invoiced and paid bars", () => {
   const template = readDashboardTemplate();
 
   assert.match(template, /for month in monthlySeries/);
-  assert.match(template, /Invoiced vs Paid/);
+  assert.match(template, /t\('dashboard\.monthly\.title'\)/);
   assert.match(template, /month\.invoicedBarWidth/);
   assert.match(template, /month\.paidBarWidth/);
   assert.doesNotMatch(template, /chart\.js/i);
@@ -52,9 +53,9 @@ test("dashboard monthly visual uses lightweight invoiced and paid bars", () => {
 test("dashboard renders recent activity", () => {
   const template = readDashboardTemplate();
 
-  assert.match(template, /Recent Activity/);
+  assert.match(template, /t\('dashboard\.activity\.title'\)/);
   assert.match(template, /for activity in recentActivity/);
-  assert.match(template, /activity\.label/);
+  assert.match(template, /dashboard\.activity\.types\.' \+ activity\.type/);
   assert.match(template, /activity\.invoiceNumber/);
-  assert.match(template, /activity\.occurredAt \| date/);
+  assert.match(template, /activity\.occurredAt \| date\(currentLocale\)/);
 });

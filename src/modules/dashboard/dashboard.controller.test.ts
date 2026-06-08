@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import { getDashboardData } from "./dashboard.service";
 import { renderDashboard } from "./dashboard.controller";
 
 type MockRequest = Request & {
   auth: NonNullable<Request["auth"]>;
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -33,6 +35,9 @@ const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalPaymentFindMany = prismaMock.payment.findMany;
 const originalInvoiceEmailDeliveryFindMany =
   prismaMock.invoiceEmailDelivery.findMany;
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 afterEach(() => {
   prismaMock.invoice.findMany = originalInvoiceFindMany;
@@ -63,6 +68,7 @@ const createRequest = () =>
       },
       role: "OWNER",
     },
+    t,
   }) as MockRequest;
 
 const createResponse = () => {
@@ -317,11 +323,22 @@ test("getDashboardData scopes queries, groups currencies, and subtracts payments
     { currency: "USD", totalCents: 12000 },
   ]);
   assert.equal(data.quickActions[2].href, "/invoices/overdue_effective");
+  assert.equal(
+    data.quickActions[2].descriptionKey,
+    "dashboard.quickActions.recordPayment.targetDescription",
+  );
+  assert.deepEqual(data.quickActions[2].descriptionParams, {
+    invoiceNumber: "INV-2026-0001",
+  });
+  assert.equal(
+    data.attentionSections[0].titleKey,
+    "dashboard.attention.overdue.title",
+  );
   assert.equal(data.attentionSections[0].rows[0].id, "usd_overdue");
   assert.equal(data.attentionSections[1].rows[0].id, "partial_invoice");
   assert.equal(data.attentionSections[2].rows[0].id, "draft_invoice");
   assert.equal(data.monthlySeries.length, 6);
-  assert.ok(data.recentActivity.some((activity) => activity.label === "Payment recorded"));
+  assert.ok(data.recentActivity.some((activity) => activity.type === "payment"));
 });
 
 test("getDashboardData falls back to organization currency for empty totals", async () => {

@@ -4,7 +4,7 @@
 {% macro moneyStack(totals, sizeClass = 'text-3xl') %}
   <div class="space-y-1">
     {% for total in totals %}
-      <p class="{{ sizeClass }} font-semibold text-ink">{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</p>
+      <p class="{{ sizeClass }} font-semibold text-ink">{{ total.totalCents | money(total.currency, currentLocale) }}</p>
     {% endfor %}
   </div>
 {% endmacro %}
@@ -12,27 +12,27 @@
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <p class="text-sm font-medium text-muted">Overview</p>
-      <h1 class="mt-1 text-3xl font-semibold text-ink">Dashboard</h1>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold text-ink">{{ t('dashboard.title') }}</h1>
     </div>
-    <a href="/invoices/new" class="btn btn-primary">New invoice</a>
+    <a href="/invoices/new" class="btn btn-primary">{{ t('dashboard.actions.newInvoice') }}</a>
   </div>
 
-  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Invoice KPIs">
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="{{ t('dashboard.kpis.ariaLabel') }}">
     <div class="card card-body">
-      <p class="text-sm font-medium text-muted">Total Invoiced This Month</p>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.kpis.totalInvoicedThisMonth') }}</p>
       <div class="mt-3">{{ moneyStack(metrics.totalInvoicedThisMonth) }}</div>
     </div>
     <div class="card card-body">
-      <p class="text-sm font-medium text-muted">Paid This Month</p>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.kpis.paidThisMonth') }}</p>
       <div class="mt-3">{{ moneyStack(metrics.paidThisMonth) }}</div>
     </div>
     <div class="card card-body">
-      <p class="text-sm font-medium text-muted">Outstanding Balance</p>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.kpis.outstandingBalance') }}</p>
       <div class="mt-3">{{ moneyStack(metrics.outstandingBalance) }}</div>
     </div>
     <div class="card card-body">
-      <p class="text-sm font-medium text-muted">Overdue Amount</p>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.kpis.overdueAmount') }}</p>
       <div class="mt-3">{{ moneyStack(metrics.overdueAmount) }}</div>
     </div>
   </section>
@@ -40,16 +40,16 @@
   <section class="mt-6 card card-body">
     <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="text-sm font-medium text-muted">Shortcuts</p>
-        <h2 class="mt-1 text-lg font-semibold">Quick Actions</h2>
+        <p class="text-sm font-medium text-muted">{{ t('dashboard.quickActions.section') }}</p>
+        <h2 class="mt-1 text-lg font-semibold">{{ t('dashboard.quickActions.title') }}</h2>
       </div>
-      <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">View all invoices</a>
+      <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">{{ t('dashboard.actions.viewAllInvoices') }}</a>
     </div>
     <div class="mt-4 grid gap-3 md:grid-cols-4">
       {% for action in quickActions %}
         <a class="rounded-md border border-line bg-white p-4 transition hover:border-action hover:shadow-sm" href="{{ action.href }}">
-          <span class="btn {{ 'btn-primary' if action.variant == 'primary' else 'btn-secondary' }} btn-full">{{ action.label }}</span>
-          <span class="mt-3 block text-sm text-muted">{{ action.description }}</span>
+          <span class="btn {{ 'btn-primary' if action.variant == 'primary' else 'btn-secondary' }} btn-full">{{ t(action.labelKey) }}</span>
+          <span class="mt-3 block text-sm text-muted">{{ t(action.descriptionKey, action.descriptionParams) }}</span>
         </a>
       {% endfor %}
     </div>
@@ -59,18 +59,18 @@
     <section class="card card-body">
       <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p class="text-sm font-medium text-muted">Collections</p>
-          <h2 class="mt-1 text-lg font-semibold">Invoices Requiring Attention</h2>
+          <p class="text-sm font-medium text-muted">{{ t('dashboard.attention.section') }}</p>
+          <h2 class="mt-1 text-lg font-semibold">{{ t('dashboard.attention.title') }}</h2>
         </div>
-        <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">Open invoice list</a>
+        <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">{{ t('dashboard.actions.openInvoiceList') }}</a>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
         {% for section in attentionSections %}
           <div class="rounded-md border border-line">
             <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
-              <h3 class="text-sm font-semibold">{{ section.title }}</h3>
-              <a class="text-xs font-medium text-action hover:text-action-dark" href="{{ section.href }}">View</a>
+              <h3 class="text-sm font-semibold">{{ t(section.titleKey) }}</h3>
+              <a class="text-xs font-medium text-action hover:text-action-dark" href="{{ section.href }}">{{ t('dashboard.actions.view') }}</a>
             </div>
             <div class="divide-y divide-line">
               {% for invoice in section.rows %}
@@ -87,13 +87,13 @@
                     </div>
                   </div>
                   <div class="mt-2 flex items-center justify-between gap-3 text-sm">
-                    <span class="text-muted">Due {{ invoice.dueDate | date }}</span>
-                    <span class="font-medium">{{ invoice.outstandingCents | money(invoice.currency, currentOrganization.locale) }}</span>
+                    <span class="text-muted">{{ t('dashboard.attention.duePrefix') }} {{ invoice.dueDate | date(currentLocale) }}</span>
+                    <span class="font-medium">{{ invoice.outstandingCents | money(invoice.currency, currentLocale) }}</span>
                   </div>
                 </a>
               {% else %}
                 <div class="px-4 py-5">
-                  <p class="text-sm text-muted">{{ section.emptyMessage }}</p>
+                  <p class="text-sm text-muted">{{ t(section.emptyMessageKey) }}</p>
                 </div>
               {% endfor %}
             </div>
@@ -104,8 +104,8 @@
 
     <section class="card card-body">
       <div>
-        <p class="text-sm font-medium text-muted">Recent months</p>
-        <h2 class="mt-1 text-lg font-semibold">Invoiced vs Paid</h2>
+        <p class="text-sm font-medium text-muted">{{ t('dashboard.monthly.section') }}</p>
+        <h2 class="mt-1 text-lg font-semibold">{{ t('dashboard.monthly.title') }}</h2>
       </div>
       <div class="mt-5 space-y-5">
         {% for month in monthlySeries %}
@@ -114,16 +114,16 @@
               <h3 class="text-sm font-semibold">{{ month.label }}</h3>
               <div class="text-right text-xs text-muted">
                 {% for total in month.invoicedTotals %}
-                  <span>Invoiced {{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>{% if not loop.last %}<br>{% endif %}
+                  <span>{{ t('dashboard.monthly.invoiced') }} {{ total.totalCents | money(total.currency, currentLocale) }}</span>{% if not loop.last %}<br>{% endif %}
                 {% endfor %}
               </div>
             </div>
             <div class="space-y-2">
               <div>
                 <div class="mb-1 flex items-center justify-between text-xs text-muted">
-                  <span>Invoiced</span>
+                  <span>{{ t('dashboard.monthly.invoiced') }}</span>
                   {% for total in month.invoicedTotals %}
-                    <span>{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>
+                    <span>{{ total.totalCents | money(total.currency, currentLocale) }}</span>
                   {% endfor %}
                 </div>
                 <div class="h-2 rounded-full bg-panel">
@@ -132,9 +132,9 @@
               </div>
               <div>
                 <div class="mb-1 flex items-center justify-between text-xs text-muted">
-                  <span>Paid</span>
+                  <span>{{ t('dashboard.monthly.paid') }}</span>
                   {% for total in month.paidTotals %}
-                    <span>{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>
+                    <span>{{ total.totalCents | money(total.currency, currentLocale) }}</span>
                   {% endfor %}
                 </div>
                 <div class="h-2 rounded-full bg-panel">
@@ -150,34 +150,34 @@
 
   <section class="mt-6 card card-body">
     <div class="mb-4">
-      <p class="text-sm font-medium text-muted">Latest changes</p>
-      <h2 class="mt-1 text-lg font-semibold">Recent Activity</h2>
+      <p class="text-sm font-medium text-muted">{{ t('dashboard.activity.section') }}</p>
+      <h2 class="mt-1 text-lg font-semibold">{{ t('dashboard.activity.title') }}</h2>
     </div>
     <div class="overflow-hidden rounded-md border border-line">
       <table class="min-w-full divide-y divide-line text-sm">
         <thead class="bg-panel text-left text-muted">
           <tr>
-            <th class="px-4 py-3 font-medium">Activity</th>
-            <th class="px-4 py-3 font-medium">Invoice</th>
-            <th class="px-4 py-3 font-medium">Customer</th>
-            <th class="px-4 py-3 text-right font-medium">Amount</th>
-            <th class="px-4 py-3 font-medium">Date</th>
+            <th class="px-4 py-3 font-medium">{{ t('dashboard.activity.table.activity') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('dashboard.activity.table.invoice') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('dashboard.activity.table.customer') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('dashboard.activity.table.amount') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('dashboard.activity.table.date') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-line">
           {% for activity in recentActivity %}
             <tr>
-              <td class="px-4 py-3 font-medium">{{ activity.label }}</td>
+              <td class="px-4 py-3 font-medium">{{ t('dashboard.activity.types.' + activity.type) }}</td>
               <td class="px-4 py-3">
                 <a class="font-medium text-action hover:text-action-dark" href="{{ activity.href }}">{{ activity.invoiceNumber }}</a>
               </td>
               <td class="px-4 py-3 text-muted">{{ activity.customerName }}</td>
-              <td class="px-4 py-3 text-right">{{ activity.amountCents | money(activity.currency, currentOrganization.locale) }}</td>
-              <td class="px-4 py-3 text-muted">{{ activity.occurredAt | date }}</td>
+              <td class="px-4 py-3 text-right">{{ activity.amountCents | money(activity.currency, currentLocale) }}</td>
+              <td class="px-4 py-3 text-muted">{{ activity.occurredAt | date(currentLocale) }}</td>
             </tr>
           {% else %}
             <tr>
-              <td class="px-4 py-6 text-muted" colspan="5">No recent invoice activity.</td>
+              <td class="px-4 py-6 text-muted" colspan="5">{{ t('dashboard.activity.empty') }}</td>
             </tr>
           {% endfor %}
         </tbody>

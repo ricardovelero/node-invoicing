@@ -10,7 +10,7 @@ export const renderDashboard: RequestHandler = async (req, res) => {
   );
 
   res.render("pages/dashboard.njk", {
-    title: "Dashboard",
+    title: req.t("dashboard.title"),
     ...dashboard,
   });
 };
