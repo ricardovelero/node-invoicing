@@ -10,16 +10,21 @@
     <form method="post" action="/auth/login" class="space-y-5 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div>
-        <label class="block text-sm font-medium text-ink" for="email">Email</label>
+        <label class="block text-sm font-medium text-ink" for="email">Email <span class="text-red-600">*</span></label>
         <input id="email" name="email" type="email" value="{{ values.email or '' }}" autocomplete="email" required class="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-action">
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-ink" for="password">Password</label>
+        <div class="flex items-center justify-between">
+          <label class="block text-sm font-medium text-ink" for="password">Password <span class="text-red-600">*</span></label>
+          <a class="btn btn-link text-xs" href="/auth/forgot">Forgot password?</a>
+        </div>
         <input id="password" name="password" type="password" autocomplete="current-password" required class="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-action">
       </div>
 
-      <button class="btn bt-full btn-primary" type="submit">Log in</button>
+      <div class="flex items-center justify-end">
+        <button class="btn bt-full btn-primary" type="submit">Log in</button>
+      </div>
       <p class="text-center text-sm text-muted">
         Don't have an account?
         <a class="font-medium text-action hover:text-action-dark" href="/auth/register">Register here</a>
