@@ -36,8 +36,8 @@
     </div>
 
     <div class="flex items-center gap-3 pt-2">
-      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Send invoice email</button>
-      <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices/{{ invoice.id }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">Send invoice via email</button>
+      <a class="btn btn-secondary" href="/invoices/{{ invoice.id }}">Cancel</a>
     </div>
   </form>
 {% endblock %}

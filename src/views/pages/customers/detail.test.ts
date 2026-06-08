@@ -1,32 +1,56 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { test } from "node:test";
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
 
-test("customer detail profile card links to edit customer", () => {
+test('customer detail profile card links to edit customer', () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
-    "utf8",
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
   );
 
   assert.match(template, /href="\/customers\/{{ customer\.id }}\/edit"/);
   assert.match(template, /aria-label="Edit customer"/);
 });
 
-test("customer detail actions include a primary edit customer button", () => {
+test('customer detail actions include a primary edit customer button', () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
-    "utf8",
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
   );
 
-  assert.match(template, /href="\/customers\/{{ customer\.id }}\/edit">Edit customer<\/a>/);
-  assert.match(template, /bg-action px-4 py-2 text-sm font-semibold text-white/);
+  assert.match(
+    template,
+    /href="\/customers\/{{ customer\.id }}\/edit">Edit customer<\/a>/,
+  );
+  assert.match(template, /btn btn-primary/);
 });
 
-test("customer detail includes archive delete and restore action forms", () => {
+test('customer detail includes archive delete and restore action forms', () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
-    "utf8",
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
   );
 
   assert.match(template, /action="\/customers\/{{ customer\.id }}\/delete"/);
@@ -38,24 +62,41 @@ test("customer detail includes archive delete and restore action forms", () => {
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
 });
 
-test("customer detail visibly indicates archived customers", () => {
+test('customer detail visibly indicates archived customers', () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
-    "utf8",
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
   );
 
   assert.match(template, /Archived/);
   assert.match(template, /{{ customer\.archivedAt \| date }}/);
 });
 
-test("customer detail invoice table renders status badges", () => {
+test('customer detail invoice table renders status badges', () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "customers", "detail.njk"),
-    "utf8",
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
   );
 
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(template, /for invoice in invoiceRows/);
-  assert.match(template, /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/);
+  assert.match(
+    template,
+    /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/,
+  );
   assert.doesNotMatch(template, /{{ invoice\.status }}/);
 });

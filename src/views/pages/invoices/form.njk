@@ -242,9 +242,9 @@
           <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/invoices' }}">Cancel</a>
           {% if sendSubmitLabel %}
             <button class="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" type="submit" name="intent" value="saveDraft">{{ submitLabel or 'Save Draft' }}</button>
-            <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit" name="intent" value="saveAndSend">{{ sendSubmitLabel }}</button>
+            <button class="btn btn-primary" type="submit" name="intent" value="saveAndSend">{{ sendSubmitLabel }}</button>
           {% else %}
-            <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create invoice' }}</button>
+            <button class="btn btn-primary" type="submit">{{ submitLabel or 'Create invoice' }}</button>
           {% endif %}
         </div>
       </div>
@@ -253,7 +253,7 @@
     <div class="max-w-xl rounded-lg border border-line bg-white p-6">
       <h2 class="text-lg font-semibold">Create a customer first</h2>
       <p class="mt-2 text-sm text-muted">Invoices need to be attached to a customer.</p>
-      <a href="/customers/new" class="mt-5 inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark">New customer</a>
+      <a href="/customers/new" class="mt-5 btn btn-primary">New customer</a>
     </div>
   {% endif %}
 {% endblock %}

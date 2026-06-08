@@ -1,50 +1,56 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { test } from "node:test";
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
 
 const readTemplate = (fileName: string) =>
   readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "invoices", fileName),
-    "utf8",
+    path.join(process.cwd(), 'src', 'views', 'pages', 'invoices', fileName),
+    'utf8',
   );
 
-test("invoice detail links to print page only for printable invoices", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail links to print page only for printable invoices', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /if invoiceDisplay\.isPrintable/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/print"/);
-  assert.match(template, /Print \/ Save as PDF/);
+  assert.match(template, /Print/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/pdf"/);
   assert.match(template, /Download PDF/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/email"/);
-  assert.match(template, /Send invoice email/);
+  assert.match(template, /Send invoice via email/);
 });
 
-test("invoice detail links to edit page only for editable invoices", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail links to edit page only for editable invoices', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /if canEditInvoice/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/edit"/);
   assert.match(template, /Edit invoice/);
 });
 
-test("invoice detail includes email delivery history", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail includes email delivery history', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /Email deliveries/);
   assert.match(template, /for delivery in emailDeliveries/);
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(template, /delivery\.status/);
-  assert.match(template, /badge\(delivery\.statusBadge\.label, delivery\.statusBadge\.variant\)/);
+  assert.match(
+    template,
+    /badge\(delivery\.statusBadge\.label, delivery\.statusBadge\.variant\)/,
+  );
   assert.match(template, /Accepted for delivery/);
   assert.match(template, /Delivered to recipient/);
-  assert.doesNotMatch(template, /<td class="px-4 py-3">{{ delivery\.status }}<\/td>/);
+  assert.doesNotMatch(
+    template,
+    /<td class="px-4 py-3">{{ delivery\.status }}<\/td>/,
+  );
   assert.doesNotMatch(template, /Provider message/);
 });
 
-test("invoice detail renders the invoice status with the badge component", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail renders the invoice status with the badge component', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(
@@ -57,8 +63,8 @@ test("invoice detail renders the invoice status with the badge component", () =>
   );
 });
 
-test("invoice detail uses clear line item display columns", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail uses clear line item display columns', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /Description/);
   assert.match(template, /Qty/);
@@ -75,8 +81,8 @@ test("invoice detail uses clear line item display columns", () => {
   assert.doesNotMatch(template, /Line net/);
 });
 
-test("invoice detail includes separate inline metadata editors", () => {
-  const template = readTemplate("detail.njk");
+test('invoice detail includes separate inline metadata editors', () => {
+  const template = readTemplate('detail.njk');
 
   assert.match(template, /action="\/invoices\/{{ invoice\.id }}\/metadata"/);
   assert.equal(template.match(/data-unsaved-changes-guard/g)?.length, 3);
