@@ -21,7 +21,8 @@ test("invoice index renders status badges from presenter rows", () => {
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(template, /for invoice in invoiceRows/);
   assert.match(template, /invoice\.customerName/);
-  assert.match(template, /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/);
+  assert.match(template, /for statusBadge in invoice\.statusBadges/);
+  assert.match(template, /badge\(statusBadge\.label, statusBadge\.variant\)/);
   assert.doesNotMatch(template, /invoice\.status }}<\/td>/);
 });
 

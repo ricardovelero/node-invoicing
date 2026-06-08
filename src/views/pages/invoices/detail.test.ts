@@ -55,7 +55,11 @@ test('invoice detail renders the invoice status with the badge component', () =>
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(
     template,
-    /badge\(invoiceStatusBadge\.label, invoiceStatusBadge\.variant\)/,
+    /for statusBadge in invoiceStatusBadges/,
+  );
+  assert.match(
+    template,
+    /badge\(statusBadge\.label, statusBadge\.variant\)/,
   );
   assert.doesNotMatch(
     template,

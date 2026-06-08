@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { createInvoiceStatusBadge } from '../invoices/invoice.presenter';
+import { createInvoiceStatusBadges } from '../invoices/invoice.presenter';
 import type { CustomerForm } from './customer.schema';
 import { customerFormSchema } from './customer.schema';
 import {
@@ -197,7 +197,8 @@ export const showCustomer: RequestHandler = async (req, res) => {
     customer,
     invoiceRows: customer.invoices.map((invoice) => ({
       ...invoice,
-      statusBadge: createInvoiceStatusBadge(invoice.status),
+      statusBadge: createInvoiceStatusBadges(invoice)[0],
+      statusBadges: createInvoiceStatusBadges(invoice),
     })),
     payments,
   });

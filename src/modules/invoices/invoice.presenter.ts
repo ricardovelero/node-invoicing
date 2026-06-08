@@ -88,6 +88,45 @@ const emailDeliveryStatusBadges: Record<
 export const createInvoiceStatusBadge = (status: InvoiceStatus) =>
   invoiceStatusBadges[status];
 
+export const createInvoiceStatusBadges = (invoice: {
+  status: InvoiceStatus;
+  dueDate: Date;
+  totalCents: number;
+  payments?: Array<{ amountCents: number }>;
+}) => {
+  if (invoice.status === 'DRAFT' || invoice.status === 'PAID' || invoice.status === 'VOID') {
+    return [createInvoiceStatusBadge(invoice.status)];
+  }
+
+  const payments = invoice.payments;
+  const paymentSummary = payments
+    ? calculateInvoicePaymentSummary({ ...invoice, payments })
+    : null;
+  const isPartiallyPaid =
+    Boolean(paymentSummary) &&
+    paymentSummary!.paidCents > 0 &&
+    paymentSummary!.outstandingCents > 0;
+  const isOverdue =
+    invoice.status === 'OVERDUE' || isInvoiceEffectivelyOverdue(invoice);
+
+  if (isPartiallyPaid && isOverdue) {
+    return [
+      createInvoiceStatusBadge('PARTIALLY_PAID'),
+      createInvoiceStatusBadge('OVERDUE'),
+    ];
+  }
+
+  if (isPartiallyPaid) {
+    return [createInvoiceStatusBadge('PARTIALLY_PAID')];
+  }
+
+  if (isOverdue) {
+    return [createInvoiceStatusBadge('OVERDUE')];
+  }
+
+  return [createInvoiceStatusBadge(invoice.status)];
+};
+
 export const createEmailDeliveryStatusBadge = (
   status: InvoiceEmailDeliveryStatus,
 ) => emailDeliveryStatusBadges[status];
@@ -262,7 +301,8 @@ export const createInvoiceTableRows = <Invoice extends InvoiceListItem>(
       invoice.status !== 'DRAFT' && invoice.snapshot
         ? invoice.snapshot.customerName
         : invoice.customer.name,
-    statusBadge: createInvoiceStatusBadge(invoice.status),
+    statusBadge: createInvoiceStatusBadges(invoice)[0],
+    statusBadges: createInvoiceStatusBadges(invoice),
   }));
 
 export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues => ({
@@ -319,9 +359,8 @@ export const invoiceDetailView = (
       canRecordInvoicePayment(invoice.status) &&
       paymentSummary.outstandingCents > 0,
     isEffectivelyOverdue,
-    invoiceStatusBadge: createInvoiceStatusBadge(
-      isEffectivelyOverdue ? 'OVERDUE' : invoice.status,
-    ),
+    invoiceStatusBadge: createInvoiceStatusBadges(invoice)[0],
+    invoiceStatusBadges: createInvoiceStatusBadges(invoice),
     paymentSummary,
     paymentValues:
       paymentValues ??

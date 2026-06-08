@@ -1,6 +1,6 @@
 import type { InvoiceStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
-import { createInvoiceStatusBadge } from "../invoices/invoice.presenter";
+import { createInvoiceStatusBadges } from "../invoices/invoice.presenter";
 
 type MoneyTotal = {
   currency: string;
@@ -115,7 +115,8 @@ const createAttentionInvoiceRow = (invoice: InvoiceWithPayments) => ({
   customerName: customerNameForInvoice(invoice),
   dueDate: invoice.dueDate,
   status: invoice.status,
-  statusBadge: createInvoiceStatusBadge(invoice.status),
+  statusBadge: createInvoiceStatusBadges(invoice)[0],
+  statusBadges: createInvoiceStatusBadges(invoice),
   currency: invoice.currency,
   outstandingCents:
     invoice.status === "DRAFT"
@@ -457,7 +458,12 @@ export const getDashboardData = async (
     .slice(0, 5)
     .map(createAttentionInvoiceRow);
   const partiallyPaidInvoices = openInvoices
-    .filter((invoice) => invoice.status === "PARTIALLY_PAID")
+    .filter((invoice) => {
+      const paidCents = paidCentsForInvoice(invoice);
+      const outstandingCents = outstandingCentsForInvoice(invoice);
+
+      return paidCents > 0 && outstandingCents > 0;
+    })
     .sort(byDueDateAscending)
     .slice(0, 5)
     .map(createAttentionInvoiceRow);

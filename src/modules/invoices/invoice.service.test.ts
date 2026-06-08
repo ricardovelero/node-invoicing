@@ -1565,7 +1565,7 @@ test("getInvoices applies scoped pagination and default sorting", async () => {
   });
   assert.deepEqual(findManyArgs, {
     where: { organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
-    include: { customer: true, snapshot: true },
+    include: { customer: true, snapshot: true, payments: true },
     orderBy: { createdAt: "desc" },
     skip: 20,
     take: 20,
@@ -1626,11 +1626,103 @@ test("getInvoices composes search and status filters under the current organizat
   assert.deepEqual(countArgs, { where: expectedWhere });
   assert.deepEqual(findManyArgs, {
     where: expectedWhere,
-    include: { customer: true, snapshot: true },
+    include: { customer: true, snapshot: true, payments: true },
     orderBy: { dueDate: "asc" },
     skip: 0,
     take: 10,
   });
+});
+
+test("getInvoices filters partially paid invoices by payment state", async () => {
+  const invoiceFindManyArgs: unknown[] = [];
+
+  prismaMock.invoice.count = async (args: unknown) => {
+    assert.deepEqual(args, {
+      where: {
+        organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        id: { in: ["partially_paid_overdue"] },
+      },
+    });
+    return 1;
+  };
+  prismaMock.invoice.findMany = async (args: unknown) => {
+    invoiceFindManyArgs.push(args);
+
+    if (invoiceFindManyArgs.length === 1) {
+      return [
+        {
+          id: "partially_paid_overdue",
+          totalCents: 10000,
+          payments: [{ amountCents: 3000 }],
+        },
+        {
+          id: "unpaid_overdue",
+          totalCents: 10000,
+          payments: [],
+        },
+        {
+          id: "fully_paid_sent",
+          totalCents: 10000,
+          payments: [{ amountCents: 10000 }],
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "partially_paid_overdue",
+        status: "OVERDUE",
+        totalCents: 10000,
+        payments: [{ amountCents: 3000 }],
+      },
+    ];
+  };
+
+  const result = await getInvoices("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    page: 1,
+    limit: 10,
+    q: "",
+    status: "PARTIALLY_PAID",
+    sort: "dueDate",
+    direction: "asc",
+  });
+
+  assert.deepEqual(invoiceFindManyArgs[0], {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      status: {
+        in: ["SENT", "PARTIALLY_PAID", "OVERDUE"],
+      },
+    },
+    select: {
+      id: true,
+      totalCents: true,
+      payments: {
+        select: {
+          amountCents: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(invoiceFindManyArgs[1], {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      id: { in: ["partially_paid_overdue"] },
+    },
+    include: { customer: true, snapshot: true, payments: true },
+    orderBy: { dueDate: "asc" },
+    skip: 0,
+    take: 10,
+  });
+  assert.deepEqual(result.invoices, [
+    {
+      id: "partially_paid_overdue",
+      status: "OVERDUE",
+      totalCents: 10000,
+      payments: [{ amountCents: 3000 }],
+    },
+  ]);
+  assert.equal(result.totalCount, 1);
 });
 
 test("calculateInvoicePaymentSummary handles partial, exact, overpaid, and zero totals", () => {

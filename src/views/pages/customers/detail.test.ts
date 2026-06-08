@@ -96,7 +96,11 @@ test('customer detail invoice table renders status badges', () => {
   assert.match(template, /for invoice in invoiceRows/);
   assert.match(
     template,
-    /badge\(invoice\.statusBadge\.label, invoice\.statusBadge\.variant\)/,
+    /for statusBadge in invoice\.statusBadges/,
+  );
+  assert.match(
+    template,
+    /badge\(statusBadge\.label, statusBadge\.variant\)/,
   );
   assert.doesNotMatch(template, /{{ invoice\.status }}/);
 });

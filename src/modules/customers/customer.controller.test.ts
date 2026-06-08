@@ -146,6 +146,12 @@ test("showCustomer renders customer invoice and payment history", async () => {
           label: "Sent",
           variant: "info",
         },
+        statusBadges: [
+          {
+            label: "Sent",
+            variant: "info",
+          },
+        ],
       },
       {
         ...customer.invoices[1],
@@ -153,6 +159,12 @@ test("showCustomer renders customer invoice and payment history", async () => {
           label: "Paid",
           variant: "success",
         },
+        statusBadges: [
+          {
+            label: "Paid",
+            variant: "success",
+          },
+        ],
       },
     ],
     payments: [

@@ -80,7 +80,11 @@
                       <p class="truncate text-sm font-semibold text-action">{{ invoice.number }}</p>
                       <p class="mt-0.5 truncate text-sm text-muted">{{ invoice.customerName }}</p>
                     </div>
-                    {{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}
+                    <div class="flex flex-wrap justify-end gap-2">
+                      {% for statusBadge in invoice.statusBadges %}
+                        {{ badge(statusBadge.label, statusBadge.variant) }}
+                      {% endfor %}
+                    </div>
                   </div>
                   <div class="mt-2 flex items-center justify-between gap-3 text-sm">
                     <span class="text-muted">Due {{ invoice.dueDate | date }}</span>

@@ -20,6 +20,7 @@ import {
   createInvoiceDisplay,
   createInvoiceLineDisplays,
   createInvoiceStatusBadge,
+  createInvoiceStatusBadges,
   invoiceIndexView,
 } from "./invoice.presenter";
 import * as invoiceEmailService from "./invoice-email.service";
@@ -558,7 +559,7 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
         },
       ],
     },
-    include: { customer: true, snapshot: true },
+    include: { customer: true, snapshot: true, payments: true },
     orderBy: { dueDate: "asc" },
     skip: 10,
     take: 10,
@@ -946,6 +947,12 @@ test("showInvoice renders invoice details and available actions", async () => {
       label: "Draft",
       variant: "neutral",
     },
+    invoiceStatusBadges: [
+      {
+        label: "Draft",
+        variant: "neutral",
+      },
+    ],
     paymentSummary: {
       paidCents: 0,
       outstandingCents: 10000,
@@ -1088,6 +1095,27 @@ test("invoice status badges use readable labels and semantic variants", () => {
   });
 });
 
+test("invoice status badge list keeps partial payment visible when overdue", () => {
+  assert.deepEqual(
+    createInvoiceStatusBadges({
+      status: "OVERDUE",
+      dueDate: new Date("2026-06-01T00:00:00.000Z"),
+      totalCents: 10000,
+      payments: [{ amountCents: 4000 }],
+    }),
+    [
+      {
+        label: "Partially paid",
+        variant: "warning",
+      },
+      {
+        label: "Overdue",
+        variant: "danger",
+      },
+    ],
+  );
+});
+
 test("email delivery status badges use readable labels and semantic variants", () => {
   assert.deepEqual(createEmailDeliveryStatusBadge("PENDING"), {
     label: "Pending",
@@ -1176,6 +1204,12 @@ test("invoiceIndexView prepares customer names and status badges", () => {
     label: "Draft",
     variant: "neutral",
   });
+  assert.deepEqual(rows.invoiceRows[0]?.statusBadges, [
+    {
+      label: "Draft",
+      variant: "neutral",
+    },
+  ]);
   assert.equal(rows.invoiceRows[1]?.customerName, "Snapshot Byron Co");
   assert.deepEqual(rows.invoiceRows[1]?.statusBadge, {
     label: "Sent",

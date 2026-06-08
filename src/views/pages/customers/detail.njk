@@ -38,7 +38,13 @@
                     <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
                   </td>
                   <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
-                  <td class="px-4 py-3">{{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}</td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-2">
+                      {% for statusBadge in invoice.statusBadges %}
+                        {{ badge(statusBadge.label, statusBadge.variant) }}
+                      {% endfor %}
+                    </div>
+                  </td>
                   <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
                 </tr>
               {% else %}

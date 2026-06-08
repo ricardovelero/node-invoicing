@@ -224,7 +224,7 @@ const createInvoiceListWhere = (
 ): Prisma.InvoiceWhereInput => {
   const where: Prisma.InvoiceWhereInput = { organizationId };
 
-  if (query.status) {
+  if (query.status && query.status !== 'PARTIALLY_PAID') {
     where.status = query.status;
   }
 
@@ -249,18 +249,68 @@ const createInvoiceListWhere = (
   return where;
 };
 
+const invoiceHasPartialPayment = (invoice: {
+  totalCents: number;
+  payments: Array<{ amountCents: number }>;
+}) => {
+  const paidCents = invoice.payments.reduce(
+    (total, payment) => total + payment.amountCents,
+    0,
+  );
+
+  return paidCents > 0 && paidCents < invoice.totalCents;
+};
+
+const findPartiallyPaidInvoiceIds = async (
+  organizationId: string,
+  baseWhere: Prisma.InvoiceWhereInput,
+) => {
+  // This is intentionally Prisma fetch-plus-filter for now. If invoice volume
+  // grows, revisit this as a raw SQL aggregate so the database filters by
+  // payment sum before pagination/counting.
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      ...baseWhere,
+      organizationId,
+      status: {
+        in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'],
+      },
+    },
+    select: {
+      id: true,
+      totalCents: true,
+      payments: {
+        select: {
+          amountCents: true,
+        },
+      },
+    },
+  });
+
+  return invoices
+    .filter(invoiceHasPartialPayment)
+    .map((invoice) => invoice.id);
+};
+
 export const getInvoices = async (
   organizationId: string,
   query: InvoiceListQuery,
 ) => {
   const where = createInvoiceListWhere(organizationId, query);
+
+  if (query.status === 'PARTIALLY_PAID') {
+    where.id = {
+      in: await findPartiallyPaidInvoiceIds(organizationId, where),
+    };
+  }
+
   const skip = (query.page - 1) * query.limit;
   const orderBy = invoiceListOrderBy[query.sort](query.direction);
   const [totalCount, invoices] = await Promise.all([
     prisma.invoice.count({ where }),
     prisma.invoice.findMany({
       where,
-      include: { customer: true, snapshot: true },
+      include: { customer: true, snapshot: true, payments: true },
       orderBy,
       skip,
       take: query.limit,
