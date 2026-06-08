@@ -10,9 +10,9 @@
       {% if showingArchived %}
         <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">Active customers</a>
       {% else %}
-        <a class="text-sm font-medium text-muted hover:text-ink" href="/customers?archived=1">Archived customers</a>
+        <a class="btn btn-link" href="/customers?archived=1">Archived customers</a>
       {% endif %}
-      <a href="/customers/new" class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark">New customer</a>
+      <a href="/customers/new" class="btn btn-primary">New customer</a>
     </div>
   </div>
 

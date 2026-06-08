@@ -3,16 +3,34 @@
 @source "../../views/**/*.njk";
 @source "../js/**/*.ts";
 
+/*
+  Theme tokens
+  ------------
+  Keep design primitives here: fonts, colors, radii, shadows, spacing tokens, etc.
+  Do not put component classes here. This layer defines the raw ingredients.
+*/
 @theme {
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+
   --color-ink: #17211d;
   --color-muted: #66706b;
   --color-panel: #f6f7f2;
   --color-line: #d9ddd3;
   --color-action: #1f7a5c;
   --color-action-dark: #165c45;
+
+  /* Component tokens */
+  --radius-control: 0.375rem;
+  --shadow-control: 0 1px 2px 0 rgb(0 0 0 / 5%);
+  --invoice-page-padding: 18mm;
 }
 
+/*
+  Base styles
+  -----------
+  Global element defaults only. Use this for body, form controls, labels,
+  tables, links, and typography defaults that should apply app-wide.
+*/
 @layer base {
   body {
     @apply bg-panel text-ink antialiased;
@@ -29,7 +47,56 @@
   }
 }
 
+/*
+  Components
+  ----------
+  Reusable app-level classes live here. This is where button styles,
+  cards, badges, invoice-specific components, and catalog UI classes belong.
+*/
 @layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition cursor-pointer;
+  }
+
+  .btn-full {
+    @apply w-full;
+  }
+
+  .btn-primary {
+    @apply bg-action text-white hover:bg-action-dark;
+  }
+
+  .btn-secondary {
+    @apply border border-line bg-white text-ink hover:bg-panel;
+  }
+
+  .btn-danger {
+    @apply border border-line bg-white text-red-500 hover:bg-panel hover:text-red-700;
+  }
+
+  .btn-ghost {
+    @apply text-muted shadow-none hover:text-ink;
+  }
+
+  .btn-icon {
+    @apply inline-flex h-8 w-8 items-center justify-center cursor-pointer shadow-none border-0 p-0;
+  }
+
+  .btn-link {
+    @apply p-0 font-medium text-action shadow-none hover:text-action-dark;
+  }
+
+  /* Cards / panels */
+  .card {
+    @apply rounded-lg border border-line bg-white shadow-sm;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  /* Invoice print/PDF layout */
   .invoice-print-body {
     @apply bg-panel text-ink antialiased;
   }
@@ -37,10 +104,11 @@
   .invoice-page {
     width: 210mm;
     min-height: 297mm;
-    @apply mx-auto mb-6 bg-white shadow-2xl;
-    padding: 18mm;
+    padding: var(--invoice-page-padding);
+    @apply mx-auto mb-6 bg-white text-[0.75rem] shadow-2xl;
   }
 
+  /* Invoice catalog combobox */
   [data-invoice-catalog-option][aria-selected='true'] {
     @apply bg-panel;
   }
@@ -58,6 +126,12 @@
   }
 }
 
+/*
+  Print rules
+  -----------
+  Keep print/PDF-specific overrides here. Avoid mixing these rules into
+  general screen components unless the behavior is shared.
+*/
 @page {
   size: A4;
   margin: 0;

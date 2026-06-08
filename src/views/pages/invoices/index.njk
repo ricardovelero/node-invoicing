@@ -40,9 +40,9 @@
       </label>
 
       <div class="flex gap-3">
-        <button class="inline-flex items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Apply</button>
+        <button class="btn btn-primary" type="submit">Apply</button>
         {% if hasActiveFilters %}
-          <a class="inline-flex items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-muted hover:text-ink" href="/invoices">Clear</a>
+          <a class="btn btn-secondary" href="/invoices">Clear</a>
         {% endif %}
       </div>
     </div>

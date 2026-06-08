@@ -22,7 +22,7 @@
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">Settings</a>
               <form method="post" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                <button class="rounded-md px-3 py-2 font-medium text-muted hover:text-ink" type="submit">Log out</button>
+                <button class="btn btn-link" type="submit">Log out</button>
               </form>
             </nav>
           {% endif %}

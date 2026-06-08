@@ -46,7 +46,7 @@
         <p id="organization-error" data-register-organization-error class="mt-1 {{ 'hidden' if not errors.organizationName }} text-sm text-red-700">{{ errors.organizationName[0] if errors.organizationName }}</p>
       </div>
 
-      <button class="inline-flex w-full items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Create account</button>
+      <button class="btn btn-full btn-primary" type="submit">Create account</button>
       <p class="text-center text-sm text-muted">
         Already have an account?
         <a class="font-medium text-action hover:text-action-dark" href="/auth/login">Login here</a>

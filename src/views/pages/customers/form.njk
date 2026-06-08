@@ -38,9 +38,9 @@
         <input id="country" name="country" value="{{ values.country or '' }}" autocomplete="country-name">
       </div>
     </div>
-    <div class="flex items-center gap-3 pt-2">
-      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">{{ submitLabel or 'Create customer' }}</button>
-      <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/customers' }}">Cancel</a>
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a class="btn btn-secondary" href="{{ cancelHref or '/customers' }}">Cancel</a>
+      <button class="btn btn-primary">{{ submitLabel or 'Create customer' }}</button>
     </div>
   </form>
 {% endblock %}

@@ -9,8 +9,8 @@
   </head>
   <body class="invoice-print-body">
     <div class="no-print mx-auto flex max-w-[210mm] items-center justify-between px-4 py-5">
-      <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices/{{ invoice.id }}">Back to invoice</a>
-      <button class="rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="button" data-print-button>Print</button>
+      <a class="btn btn-link" href="/invoices/{{ invoice.id }}">Back to invoice</a>
+      <button class="btn btn-primary" type="button" data-print-button>Print</button>
     </div>
 
     {% include "components/invoice-print-body.njk" %}
