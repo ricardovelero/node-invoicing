@@ -17,7 +17,8 @@
     "db:test:setup": "node scripts/setup-test-db.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "ngrok": "ngrok http --url=crawfish-jogger-epidemic.ngrok-free.dev 3000"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
