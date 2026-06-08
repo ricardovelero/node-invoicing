@@ -7,7 +7,7 @@ import type {
 } from './catalog.types';
 import { parseNumberInput } from './totals';
 
-type CatalogSaveContext = {
+export type CatalogSaveContext = {
   catalogSaveHideTimeouts: WeakMap<HTMLInputElement, number>;
   catalogSearchStates: WeakMap<HTMLInputElement, CatalogSearchState>;
   currencySelect: HTMLSelectElement;

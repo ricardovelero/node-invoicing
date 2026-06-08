@@ -1,18 +1,5 @@
-import { shortCatalogName } from './catalog.helpers';
-import {
-  setCatalogSaveStatus,
-  submitCatalogSave,
-  updateCatalogSavePrompt,
-} from './catalog-save';
-import {
-  getCatalogSearchState,
-  hideAllCatalogSuggestions,
-  hideCatalogSuggestions,
-  scheduleCatalogSearch,
-  selectCatalogSuggestion,
-  updateCatalogActiveOption,
-} from './catalog-search';
-import type { CatalogSaveStatus, CatalogSearchState } from './catalog.types';
+import { setupCatalogEvents } from './catalog-events';
+import type { CatalogSearchState } from './catalog.types';
 import { validateDateOrder } from './dates';
 import { addLine, getRows, updateRemoveButtons } from './lines';
 import { updateCurrency, updateTotals } from './totals';
@@ -106,20 +93,6 @@ export const setupInvoiceForms = () => {
         savedCatalogDescriptions,
       };
 
-      const setCatalogSaveStatusForForm = (
-        input: HTMLInputElement,
-        status: CatalogSaveStatus,
-      ) => {
-        setCatalogSaveStatus(input, status, catalogSaveContext);
-      };
-
-      const updateCatalogSavePromptForForm = (input: HTMLInputElement) => {
-        updateCatalogSavePrompt(input, catalogSaveContext);
-      };
-
-      const submitCatalogSaveForForm = (row: HTMLElement) =>
-        submitCatalogSave(row, catalogSaveContext);
-
       const updateCurrencyForForm = () => {
         currencyFormatter = updateCurrency({
           currencySelect,
@@ -169,16 +142,6 @@ export const setupInvoiceForms = () => {
           return;
         }
 
-        if (event.target.matches('[data-invoice-catalog-input]')) {
-          scheduleCatalogSearch({
-            catalogSearchStates,
-            input: event.target,
-            updateCatalogSavePrompt: updateCatalogSavePromptForForm,
-          });
-          updateCatalogSavePromptForForm(event.target);
-          return;
-        }
-
         if (
           event.target.matches('[data-invoice-quantity]') ||
           event.target.matches('[data-invoice-unit-price]') ||
@@ -187,84 +150,6 @@ export const setupInvoiceForms = () => {
           event.target.matches('[data-invoice-discount-value]')
         ) {
           updateTotalsForForm();
-
-          if (event.target.matches('[data-invoice-unit-price]')) {
-            const input = event.target
-              .closest<HTMLElement>('[data-invoice-line]')
-              ?.querySelector<HTMLInputElement>('[data-invoice-catalog-input]');
-
-            if (input) {
-              updateCatalogSavePromptForForm(input);
-            }
-          }
-        }
-      });
-
-      form.addEventListener('keydown', (event) => {
-        if (!(event.target instanceof HTMLInputElement)) {
-          return;
-        }
-
-        if (event.target.matches('[data-invoice-catalog-save-name]')) {
-          if (event.key === 'Enter') {
-            const row = event.target.closest<HTMLElement>('[data-invoice-line]');
-
-            event.preventDefault();
-
-            if (row) {
-              void submitCatalogSaveForForm(row);
-            }
-          }
-
-          return;
-        }
-
-        if (!event.target.matches('[data-invoice-catalog-input]')) {
-          return;
-        }
-
-        const state = getCatalogSearchState(event.target, catalogSearchStates);
-
-        if (event.key === 'Escape') {
-          hideCatalogSuggestions(event.target, catalogSearchStates);
-          return;
-        }
-
-        if (state.items.length === 0) {
-          return;
-        }
-
-        if (event.key === 'ArrowDown') {
-          event.preventDefault();
-          state.activeIndex = Math.min(
-            state.activeIndex + 1,
-            state.items.length - 1,
-          );
-          updateCatalogActiveOption(event.target, catalogSearchStates);
-          return;
-        }
-
-        if (event.key === 'ArrowUp') {
-          event.preventDefault();
-          state.activeIndex = Math.max(state.activeIndex - 1, 0);
-          updateCatalogActiveOption(event.target, catalogSearchStates);
-          return;
-        }
-
-        if (event.key === 'Enter' && state.activeIndex >= 0) {
-          event.preventDefault();
-          selectCatalogSuggestion({
-            catalogSearchStates,
-            clearSavedCatalogDescription: (input) => {
-              savedCatalogDescriptions.delete(input);
-            },
-            currencySelect,
-            input: event.target,
-            item: state.items[state.activeIndex],
-            markDirty: markFormDirty,
-            setCatalogSaveStatus: setCatalogSaveStatusForForm,
-            updateTotals: updateTotalsForForm,
-          });
         }
       });
 
@@ -290,119 +175,12 @@ export const setupInvoiceForms = () => {
           return;
         }
 
-        const catalogOption = event.target.closest<HTMLButtonElement>(
-          '[data-invoice-catalog-option]',
-        );
-
-        if (catalogOption) {
-          const row = catalogOption.closest<HTMLElement>('[data-invoice-line]');
-          const input = row?.querySelector<HTMLInputElement>(
-            '[data-invoice-catalog-input]',
-          );
-          const index = Number(catalogOption.dataset.invoiceCatalogOption);
-          const item =
-            input
-              ? getCatalogSearchState(input, catalogSearchStates).items[index]
-              : undefined;
-
-          if (input && item) {
-            selectCatalogSuggestion({
-              catalogSearchStates,
-              clearSavedCatalogDescription: (input) => {
-                savedCatalogDescriptions.delete(input);
-              },
-              currencySelect,
-              input,
-              item,
-              markDirty: markFormDirty,
-              setCatalogSaveStatus: setCatalogSaveStatusForForm,
-              updateTotals: updateTotalsForForm,
-            });
-          }
-
-          return;
-        }
-
         const addButton = event.target.closest<HTMLButtonElement>(
           '[data-invoice-add-line]',
         );
 
         if (addButton) {
           addLineForForm();
-          return;
-        }
-
-        const saveOpenButton = event.target.closest<HTMLButtonElement>(
-          '[data-invoice-catalog-save-open]',
-        );
-
-        if (saveOpenButton) {
-          const row = saveOpenButton.closest<HTMLElement>('[data-invoice-line]');
-          const input = row?.querySelector<HTMLInputElement>(
-            '[data-invoice-catalog-input]',
-          );
-          const nameInput = row?.querySelector<HTMLInputElement>(
-            '[data-invoice-catalog-save-name]',
-          );
-
-          if (input && nameInput) {
-            nameInput.value = shortCatalogName(input.value);
-            setCatalogSaveStatusForForm(input, 'form');
-            markFormDirty();
-            nameInput.focus();
-          }
-
-          return;
-        }
-
-        const saveSubmitButton = event.target.closest<HTMLButtonElement>(
-          '[data-invoice-catalog-save-submit]',
-        );
-
-        if (saveSubmitButton) {
-          const row = saveSubmitButton.closest<HTMLElement>(
-            '[data-invoice-line]',
-          );
-
-          if (row) {
-            void submitCatalogSaveForForm(row);
-          }
-
-          return;
-        }
-
-        const saveCancelButton = event.target.closest<HTMLButtonElement>(
-          '[data-invoice-catalog-save-cancel]',
-        );
-
-        if (saveCancelButton) {
-          const row = saveCancelButton.closest<HTMLElement>(
-            '[data-invoice-line]',
-          );
-          const input = row?.querySelector<HTMLInputElement>(
-            '[data-invoice-catalog-input]',
-          );
-
-          if (input) {
-            updateCatalogSavePromptForForm(input);
-          }
-
-          return;
-        }
-
-        const saveRetryButton = event.target.closest<HTMLButtonElement>(
-          '[data-invoice-catalog-save-retry]',
-        );
-
-        if (saveRetryButton) {
-          const row = saveRetryButton.closest<HTMLElement>(
-            '[data-invoice-line]',
-          );
-
-          if (row) {
-            void submitCatalogSaveForForm(row);
-          }
-
           return;
         }
 
@@ -426,52 +204,13 @@ export const setupInvoiceForms = () => {
         updateTotalsForForm();
       });
 
-      form.addEventListener('focusout', (event) => {
-        if (!(event.target instanceof Element)) {
-          return;
-        }
-
-        const combobox = event.target.closest<HTMLElement>(
-          '[data-invoice-catalog-combobox]',
-        );
-
-        if (!combobox) {
-          return;
-        }
-
-        const relatedTarget = event.relatedTarget;
-
-        if (relatedTarget instanceof Node && combobox.contains(relatedTarget)) {
-          return;
-        }
-
-        const input = combobox.querySelector<HTMLInputElement>(
-          '[data-invoice-catalog-input]',
-        );
-
-        if (input) {
-          window.setTimeout(() => {
-            if (
-              document.activeElement instanceof Node &&
-              combobox.contains(document.activeElement)
-            ) {
-              return;
-            }
-
-            hideCatalogSuggestions(input, catalogSearchStates);
-          }, 100);
-        }
-      });
-
-      document.addEventListener('click', (event) => {
-        if (
-          event.target instanceof Element &&
-          event.target.closest('[data-invoice-catalog-combobox]')
-        ) {
-          return;
-        }
-
-        hideAllCatalogSuggestions(form, catalogSearchStates);
+      setupCatalogEvents({
+        catalogSaveContext,
+        catalogSearchStates,
+        currencySelect,
+        form,
+        markDirty: markFormDirty,
+        updateTotals: updateTotalsForForm,
       });
 
       form.addEventListener('submit', (event) => {

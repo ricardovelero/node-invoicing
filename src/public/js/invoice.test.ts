@@ -11,6 +11,10 @@ const catalogHelpersSource = readFileSync(
   path.join(process.cwd(), "src", "public", "js", "invoices", "catalog.helpers.ts"),
   "utf8",
 );
+const catalogEventsSource = readFileSync(
+  path.join(process.cwd(), "src", "public", "js", "invoices", "catalog-events.ts"),
+  "utf8",
+);
 const catalogSearchSource = readFileSync(
   path.join(process.cwd(), "src", "public", "js", "invoices", "catalog-search.ts"),
   "utf8",
@@ -42,9 +46,9 @@ test("invoice frontend includes catalog autocomplete behavior", () => {
   assert.match(catalogSearchSource, /\/items\/search/);
   assert.match(catalogSearchSource, /data-invoice-catalog-input/);
   assert.match(catalogSearchSource, /data-invoice-catalog-option/);
-  assert.match(source, /ArrowDown/);
-  assert.match(source, /ArrowUp/);
-  assert.match(source, /Escape/);
+  assert.match(catalogEventsSource, /ArrowDown/);
+  assert.match(catalogEventsSource, /ArrowUp/);
+  assert.match(catalogEventsSource, /Escape/);
   assert.match(catalogSearchSource, /item\.description\?\.trim\(\) \|\| item\.name/);
   assert.match(catalogSearchSource, /item\.currency === currencySelect\.value/);
   assert.match(catalogSearchSource, /unitPriceInput\.value = ['"]{2}/);
@@ -84,8 +88,9 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(catalogSaveSource, /catalogSaveHideTimeouts/);
   assert.match(catalogSaveSource, /setCatalogSaveStatus\(input, 'hidden'/);
   assert.match(catalogSaveSource, /}, 2000\)/);
-  assert.match(source, /data-invoice-catalog-save-cancel/);
-  assert.match(source, /event\.target\.matches\('\[data-invoice-unit-price\]'\)/);
-  assert.match(source, /updateCatalogSavePromptForForm\(input\)/);
-  assert.match(source, /data-invoice-catalog-save-retry/);
+  assert.match(catalogEventsSource, /data-invoice-catalog-save-cancel/);
+  assert.match(catalogEventsSource, /event\.target\.matches\('\[data-invoice-unit-price\]'\)/);
+  assert.match(catalogEventsSource, /updateCatalogSavePromptForForm\(input\)/);
+  assert.match(catalogEventsSource, /data-invoice-catalog-save-retry/);
+  assert.match(source, /setupCatalogEvents/);
 });
