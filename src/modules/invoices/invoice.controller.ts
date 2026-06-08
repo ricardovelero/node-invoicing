@@ -1,4 +1,4 @@
-import type { RequestHandler, Response } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import {
   createInvoiceFormValues,
   formatInvoiceMetadataErrors,
@@ -36,6 +36,7 @@ import {
   invoiceToFormValues,
 } from './invoice.presenter';
 import { sendInvoiceEmail } from './invoice-email.service';
+import { generateInvoicePdfFromPrintUrl } from './invoice-pdf.service';
 
 type InvoiceFormCustomers = Awaited<ReturnType<typeof getInvoiceFormOptions>>;
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
@@ -122,6 +123,15 @@ const metadataValuesAfterInvalidSubmission = (
     [intent]: submittedValues[intent],
   };
 };
+
+const invoicePdfFileName = (invoiceNumber: string) => {
+  const safeNumber = invoiceNumber.trim().replace(/[^A-Za-z0-9._-]+/g, '-');
+
+  return `${safeNumber || 'invoice'}.pdf`;
+};
+
+const absoluteInvoiceUrl = (req: Request, path: string) =>
+  `${req.protocol}://${req.get('host')}${path}`;
 
 export const listInvoices: RequestHandler = async (req, res) => {
   const query = invoiceListQuerySchema.parse(req.query);
@@ -278,6 +288,35 @@ export const printInvoice: RequestHandler = async (req, res) => {
   }
 
   return res.render('pages/invoices/print.njk', invoicePrintView(invoice));
+};
+
+export const downloadInvoicePdf: RequestHandler = async (req, res) => {
+  const invoiceId = String(req.params.invoiceId);
+  const invoice = await getInvoiceDetails(req.auth!.organization.id, invoiceId);
+
+  if (!invoice) {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  const invoiceDisplay = createInvoiceDisplay(invoice);
+
+  if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
+    req.flash('error', 'Mark the invoice sent before downloading a PDF.');
+    return res.redirect(`/invoices/${invoiceId}`);
+  }
+
+  const pdf = await generateInvoicePdfFromPrintUrl({
+    cookieHeader: req.headers.cookie,
+    printUrl: absoluteInvoiceUrl(req, `/invoices/${invoiceId}/print`),
+  });
+
+  return res
+    .type('application/pdf')
+    .attachment(invoicePdfFileName(invoice.number))
+    .send(pdf);
 };
 
 export const updateInvoiceStatusController: RequestHandler = async (

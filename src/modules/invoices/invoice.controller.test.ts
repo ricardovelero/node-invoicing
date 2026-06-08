@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import {
   createInvoice,
+  downloadInvoicePdf,
   editInvoice,
   listInvoices,
   printInvoice,
@@ -22,21 +23,27 @@ import {
   invoiceIndexView,
 } from "./invoice.presenter";
 import * as invoiceEmailService from "./invoice-email.service";
+import * as invoicePdfService from "./invoice-pdf.service";
 
 type MockRequest = Request & {
   body: Record<string, unknown>;
   params: Record<string, string>;
   query: Record<string, unknown>;
   auth: NonNullable<Request["auth"]>;
+  headers: Record<string, string>;
   path: string;
+  protocol: string;
   flashMessages: Record<string, string[]>;
 };
 
 type MockResponse = Response & {
+  attachmentFileName?: string;
+  contentType?: string;
   statusCode?: number;
   redirectedTo?: string;
   renderedView?: string;
   renderedData?: unknown;
+  sentBody?: unknown;
 };
 
 const prismaMock = prisma as unknown as {
@@ -62,6 +69,9 @@ const prismaMock = prisma as unknown as {
 const invoiceEmailServiceMock = invoiceEmailService as unknown as {
   sendInvoiceEmail: typeof invoiceEmailService.sendInvoiceEmail;
 };
+const invoicePdfServiceMock = invoicePdfService as unknown as {
+  generateInvoicePdfFromPrintUrl: typeof invoicePdfService.generateInvoicePdfFromPrintUrl;
+};
 
 const originalTransaction = prismaMock.$transaction;
 const originalFindMany = prismaMock.customer.findMany;
@@ -74,6 +84,8 @@ const originalInvoiceUpdate = prismaMock.invoice.update;
 const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 const originalSendInvoiceEmail = invoiceEmailServiceMock.sendInvoiceEmail;
+const originalGenerateInvoicePdfFromPrintUrl =
+  invoicePdfServiceMock.generateInvoicePdfFromPrintUrl;
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
@@ -87,6 +99,8 @@ afterEach(() => {
   prismaMock.invoiceSnapshot.create = originalInvoiceSnapshotCreate;
   prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
   invoiceEmailServiceMock.sendInvoiceEmail = originalSendInvoiceEmail;
+  invoicePdfServiceMock.generateInvoicePdfFromPrintUrl =
+    originalGenerateInvoicePdfFromPrintUrl;
 });
 
 const createRequest = (
@@ -98,7 +112,9 @@ const createRequest = (
     body,
     params,
     query,
+    headers: { cookie: "invoice.sid=session_123" },
     path: params.invoiceId ? `/invoices/${params.invoiceId}` : "/invoices/new",
+    protocol: "https",
     auth: {
       user: {
         id: "user_1",
@@ -125,6 +141,9 @@ const createRequest = (
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    get(name: string) {
+      return name.toLowerCase() === "host" ? "billing.example" : undefined;
+    },
   }) as MockRequest;
 
 const createResponse = () => {
@@ -133,11 +152,21 @@ const createResponse = () => {
     redirectedTo?: string;
     renderedView?: string;
     renderedData?: unknown;
+    attachmentFileName?: string;
+    contentType?: string;
+    sentBody?: unknown;
+    attachment?: (fileName: string) => MockResponse;
     status?: (statusCode: number) => MockResponse;
     redirect?: (path: string) => MockResponse;
     render?: (view: string, data: unknown) => MockResponse;
+    send?: (body: unknown) => MockResponse;
+    type?: (contentType: string) => MockResponse;
   } = {};
 
+  res.attachment = (fileName: string) => {
+    res.attachmentFileName = fileName;
+    return res as unknown as MockResponse;
+  };
   res.status = (statusCode: number) => {
     res.statusCode = statusCode;
     return res as unknown as MockResponse;
@@ -149,6 +178,14 @@ const createResponse = () => {
   res.render = (view: string, data: unknown) => {
     res.renderedView = view;
     res.renderedData = data;
+    return res as unknown as MockResponse;
+  };
+  res.send = (body: unknown) => {
+    res.sentBody = body;
+    return res as unknown as MockResponse;
+  };
+  res.type = (contentType: string) => {
+    res.contentType = contentType;
     return res as unknown as MockResponse;
   };
 
@@ -1182,6 +1219,83 @@ test("printInvoice renders issued invoices with snapshot data", async () => {
       isPaid: false,
     },
   });
+});
+
+test("downloadInvoicePdf renders the existing print URL with Playwright and returns an attachment", async () => {
+  const pdf = Buffer.from("%PDF-1.4");
+  let pdfRequest:
+    | Parameters<typeof invoicePdfService.generateInvoicePdfFromPrintUrl>[0]
+    | undefined;
+
+  prismaMock.invoice.findFirst = async () => printableInvoice;
+  invoicePdfServiceMock.generateInvoicePdfFromPrintUrl = async (request) => {
+    pdfRequest = request;
+    return pdf;
+  };
+  const req = createRequest({}, { invoiceId: printableInvoice.id });
+  const res = createResponse();
+
+  await downloadInvoicePdf(req, res, () => undefined);
+
+  assert.deepEqual(pdfRequest, {
+    cookieHeader: "invoice.sid=session_123",
+    printUrl: `https://billing.example/invoices/${printableInvoice.id}/print`,
+  });
+  assert.equal(res.contentType, "application/pdf");
+  assert.equal(res.attachmentFileName, "INV-2026-0001.pdf");
+  assert.equal(res.sentBody, pdf);
+});
+
+test("downloadInvoicePdf redirects draft invoices and issued invoices without snapshots", async () => {
+  const cases = [
+    {
+      name: "draft invoice",
+      invoice: {
+        ...printableInvoice,
+        status: "DRAFT" as const,
+        snapshot: printableSnapshot,
+      },
+    },
+    {
+      name: "issued invoice without snapshot",
+      invoice: {
+        ...printableInvoice,
+        snapshot: null,
+      },
+    },
+  ];
+
+  for (const { name, invoice } of cases) {
+    prismaMock.invoice.findFirst = async () => invoice;
+    invoicePdfServiceMock.generateInvoicePdfFromPrintUrl = async () => {
+      throw new Error("PDF generation should not run");
+    };
+    const req = createRequest({}, { invoiceId: printableInvoice.id });
+    const res = createResponse();
+
+    await downloadInvoicePdf(req, res, () => undefined);
+
+    assert.deepEqual(
+      req.flashMessages.error,
+      ["Mark the invoice sent before downloading a PDF."],
+      name,
+    );
+    assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`, name);
+  }
+});
+
+test("downloadInvoicePdf renders not found for missing invoices", async () => {
+  prismaMock.invoice.findFirst = async () => null;
+  invoicePdfServiceMock.generateInvoicePdfFromPrintUrl = async () => {
+    throw new Error("PDF generation should not run");
+  };
+  const req = createRequest({}, { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" });
+  const res = createResponse();
+
+  await downloadInvoicePdf(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
 });
 
 test("createInvoiceLineDisplays adds line tax labels and display totals", () => {

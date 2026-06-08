@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createInvoice,
+  downloadInvoicePdf,
   editInvoice,
   listInvoices,
   printInvoice,
@@ -23,6 +24,7 @@ invoiceRouter.get('/new', renderNewInvoice);
 invoiceRouter.post('/', createInvoice);
 invoiceRouter.get('/:invoiceId/email', renderInvoiceEmailForm);
 invoiceRouter.post('/:invoiceId/email', sendInvoiceEmailController);
+invoiceRouter.get('/:invoiceId/pdf', downloadInvoicePdf);
 invoiceRouter.get('/:invoiceId/print', printInvoice);
 invoiceRouter.get('/:invoiceId/edit', renderEditInvoice);
 invoiceRouter.post('/:invoiceId/edit', editInvoice);

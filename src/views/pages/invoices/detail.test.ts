@@ -15,6 +15,8 @@ test("invoice detail links to print page only for printable invoices", () => {
   assert.match(template, /if invoiceDisplay\.isPrintable/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/print"/);
   assert.match(template, /Print \/ Save as PDF/);
+  assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/pdf"/);
+  assert.match(template, /Download PDF/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/email"/);
   assert.match(template, /Send invoice email/);
 });
