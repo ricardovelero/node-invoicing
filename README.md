@@ -218,7 +218,7 @@ Issued invoices can be printed at:
 /invoices/:invoiceId/print
 ```
 
-The print page is a standalone A4-oriented HTML document with seller data, customer data, invoice dates, line items, totals, payment instructions, and a CSP-safe `Print / Save as PDF` button.
+The print page is a standalone A4-oriented HTML document with seller data, customer data, invoice dates, line items, totals, payment instructions, and a CSP-safe `Print` button.
 
 Draft invoices and issued invoices without a snapshot redirect back to the invoice detail page.
 

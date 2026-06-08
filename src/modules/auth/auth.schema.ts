@@ -6,6 +6,40 @@ export const passwordRequirementsMessage =
 const stringInput = (schema: z.ZodType<string>) =>
   z.preprocess((value) => (typeof value === 'string' ? value : ''), schema);
 
+const passwordInput = z.preprocess(
+  (value) => (typeof value === 'string' ? value : ''),
+  z
+    .string()
+    .min(1, 'Enter your password.')
+    .superRefine((password, ctx) => {
+      if (!password) {
+        return;
+      }
+
+      const isStrong =
+        password.length >= 8 &&
+        /[a-z]/.test(password) &&
+        /[A-Z]/.test(password) &&
+        /\d/.test(password);
+
+      if (!isStrong) {
+        ctx.addIssue({
+          code: 'custom',
+          message: passwordRequirementsMessage,
+        });
+      }
+    }),
+);
+
+const emailInput = stringInput(
+  z
+    .string()
+    .trim()
+    .min(1, 'Enter your email address.')
+    .email('Enter a valid email address.')
+    .transform((email) => email.toLowerCase()),
+);
+
 export const registerValuesSchema = z.object({
   name: stringInput(z.string().trim()),
   email: stringInput(
@@ -18,43 +52,35 @@ export const registerValuesSchema = z.object({
 });
 
 export const registerSchema = registerValuesSchema.extend({
-  email: stringInput(
-    z
-      .string()
-      .trim()
-      .min(1, 'Enter your email address.')
-      .email('Enter a valid email address.')
-      .transform((email) => email.toLowerCase()),
-  ),
-  password: z.preprocess(
-    (value) => (typeof value === 'string' ? value : ''),
-    z
-      .string()
-      .min(1, 'Enter your password.')
-      .superRefine((password, ctx) => {
-        if (!password) {
-          return;
-        }
-
-        const isStrong =
-          password.length >= 8 &&
-          /[a-z]/.test(password) &&
-          /[A-Z]/.test(password) &&
-          /\d/.test(password);
-
-        if (!isStrong) {
-          ctx.addIssue({
-            code: 'custom',
-            message: passwordRequirementsMessage,
-          });
-        }
-      }),
-  ),
+  email: emailInput,
+  password: passwordInput,
   organizationName: stringInput(
     z.string().trim().min(1, 'Enter your organization name.'),
   ),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: emailInput,
+});
+
+export const forgotPasswordValuesSchema = z.object({
+  email: stringInput(
+    z
+      .string()
+      .trim()
+      .transform((email) => email.toLowerCase()),
+  ),
+});
+
+export const resetPasswordSchema = z.object({
+  password: passwordInput,
+});
+
 export type RegisterValues = z.infer<typeof registerValuesSchema>;
 export type RegisterForm = z.infer<typeof registerSchema>;
 export type RegisterErrors = Partial<Record<keyof RegisterForm, string[]>>;
+export type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordValuesSchema>;
+export type ForgotPasswordErrors = Partial<Record<keyof ForgotPasswordForm, string[]>>;
+export type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordErrors = Partial<Record<keyof ResetPasswordForm, string[]>>;

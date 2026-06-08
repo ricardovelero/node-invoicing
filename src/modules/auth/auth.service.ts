@@ -1,5 +1,9 @@
+import { createHash, randomBytes } from 'node:crypto';
+import path from 'node:path';
 import { Prisma, type OrganizationRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import nunjucks from 'nunjucks';
+import { env } from '../../config/env';
 import { prisma } from '../../db/prisma';
 import type { RegisterForm } from './auth.schema';
 
@@ -29,6 +33,52 @@ export type InitialOrganizationResult =
       reason: 'noOrganizationMembership' | 'userNotFound' | 'databaseError';
     };
 
+export type PostmarkPasswordResetPayload = {
+  From: string;
+  To: string;
+  Subject: string;
+  HtmlBody: string;
+  TextBody: string;
+  Tag: string;
+  Metadata: Record<string, string>;
+  MessageStream: string;
+  TrackOpens: boolean;
+  TrackLinks: 'None';
+};
+
+export type SendPasswordResetEmail = (
+  payload: PostmarkPasswordResetPayload,
+) => Promise<
+  | {
+      ok: true;
+      providerMessageId: string;
+      submittedAt?: string;
+      response: unknown;
+    }
+  | { ok: false; errorMessage: string; response?: unknown }
+>;
+
+export type RequestPasswordResetResult =
+  | { ok: true; emailSent: boolean; tokenCreated: boolean }
+  | { ok: false; reason: 'databaseError' };
+
+export type PasswordResetTokenResult =
+  | { ok: true; userId: string; email: string }
+  | { ok: false; reason: 'invalidOrExpired' | 'databaseError' };
+
+export type ResetPasswordResult =
+  | { ok: true }
+  | { ok: false; reason: 'invalidOrExpired' | 'databaseError' };
+
+const passwordResetEmailViewsPath = path.join(process.cwd(), 'src', 'views');
+const passwordResetEmailNunjucksEnv = nunjucks.configure(
+  passwordResetEmailViewsPath,
+  {
+    autoescape: true,
+    noCache: env.NODE_ENV === 'development',
+  },
+);
+
 const normalizeEmail = (email: string) => email.toLowerCase().trim();
 
 const hashPassword = (password: string) => bcrypt.hash(password, 12);
@@ -36,11 +86,126 @@ const hashPassword = (password: string) => bcrypt.hash(password, 12);
 const verifyPassword = (password: string, passwordHash: string) =>
   bcrypt.compare(password, passwordHash);
 
+const hashToken = (token: string) =>
+  createHash('sha256').update(token).digest('hex');
+
+const createPasswordResetToken = () => randomBytes(32).toString('base64url');
+
+const getAppUrl = () =>
+  (env.APP_URL ?? `http://localhost:${env.PORT}`).replace(/\/$/, '');
+
 const isPrismaDatabaseError = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError ||
   error instanceof Prisma.PrismaClientUnknownRequestError ||
   error instanceof Prisma.PrismaClientRustPanicError ||
   error instanceof Prisma.PrismaClientInitializationError;
+
+const passwordResetExpiresAt = () => new Date(Date.now() + 60 * 60 * 1000);
+
+const createPasswordResetUrl = (token: string) =>
+  `${getAppUrl()}/auth/reset/${encodeURIComponent(token)}`;
+
+const renderPasswordResetEmailBodies = (data: {
+  resetUrl: string;
+  user: { email: string; name: string | null };
+}) => ({
+  htmlBody: passwordResetEmailNunjucksEnv.render(
+    'emails/auth/password-reset-html.njk',
+    data,
+  ),
+  textBody: passwordResetEmailNunjucksEnv.render(
+    'emails/auth/password-reset-text.njk',
+    data,
+  ),
+});
+
+const buildPasswordResetPostmarkPayload = (data: {
+  user: { id: string; email: string; name: string | null };
+  resetTokenId: string;
+  resetUrl: string;
+}) => {
+  const { htmlBody, textBody } = renderPasswordResetEmailBodies({
+    resetUrl: data.resetUrl,
+    user: data.user,
+  });
+
+  return {
+    From: env.POSTMARK_FROM ?? '',
+    To: data.user.email,
+    Subject: 'Reset your Invoicing password',
+    HtmlBody: htmlBody,
+    TextBody: textBody,
+    Tag: 'password-reset',
+    Metadata: {
+      userId: data.user.id,
+      passwordResetTokenId: data.resetTokenId,
+    },
+    MessageStream: env.POSTMARK_MESSAGE_STREAM,
+    TrackOpens: false,
+    TrackLinks: 'None' as const,
+  };
+};
+
+const postmarkPasswordResetProvider: SendPasswordResetEmail = async (
+  payload,
+) => {
+  if (!env.POSTMARK_SERVER_TOKEN || !env.POSTMARK_FROM) {
+    return {
+      ok: false,
+      errorMessage:
+        'Postmark is not configured. Set POSTMARK_SERVER_TOKEN and POSTMARK_FROM.',
+    };
+  }
+
+  try {
+    const response = await fetch(env.POSTMARK_API_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Server-Token': env.POSTMARK_SERVER_TOKEN,
+      },
+      body: JSON.stringify(payload),
+    });
+    const responseBody = (await response.json().catch(() => ({}))) as {
+      MessageID?: string;
+      SubmittedAt?: string;
+      Message?: string;
+      ErrorCode?: number;
+    };
+
+    if (!response.ok || responseBody.ErrorCode) {
+      return {
+        ok: false,
+        errorMessage:
+          responseBody.Message ??
+          `Postmark returned HTTP ${response.status} while sending email.`,
+        response: responseBody,
+      };
+    }
+
+    if (!responseBody.MessageID) {
+      return {
+        ok: false,
+        errorMessage: 'Postmark did not return a message id.',
+        response: responseBody,
+      };
+    }
+
+    return {
+      ok: true,
+      providerMessageId: responseBody.MessageID,
+      submittedAt: responseBody.SubmittedAt,
+      response: responseBody,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorMessage:
+        error instanceof Error ? error.message : 'Unable to send reset email.',
+    };
+  }
+};
 
 export const registerUser = async (
   data: RegisterForm,
@@ -174,6 +339,154 @@ export const getInitialOrganizationForUser = async (
       organizationId: membership.organizationId,
       role: membership.role,
     };
+  } catch (error) {
+    if (isPrismaDatabaseError(error)) {
+      return { ok: false, reason: 'databaseError' };
+    }
+
+    throw error;
+  }
+};
+
+export const requestPasswordReset = async (
+  email: string,
+  sendPasswordResetEmail: SendPasswordResetEmail = postmarkPasswordResetProvider,
+): Promise<RequestPasswordResetResult> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: normalizeEmail(email) },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
+
+    if (!user) {
+      return { ok: true, emailSent: false, tokenCreated: false };
+    }
+
+    const token = createPasswordResetToken();
+    const resetToken = await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(token),
+        expiresAt: passwordResetExpiresAt(),
+      },
+    });
+    const payload = buildPasswordResetPostmarkPayload({
+      user,
+      resetTokenId: resetToken.id,
+      resetUrl: createPasswordResetUrl(token),
+    });
+    const sendResult = await sendPasswordResetEmail(payload);
+
+    return {
+      ok: true,
+      emailSent: sendResult.ok,
+      tokenCreated: true,
+    };
+  } catch (error) {
+    if (isPrismaDatabaseError(error)) {
+      return { ok: false, reason: 'databaseError' };
+    }
+
+    throw error;
+  }
+};
+
+export const getValidPasswordResetToken = async (
+  token: string,
+): Promise<PasswordResetTokenResult> => {
+  try {
+    const resetToken = await prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash: hashToken(token),
+        usedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!resetToken) {
+      return { ok: false, reason: 'invalidOrExpired' };
+    }
+
+    return {
+      ok: true,
+      userId: resetToken.user.id,
+      email: resetToken.user.email,
+    };
+  } catch (error) {
+    if (isPrismaDatabaseError(error)) {
+      return { ok: false, reason: 'databaseError' };
+    }
+
+    throw error;
+  }
+};
+
+export const resetPasswordWithToken = async (
+  token: string,
+  password: string,
+): Promise<ResetPasswordResult> => {
+  try {
+    const passwordHash = await hashPassword(password);
+    const tokenHash = hashToken(token);
+
+    return await prisma.$transaction(async (tx) => {
+      const resetToken = await tx.passwordResetToken.findFirst({
+        where: {
+          tokenHash,
+          usedAt: null,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      });
+
+      if (!resetToken) {
+        return { ok: false as const, reason: 'invalidOrExpired' as const };
+      }
+
+      const now = new Date();
+
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash },
+      });
+
+      await tx.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: now },
+      });
+
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: resetToken.userId,
+          usedAt: null,
+          id: {
+            not: resetToken.id,
+          },
+        },
+        data: { usedAt: now },
+      });
+
+      return { ok: true as const };
+    });
   } catch (error) {
     if (isPrismaDatabaseError(error)) {
       return { ok: false, reason: 'databaseError' };

@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { NextFunction, Request, Response } from "express";
-import { handleRegister, loginUser, logoutUser } from "./auth.controller";
+import {
+  handleForgotPassword,
+  handleRegister,
+  handleResetPassword,
+  loginUser,
+  logoutUser,
+  renderForgotPassword,
+  renderResetPassword,
+} from "./auth.controller";
 import * as authService from "./auth.service";
 
 type MockSession = {
@@ -15,6 +23,7 @@ type MockSession = {
 
 type MockRequest = Request & {
   body: Record<string, unknown>;
+  params: Record<string, string>;
   session: MockSession;
   flashMessages: Record<string, string[]>;
 };
@@ -30,17 +39,29 @@ type MockResponse = Response & {
 const authServiceMock = authService as unknown as {
   registerUser: typeof authService.registerUser;
   authenticateUser: typeof authService.authenticateUser;
+  requestPasswordReset: typeof authService.requestPasswordReset;
+  getValidPasswordResetToken: typeof authService.getValidPasswordResetToken;
+  resetPasswordWithToken: typeof authService.resetPasswordWithToken;
 };
 
 const originalRegisterUser = authServiceMock.registerUser;
 const originalAuthenticateUser = authServiceMock.authenticateUser;
+const originalRequestPasswordReset = authServiceMock.requestPasswordReset;
+const originalGetValidPasswordResetToken = authServiceMock.getValidPasswordResetToken;
+const originalResetPasswordWithToken = authServiceMock.resetPasswordWithToken;
 
 afterEach(() => {
   authServiceMock.registerUser = originalRegisterUser;
   authServiceMock.authenticateUser = originalAuthenticateUser;
+  authServiceMock.requestPasswordReset = originalRequestPasswordReset;
+  authServiceMock.getValidPasswordResetToken = originalGetValidPasswordResetToken;
+  authServiceMock.resetPasswordWithToken = originalResetPasswordWithToken;
 });
 
-const createRequest = (body: Record<string, unknown> = {}) => {
+const createRequest = (
+  body: Record<string, unknown> = {},
+  params: Record<string, string> = {},
+) => {
   const session: MockSession = {
     regenerateCalls: 0,
     destroyCalls: 0,
@@ -58,6 +79,7 @@ const createRequest = (body: Record<string, unknown> = {}) => {
 
   const req = {
     body,
+    params,
     session,
     flashMessages: {},
     flash(type: string, message: string) {
@@ -220,6 +242,208 @@ test("handleRegister renders duplicate email errors returned by the service", as
     errors: {
       email: ["An account with this email already exists."],
     },
+  });
+});
+
+test("renderForgotPassword renders the forgot password form", () => {
+  const req = createRequest();
+  const res = createResponse();
+  const next = createNext();
+
+  renderForgotPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.renderedView, "pages/auth/forgot.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Forgot password",
+    values: {},
+    errors: {},
+    success: false,
+  });
+});
+
+test("handleForgotPassword validates email before requesting a reset", async () => {
+  let serviceCalls = 0;
+
+  authServiceMock.requestPasswordReset = async () => {
+    serviceCalls += 1;
+    return { ok: true, emailSent: true, tokenCreated: true };
+  };
+
+  const req = createRequest({ email: "not-an-email" });
+  const res = createResponse();
+  const next = createNext();
+
+  await handleForgotPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(serviceCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/auth/forgot.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Forgot password",
+    values: { email: "not-an-email" },
+    errors: {
+      email: ["Enter a valid email address."],
+    },
+    success: false,
+  });
+});
+
+test("handleForgotPassword renders a generic success message after valid requests", async () => {
+  let serviceEmail: string | undefined;
+
+  authServiceMock.requestPasswordReset = async (email) => {
+    serviceEmail = email;
+    return { ok: true, emailSent: false, tokenCreated: false };
+  };
+
+  const req = createRequest({ email: " ADA@example.COM " });
+  const res = createResponse();
+  const next = createNext();
+
+  await handleForgotPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(serviceEmail, "ada@example.com");
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.renderedView, "pages/auth/forgot.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Forgot password",
+    values: { email: "ada@example.com" },
+    errors: {},
+    success: true,
+  });
+});
+
+test("renderResetPassword renders the reset form for valid tokens", async () => {
+  authServiceMock.getValidPasswordResetToken = async () => ({
+    ok: true,
+    userId: "user_1",
+    email: "ada@example.com",
+  });
+
+  const req = createRequest({}, { token: "valid-token" });
+  const res = createResponse();
+  const next = createNext();
+
+  await renderResetPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.renderedView, "pages/auth/reset.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Reset password",
+    token: "valid-token",
+    errors: {},
+    invalidToken: false,
+  });
+});
+
+test("renderResetPassword renders an invalid link state for expired tokens", async () => {
+  authServiceMock.getValidPasswordResetToken = async () => ({
+    ok: false,
+    reason: "invalidOrExpired",
+  });
+
+  const req = createRequest({}, { token: "expired-token" });
+  const res = createResponse();
+  const next = createNext();
+
+  await renderResetPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/auth/reset.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Reset password",
+    token: "expired-token",
+    errors: {},
+    invalidToken: true,
+  });
+});
+
+test("handleResetPassword validates password without rendering password values back", async () => {
+  let serviceCalls = 0;
+
+  authServiceMock.resetPasswordWithToken = async () => {
+    serviceCalls += 1;
+    return { ok: true };
+  };
+
+  const req = createRequest({ password: "weak" }, { token: "valid-token" });
+  const res = createResponse();
+  const next = createNext();
+
+  await handleResetPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(serviceCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/auth/reset.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Reset password",
+    token: "valid-token",
+    errors: {
+      password: ["Use at least 8 characters with uppercase, lowercase and a number."],
+    },
+    invalidToken: false,
+  });
+  assert.equal(JSON.stringify(res.renderedData).includes("weak"), false);
+});
+
+test("handleResetPassword consumes valid tokens and redirects to login", async () => {
+  let serviceData: unknown;
+
+  authServiceMock.resetPasswordWithToken = async (token, password) => {
+    serviceData = { token, password };
+    return { ok: true };
+  };
+
+  const req = createRequest(
+    { password: "CorrectPassword1" },
+    { token: "valid-token" },
+  );
+  const res = createResponse();
+  const next = createNext();
+
+  await handleResetPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.deepEqual(serviceData, {
+    token: "valid-token",
+    password: "CorrectPassword1",
+  });
+  assert.deepEqual(req.flashMessages.success, [
+    "Password reset successfully. Please log in.",
+  ]);
+  assert.equal(res.redirectedTo, "/auth/login");
+});
+
+test("handleResetPassword renders invalid link state when the service rejects a token", async () => {
+  authServiceMock.resetPasswordWithToken = async () => ({
+    ok: false,
+    reason: "invalidOrExpired",
+  });
+
+  const req = createRequest(
+    { password: "CorrectPassword1" },
+    { token: "expired-token" },
+  );
+  const res = createResponse();
+  const next = createNext();
+
+  await handleResetPassword(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/auth/reset.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Reset password",
+    token: "expired-token",
+    errors: {},
+    invalidToken: true,
   });
 });
 

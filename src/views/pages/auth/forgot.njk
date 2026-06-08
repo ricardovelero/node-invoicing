@@ -1,0 +1,33 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mx-auto max-w-md">
+    <div class="mb-8">
+      <p class="text-sm font-medium text-muted">Account access</p>
+      <h1 class="mt-1 text-3xl font-semibold text-ink">Forgot password</h1>
+    </div>
+
+    <form method="post" action="/auth/forgot" class="space-y-5 rounded-lg border border-line bg-white p-6">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      {% if success %}
+        <div class="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          If an account exists for that email, a password reset link has been sent.
+        </div>
+      {% endif %}
+
+      <div>
+        <label class="block text-sm font-medium text-ink" for="email">Email <span class="text-red-600">*</span></label>
+        <input id="email" name="email" type="email" value="{{ values.email or '' }}" autocomplete="email" required aria-describedby="email-error" class="mt-2 w-full rounded-md border {{ 'border-red-500' if errors.email else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
+        <p id="email-error" class="mt-1 {{ 'hidden' if not errors.email }} text-sm text-red-700">{{ errors.email[0] if errors.email }}</p>
+      </div>
+
+      <button class="btn btn-full btn-primary" type="submit">Send reset link</button>
+
+      <p class="text-center text-sm text-muted">
+        Remembered your password?
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/login">Log in</a>
+      </p>
+    </form>
+  </div>
+{% endblock %}

@@ -1,9 +1,15 @@
 import type { Request, RequestHandler } from 'express';
 import {
+  type ForgotPasswordErrors,
+  type ForgotPasswordValues,
+  type ResetPasswordErrors,
   type RegisterErrors,
   type RegisterValues,
+  forgotPasswordSchema,
+  forgotPasswordValuesSchema,
   registerSchema,
   registerValuesSchema,
+  resetPasswordSchema,
 } from './auth.schema';
 import * as authService from './auth.service';
 
@@ -18,6 +24,37 @@ const renderRegisterForm = (
     values,
     errors,
   });
+
+const renderForgotPasswordForm = (
+  res: Parameters<RequestHandler>[1],
+  values: Partial<ForgotPasswordValues> = {},
+  errors: ForgotPasswordErrors = {},
+  status = 200,
+  success = false,
+) =>
+  res.status(status).render('pages/auth/forgot.njk', {
+    title: 'Forgot password',
+    values,
+    errors,
+    success,
+  });
+
+const renderResetPasswordForm = (
+  res: Parameters<RequestHandler>[1],
+  token: string,
+  errors: ResetPasswordErrors = {},
+  status = 200,
+  invalidToken = false,
+) =>
+  res.status(status).render('pages/auth/reset.njk', {
+    title: 'Reset password',
+    token,
+    errors,
+    invalidToken,
+  });
+
+const getResetTokenParam = (req: Request) =>
+  typeof req.params.token === 'string' ? req.params.token : '';
 
 const regenerateSession = (req: Request) =>
   new Promise<void>((resolve, reject) => {
@@ -60,6 +97,118 @@ export const renderLogin: RequestHandler = (req, res) => {
     title: 'Log in',
     values: {},
   });
+};
+
+export const renderForgotPassword: RequestHandler = (req, res) => {
+  if (req.auth) {
+    return res.redirect('/');
+  }
+
+  return renderForgotPasswordForm(res);
+};
+
+export const handleForgotPassword: RequestHandler = async (req, res, next) => {
+  try {
+    if (req.auth) {
+      return res.redirect('/');
+    }
+
+    const result = forgotPasswordSchema.safeParse(req.body);
+    const values = forgotPasswordValuesSchema.parse(req.body);
+
+    if (!result.success) {
+      return renderForgotPasswordForm(
+        res,
+        values,
+        result.error.flatten().fieldErrors,
+        422,
+      );
+    }
+
+    const resetResult = await authService.requestPasswordReset(
+      result.data.email,
+    );
+
+    if (!resetResult.ok) {
+      return next(new Error('Unable to request password reset.'));
+    }
+
+    return renderForgotPasswordForm(res, values, {}, 200, true);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const renderResetPassword: RequestHandler = async (req, res, next) => {
+  try {
+    if (req.auth) {
+      return res.redirect('/');
+    }
+
+    const token = getResetTokenParam(req);
+
+    if (!token) {
+      return renderResetPasswordForm(res, '', {}, 404, true);
+    }
+
+    const resetToken = await authService.getValidPasswordResetToken(token);
+
+    if (!resetToken.ok) {
+      if (resetToken.reason === 'invalidOrExpired') {
+        return renderResetPasswordForm(res, token, {}, 404, true);
+      }
+
+      return next(new Error('Unable to load password reset token.'));
+    }
+
+    return renderResetPasswordForm(res, token);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const handleResetPassword: RequestHandler = async (req, res, next) => {
+  try {
+    if (req.auth) {
+      return res.redirect('/');
+    }
+
+    const token = getResetTokenParam(req);
+
+    if (!token) {
+      return renderResetPasswordForm(res, '', {}, 404, true);
+    }
+
+    const result = resetPasswordSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return renderResetPasswordForm(
+        res,
+        token,
+        result.error.flatten().fieldErrors,
+        422,
+      );
+    }
+
+    const resetResult = await authService.resetPasswordWithToken(
+      token,
+      result.data.password,
+    );
+
+    if (!resetResult.ok) {
+      if (resetResult.reason === 'invalidOrExpired') {
+        return renderResetPasswordForm(res, token, {}, 404, true);
+      }
+
+      return next(new Error('Unable to reset password.'));
+    }
+
+    req.flash('success', 'Password reset successfully. Please log in.');
+
+    return res.redirect('/auth/login');
+  } catch (error) {
+    return next(error);
+  }
 };
 
 export const handleRegister: RequestHandler = async (req, res, next) => {
