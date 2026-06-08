@@ -6,10 +6,11 @@ The app currently supports a multi-organization invoicing workflow with:
 
 - User registration, login, logout, and session-based auth.
 - Organization ownership through memberships.
-- Organization-scoped dashboard metrics.
+- Organization-scoped operational dashboard with invoice KPIs, action shortcuts, attention lists, recent-month trends, and recent activity.
 - Organization-scoped customer management, including edit, archive, restore, and delete flows.
 - Draft invoice creation and editing.
 - Invoice status transitions for sending, marking overdue, voiding, and paid states.
+- Derived invoice status badges that can show payment and overdue state together, such as `Partially paid` and `Overdue`.
 - Immutable invoice snapshots when draft invoices are issued.
 - Payment recording with outstanding-balance checks.
 - HTML print view for issued invoices, designed for browser print/save-as-PDF.
@@ -155,6 +156,20 @@ Logout destroys the session, clears the `invoice.sid` cookie, and redirects to `
 
 After authentication, app data is scoped to the active organization. Organization settings are available to `OWNER` and `ADMIN` roles.
 
+## Dashboard
+
+The dashboard is designed as an operational view for small-business invoicing rather than a decorative analytics page.
+
+It includes:
+
+- top KPI cards for total invoiced this month, paid this month, outstanding balance, and overdue amount
+- quick actions for creating invoices/customers, recording payments, and reviewing overdue invoices
+- invoice attention sections for overdue, due soon, draft, and partially paid invoices
+- a lightweight server-rendered invoiced-vs-paid monthly comparison without charting libraries
+- recent activity for invoice creation, invoice email sends, recorded payments, and voided invoices
+
+Money totals are grouped by invoice/payment currency instead of converted. There is no currency conversion yet, so mixed-currency dashboard data is shown as separate per-currency totals.
+
 ## Customers
 
 Customers are organization-scoped and can be created, viewed, edited, archived, restored, and deleted.
@@ -180,6 +195,10 @@ Current invoice lifecycle:
 - `PAID` and `VOID` invoices have no further status actions.
 
 Draft invoices use live customer and organization data in the app. Issued invoices use snapshot customer and seller billing data for display and print output.
+
+Invoice status display intentionally separates business-facing payment state from overdue state where possible. A partially paid invoice that is overdue can display both `Partially paid` and `Overdue` badges, even though the stored `Invoice.status` remains a single enum value.
+
+The invoice list status filter keeps the existing enum-style query values, with one derived behavior: `status=partially_paid` filters by payment state (`paid > 0` and `paid < total`) so overdue partially paid invoices still appear. This is currently implemented with a Prisma fetch-plus-filter path; if invoice volume grows, this should be revisited as a raw SQL aggregate for better database-side filtering before count and pagination.
 
 Invoice line items, discounts, taxes, invoice-level discounts, and totals are calculated as integer minor units. The app does not use floating-point values for stored money calculations.
 
@@ -242,7 +261,7 @@ Supported locales:
 - `en-US`
 - `es-ES`
 
-There is no currency conversion yet. If dashboard open invoices span multiple currencies, the dashboard shows a mixed-currency state instead of converting or displaying a misleading aggregate.
+There is no currency conversion yet. Dashboard and invoice summaries show separate per-currency totals instead of converting or displaying a misleading aggregate.
 
 ## Validation And Forms
 

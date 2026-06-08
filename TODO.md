@@ -8,8 +8,6 @@
 
 ## Documents and delivery
 
-- Add downloadable PDF archives for invoices and receipts.
-
 ## Engineering
 
 - Add Vitest unit tests for totals, numbering, and status transitions.
