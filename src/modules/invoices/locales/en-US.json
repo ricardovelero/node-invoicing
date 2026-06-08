@@ -1,0 +1,38 @@
+{
+  "section": "Billing",
+  "title": "Invoices",
+  "actions": {
+    "new": "New invoice"
+  },
+  "filters": {
+    "search": "Search",
+    "searchPlaceholder": "Invoice number or customer",
+    "status": "Status",
+    "rows": "Rows",
+    "allStatuses": "All statuses"
+  },
+  "table": {
+    "number": "Number",
+    "customer": "Customer",
+    "issue": "Issue",
+    "due": "Due",
+    "status": "Status",
+    "total": "Total"
+  },
+  "statuses": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "partially_paid": "Partially paid",
+    "paid": "Paid",
+    "overdue": "Overdue",
+    "void": "Void"
+  },
+  "emptyState": {
+    "empty": "No invoices yet.",
+    "filtered": "No invoices match these filters.",
+    "page": "No invoices on this page."
+  },
+  "pagination": {
+    "countLabel": "invoices"
+  }
+}

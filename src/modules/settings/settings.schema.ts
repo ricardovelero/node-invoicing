@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { supportedLocales } from '../../lib/i18n';
 
 export const supportedCurrencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] as const;
-const supportedLocales = ['en-GB', 'en-US', 'es-ES'] as const;
 
 const optionalText = (maxLength: number, message: string) =>
   z.string().trim().max(maxLength, message).optional().default('');

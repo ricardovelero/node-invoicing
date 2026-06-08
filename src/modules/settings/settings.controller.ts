@@ -7,7 +7,7 @@ import { updateOrganizationSettings } from "./settings.service";
 
 export const renderOrganizationSettings: RequestHandler = (req, res) => {
   res.render("pages/settings/form.njk", {
-    title: "Organization settings",
+    title: req.t("settings.pageTitle"),
     values: createOrganizationSettingsValues(req.auth!.organization),
     errors: {},
   });
@@ -18,13 +18,13 @@ export const updateOrganizationSettingsController: RequestHandler = async (req, 
 
   if (!result.success) {
     return res.status(422).render("pages/settings/form.njk", {
-      title: "Organization settings",
+      title: req.t("settings.pageTitle"),
       values: createOrganizationSettingsValues(req.body),
       errors: result.error.flatten().fieldErrors,
     });
   }
 
   await updateOrganizationSettings(req.auth!.organization.id, result.data);
-  req.flash("success", "Organization settings updated.");
+  req.flash("success", req.t("settings.flash.updated"));
   res.redirect("/settings");
 };

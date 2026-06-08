@@ -77,7 +77,19 @@ test("invoice index renders issue and created dates plus presenter empty state",
     "utf8",
   );
 
-  assert.match(template, /{{ invoice\.issueDate \| date }}/);
-  assert.match(template, /{{ invoice\.createdAt \| date }}/);
+  assert.match(template, /{{ invoice\.issueDate \| date\(currentLocale\) }}/);
+  assert.match(template, /{{ invoice\.createdAt \| date\(currentLocale\) }}/);
   assert.match(template, /{{ emptyMessage }}/);
+});
+
+test("invoice index uses namespaced translations for representative text", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "invoices", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /t\('invoices\.title'\)/);
+  assert.match(template, /t\('invoices\.actions\.new'\)/);
+  assert.match(template, /t\('common\.actions\.apply'\)/);
+  assert.match(template, /t\('common\.pagination\.pageStatus'/);
 });

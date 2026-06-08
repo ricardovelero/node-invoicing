@@ -1,0 +1,17 @@
+{
+  "section": "Directory",
+  "title": "Customers",
+  "archivedTitle": "Archived customers",
+  "actions": {
+    "new": "New customer",
+    "active": "Active customers",
+    "archived": "Archived customers"
+  },
+  "table": {
+    "archivedBadge": "Archived"
+  },
+  "emptyState": {
+    "active": "No customers yet.",
+    "archived": "No archived customers."
+  }
+}

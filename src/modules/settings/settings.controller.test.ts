@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   renderOrganizationSettings,
   updateOrganizationSettingsController,
@@ -11,6 +12,7 @@ type MockRequest = Request & {
   body: Record<string, unknown>;
   auth: NonNullable<Request["auth"]>;
   flashMessages: Record<string, string[]>;
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -27,6 +29,9 @@ const prismaMock = prisma as unknown as {
 };
 
 const originalUpdate = prismaMock.organization.update;
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 afterEach(() => {
   prismaMock.organization.update = originalUpdate;
@@ -62,6 +67,7 @@ const createRequest = (body: Record<string, unknown> = {}) =>
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    t,
   }) as MockRequest;
 
 const createResponse = () => {
@@ -100,7 +106,7 @@ test("renderOrganizationSettings renders current organization values", () => {
 
   assert.equal(res.renderedView, "pages/settings/form.njk");
   assert.deepEqual(res.renderedData, {
-    title: "Organization settings",
+    title: "Organisation settings",
     values: {
       legalName: "Analytical Engines Ltd",
       billingEmail: "billing@example.com",
@@ -177,6 +183,6 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
       paymentInstructions: "Pay by bank transfer.",
     },
   });
-  assert.deepEqual(req.flashMessages.success, ["Organization settings updated."]);
+  assert.deepEqual(req.flashMessages.success, ["Organisation settings updated."]);
   assert.equal(res.redirectedTo, "/settings");
 });

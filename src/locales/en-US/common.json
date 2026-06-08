@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "Invoicing"
+  },
+  "actions": {
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "logout": "Log out",
+    "next": "Next",
+    "previous": "Previous",
+    "save": "Save"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "invoices": "Invoices",
+    "customers": "Customers",
+    "items": "Items",
+    "settings": "Settings"
+  },
+  "pagination": {
+    "pageStatus": "Page {page} of {totalPages}",
+    "totalCount": "({count} {label})"
+  },
+  "table": {
+    "created": "Created",
+    "email": "Email",
+    "location": "Location",
+    "name": "Name"
+  }
+}

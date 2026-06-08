@@ -1,0 +1,29 @@
+{
+  "section": "Organisation",
+  "title": "Settings",
+  "pageTitle": "Organisation settings",
+  "fields": {
+    "legalName": "Legal name",
+    "billingEmail": "Billing email",
+    "taxId": "Tax ID",
+    "defaultCurrency": "Default currency",
+    "locale": "Locale",
+    "address": "Address",
+    "city": "City",
+    "country": "Country",
+    "paymentInstructions": "Payment instructions"
+  },
+  "help": {
+    "billingEmail": "Customer replies to invoice emails will go to this address."
+  },
+  "placeholders": {
+    "billingEmail": "billing@example.com",
+    "paymentInstructions": "Bank transfer details, payment terms, or customer-facing instructions"
+  },
+  "actions": {
+    "save": "Save settings"
+  },
+  "flash": {
+    "updated": "Organisation settings updated."
+  }
+}

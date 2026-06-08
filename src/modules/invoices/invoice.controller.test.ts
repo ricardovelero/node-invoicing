@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   createInvoice,
   downloadInvoicePdf,
@@ -35,6 +36,7 @@ type MockRequest = Request & {
   path: string;
   protocol: string;
   flashMessages: Record<string, string[]>;
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -87,6 +89,9 @@ const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 const originalSendInvoiceEmail = invoiceEmailServiceMock.sendInvoiceEmail;
 const originalGenerateInvoicePdfFromPrintUrl =
   invoicePdfServiceMock.generateInvoicePdfFromPrintUrl;
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
@@ -142,6 +147,7 @@ const createRequest = (
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    t,
     get(name: string) {
       return name.toLowerCase() === "host" ? "billing.example" : undefined;
     },

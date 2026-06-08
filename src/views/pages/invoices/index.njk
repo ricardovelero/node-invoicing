@@ -5,10 +5,10 @@
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <p class="text-sm font-medium text-muted">Billing</p>
-      <h1 class="mt-1 text-3xl font-semibold">Invoices</h1>
+      <p class="text-sm font-medium text-muted">{{ t('invoices.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold">{{ t('invoices.title') }}</h1>
     </div>
-    <a href="/invoices/new" class="btn btn-primary">New invoice</a>
+    <a href="/invoices/new" class="btn btn-primary">{{ t('invoices.actions.new') }}</a>
   </div>
 
   <form class="mb-4 rounded-lg border border-line bg-white p-4" method="get" action="/invoices">
@@ -17,12 +17,12 @@
     <input type="hidden" name="direction" value="{{ filters.direction }}">
     <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] md:items-end">
       <label class="block">
-        <span class="text-sm font-medium text-ink">Search</span>
-        <input class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" type="search" name="q" value="{{ filters.q }}" placeholder="Invoice number or customer">
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.search') }}</span>
+        <input class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" type="search" name="q" value="{{ filters.q }}" placeholder="{{ t('invoices.filters.searchPlaceholder') }}">
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium text-ink">Status</span>
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.status') }}</span>
         <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="status">
           {% for option in statusOptions %}
             <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
@@ -31,7 +31,7 @@
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium text-ink">Rows</span>
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.rows') }}</span>
         <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="limit">
           {% for option in limitOptions %}
             <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
@@ -40,9 +40,9 @@
       </label>
 
       <div class="flex gap-3">
-        <button class="btn btn-primary" type="submit">Apply</button>
+        <button class="btn btn-primary" type="submit">{{ t('common.actions.apply') }}</button>
         {% if hasActiveFilters %}
-          <a class="btn btn-secondary" href="/invoices">Clear</a>
+          <a class="btn btn-secondary" href="/invoices">{{ t('common.actions.clear') }}</a>
         {% endif %}
       </div>
     </div>
@@ -54,38 +54,38 @@
         <tr>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.number.href }}">
-              Number
+              {{ t('invoices.table.number') }}
               {{ sortIndicator(sortLinks.number) }}
             </a>
           </th>
-          <th class="px-4 py-3 font-medium">Customer</th>
+          <th class="px-4 py-3 font-medium">{{ t('invoices.table.customer') }}</th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.issueDate.href }}">
-              Issue
+              {{ t('invoices.table.issue') }}
               {{ sortIndicator(sortLinks.issueDate) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.dueDate.href }}">
-              Due
+              {{ t('invoices.table.due') }}
               {{ sortIndicator(sortLinks.dueDate) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.status.href }}">
-              Status
+              {{ t('invoices.table.status') }}
               {{ sortIndicator(sortLinks.status) }}
             </a>
           </th>
           <th class="px-4 py-3 text-right font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.totalCents.href }}">
-              Total
+              {{ t('invoices.table.total') }}
               {{ sortIndicator(sortLinks.totalCents) }}
             </a>
           </th>
           <th class="px-4 py-3 font-medium">
             <a class="inline-flex items-center gap-1 text-muted hover:text-ink" href="{{ sortLinks.createdAt.href }}">
-              Created
+              {{ t('common.table.created') }}
               {{ sortIndicator(sortLinks.createdAt) }}
             </a>
           </th>
@@ -98,8 +98,8 @@
               <a class="text-action hover:text-action-dark" href="/invoices/{{ invoice.id }}">{{ invoice.number }}</a>
             </td>
             <td class="px-4 py-3 text-muted">{{ invoice.customerName }}</td>
-            <td class="px-4 py-3 text-muted">{{ invoice.issueDate | date }}</td>
-            <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date }}</td>
+            <td class="px-4 py-3 text-muted">{{ invoice.issueDate | date(currentLocale) }}</td>
+            <td class="px-4 py-3 text-muted">{{ invoice.dueDate | date(currentLocale) }}</td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
                 {% for statusBadge in invoice.statusBadges %}
@@ -107,8 +107,8 @@
                 {% endfor %}
               </div>
             </td>
-            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
-            <td class="px-4 py-3 text-muted">{{ invoice.createdAt | date }}</td>
+            <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentLocale) }}</td>
+            <td class="px-4 py-3 text-muted">{{ invoice.createdAt | date(currentLocale) }}</td>
           </tr>
         {% else %}
           <tr>
@@ -121,14 +121,14 @@
 
   <div class="mt-4 flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
     <p>
-      Page {{ pagination.page }} of {{ pagination.totalPages }}
-      <span class="ml-1">({{ pagination.totalCount }} invoices)</span>
+      {{ t('common.pagination.pageStatus', { page: pagination.page, totalPages: pagination.totalPages }) }}
+      <span class="ml-1">{{ t('common.pagination.totalCount', { count: pagination.totalCount, label: t('invoices.pagination.countLabel') }) }}</span>
     </p>
     <nav class="flex flex-wrap items-center gap-2" aria-label="Invoice pagination">
       {% if pagination.previousHref %}
-        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.previousHref }}">Previous</a>
+        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.previousHref }}">{{ t('common.actions.previous') }}</a>
       {% else %}
-        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">Previous</span>
+        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">{{ t('common.actions.previous') }}</span>
       {% endif %}
 
       {% for pageLink in pagination.pages %}
@@ -140,9 +140,9 @@
       {% endfor %}
 
       {% if pagination.nextHref %}
-        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.nextHref }}">Next</a>
+        <a class="rounded-md border border-line px-3 py-2 font-medium text-muted hover:text-ink" href="{{ pagination.nextHref }}">{{ t('common.actions.next') }}</a>
       {% else %}
-        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">Next</span>
+        <span class="rounded-md border border-line px-3 py-2 font-medium text-muted opacity-50">{{ t('common.actions.next') }}</span>
       {% endif %}
     </nav>
   </div>

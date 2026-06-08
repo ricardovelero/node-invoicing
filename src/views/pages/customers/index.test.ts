@@ -20,6 +20,7 @@ test("customer index includes active and archived customer toggles", () => {
 
   assert.match(template, /href="\/customers\?archived=1"/);
   assert.match(template, /href="\/customers"/);
-  assert.match(template, /Archived customers/);
+  assert.match(template, /t\('customers\.actions\.archived'\)/);
+  assert.match(template, /t\('customers\.archivedTitle'\)/);
   assert.match(template, /customer\.archivedAt/);
 });

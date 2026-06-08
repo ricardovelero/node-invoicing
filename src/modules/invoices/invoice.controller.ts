@@ -137,7 +137,10 @@ export const listInvoices: RequestHandler = async (req, res) => {
   const query = invoiceListQuerySchema.parse(req.query);
   const invoices = await getInvoices(req.auth!.organization.id, query);
 
-  res.render('pages/invoices/index.njk', invoiceIndexView(invoices));
+  res.render('pages/invoices/index.njk', {
+    ...invoiceIndexView(invoices, req.t),
+    title: req.t('invoices.title'),
+  });
 };
 
 export const renderNewInvoice: RequestHandler = async (req, res) => {

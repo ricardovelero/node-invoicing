@@ -1,4 +1,5 @@
 import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
+import type { Translate } from '../../lib/i18n';
 import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
@@ -231,20 +232,26 @@ const createPaginationPages = (
   });
 };
 
-export const invoiceIndexView = (invoiceList: InvoiceList) => {
+const statusTranslationKey = (status: InvoiceStatus) =>
+  statusToQueryValue(status).replace(/-/g, '_');
+
+export const invoiceIndexView = (
+  invoiceList: InvoiceList,
+  t?: Translate,
+) => {
   const hasActiveFilters = Boolean(invoiceList.query.q || invoiceList.query.status);
   const hasRows = invoiceList.invoices.length > 0;
   const emptyMessage =
     hasRows
       ? ''
       : invoiceList.totalCount > 0
-      ? 'No invoices on this page.'
+      ? t?.('invoices.emptyState.page') ?? 'No invoices on this page.'
       : hasActiveFilters
-        ? 'No invoices match these filters.'
-        : 'No invoices yet.';
+        ? t?.('invoices.emptyState.filtered') ?? 'No invoices match these filters.'
+        : t?.('invoices.emptyState.empty') ?? 'No invoices yet.';
 
   return {
-    title: 'Invoices',
+    title: t?.('invoices.title') ?? 'Invoices',
     invoiceRows: createInvoiceTableRows(invoiceList.invoices),
     filters: {
       q: invoiceList.query.q,
@@ -261,10 +268,16 @@ export const invoiceIndexView = (invoiceList: InvoiceList) => {
       selected: limit === invoiceList.query.limit,
     })),
     statusOptions: [
-      { value: '', label: 'All statuses', selected: !invoiceList.query.status },
+      {
+        value: '',
+        label: t?.('invoices.filters.allStatuses') ?? 'All statuses',
+        selected: !invoiceList.query.status,
+      },
       ...invoiceListStatusOptions.map((status) => ({
         value: statusToQueryValue(status),
-        label: createInvoiceStatusBadge(status).label,
+        label:
+          t?.(`invoices.statuses.${statusTranslationKey(status)}`) ??
+          createInvoiceStatusBadge(status).label,
         selected: status === invoiceList.query.status,
       })),
     ],

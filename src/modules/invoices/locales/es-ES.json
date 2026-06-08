@@ -1,0 +1,38 @@
+{
+  "section": "Facturación",
+  "title": "Facturas",
+  "actions": {
+    "new": "Nueva factura"
+  },
+  "filters": {
+    "search": "Buscar",
+    "searchPlaceholder": "Número de factura o cliente",
+    "status": "Estado",
+    "rows": "Filas",
+    "allStatuses": "Todos los estados"
+  },
+  "table": {
+    "number": "Número",
+    "customer": "Cliente",
+    "issue": "Emisión",
+    "due": "Vencimiento",
+    "status": "Estado",
+    "total": "Total"
+  },
+  "statuses": {
+    "draft": "Borrador",
+    "sent": "Enviada",
+    "partially_paid": "Parcialmente pagada",
+    "paid": "Pagada",
+    "overdue": "Vencida",
+    "void": "Anulada"
+  },
+  "emptyState": {
+    "empty": "Aún no hay facturas.",
+    "filtered": "Ninguna factura coincide con estos filtros.",
+    "page": "No hay facturas en esta página."
+  },
+  "pagination": {
+    "countLabel": "facturas"
+  }
+}

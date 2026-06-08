@@ -3,16 +3,16 @@
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <p class="text-sm font-medium text-muted">Directory</p>
-      <h1 class="mt-1 text-3xl font-semibold">{{ 'Archived customers' if showingArchived else 'Customers' }}</h1>
+      <p class="text-sm font-medium text-muted">{{ t('customers.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold">{{ t('customers.archivedTitle') if showingArchived else t('customers.title') }}</h1>
     </div>
     <div class="flex flex-wrap items-center gap-3">
       {% if showingArchived %}
-        <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">Active customers</a>
+        <a class="text-sm font-medium text-muted hover:text-ink" href="/customers">{{ t('customers.actions.active') }}</a>
       {% else %}
-        <a class="btn btn-link" href="/customers?archived=1">Archived customers</a>
+        <a class="btn btn-link" href="/customers?archived=1">{{ t('customers.actions.archived') }}</a>
       {% endif %}
-      <a href="/customers/new" class="btn btn-primary">New customer</a>
+      <a href="/customers/new" class="btn btn-primary">{{ t('customers.actions.new') }}</a>
     </div>
   </div>
 
@@ -20,10 +20,10 @@
     <table class="min-w-full divide-y divide-line text-sm">
       <thead class="bg-panel text-left text-muted">
         <tr>
-          <th class="px-4 py-3 font-medium">Name</th>
-          <th class="px-4 py-3 font-medium">Email</th>
-          <th class="px-4 py-3 font-medium">Location</th>
-          <th class="px-4 py-3 font-medium">Created</th>
+          <th class="px-4 py-3 font-medium">{{ t('common.table.name') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('common.table.email') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('common.table.location') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('common.table.created') }}</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-line">
@@ -32,16 +32,16 @@
             <td class="px-4 py-3 font-medium">
               <a class="text-action hover:text-action-dark" href="/customers/{{ customer.id }}">{{ customer.name }}</a>
               {% if customer.archivedAt %}
-                <span class="ml-2 rounded-full bg-panel px-2 py-0.5 text-xs font-medium text-muted">Archived</span>
+                <span class="ml-2 rounded-full bg-panel px-2 py-0.5 text-xs font-medium text-muted">{{ t('customers.table.archivedBadge') }}</span>
               {% endif %}
             </td>
             <td class="px-4 py-3 text-muted">{{ customer.email or '—' }}</td>
             <td class="px-4 py-3 text-muted">{{ customer.city or '' }}{% if customer.city and customer.country %}, {% endif %}{{ customer.country or '' }}</td>
-            <td class="px-4 py-3 text-muted">{{ customer.createdAt | date }}</td>
+            <td class="px-4 py-3 text-muted">{{ customer.createdAt | date(currentLocale) }}</td>
           </tr>
         {% else %}
           <tr>
-            <td class="px-4 py-6 text-muted" colspan="4">{{ 'No archived customers.' if showingArchived else 'No customers yet.' }}</td>
+            <td class="px-4 py-6 text-muted" colspan="4">{{ t('customers.emptyState.archived') if showingArchived else t('customers.emptyState.active') }}</td>
           </tr>
         {% endfor %}
       </tbody>

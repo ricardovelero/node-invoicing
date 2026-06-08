@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ currentLanguage or 'en-gb' }}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title }} | Invoicing</title>
+    <title>{{ title }} | {{ t('common.app.name') }}</title>
     <link rel="icon" href="/assets/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/assets/app.css">
     <script defer src="/assets/app.js"></script>
@@ -12,17 +12,17 @@
     <div class="min-h-screen">
       <header class="border-b border-line bg-white">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <a href="/" class="text-lg font-semibold tracking-normal text-ink">Invoicing</a>
+          <a href="/" class="text-lg font-semibold tracking-normal text-ink">{{ t('common.app.name') }}</a>
           {% if currentUser %}
             <nav class="flex items-center gap-1 text-sm">
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath == '/' else 'text-muted hover:text-ink' }}" href="/">Dashboard</a>
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/invoices') else 'text-muted hover:text-ink' }}" href="/invoices">Invoices</a>
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">Customers</a>
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/items') else 'text-muted hover:text-ink' }}" href="/items">Items</a>
-              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">Settings</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath == '/' else 'text-muted hover:text-ink' }}" href="/">{{ t('common.navigation.dashboard') }}</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/invoices') else 'text-muted hover:text-ink' }}" href="/invoices">{{ t('common.navigation.invoices') }}</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">{{ t('common.navigation.customers') }}</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/items') else 'text-muted hover:text-ink' }}" href="/items">{{ t('common.navigation.items') }}</a>
+              <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">{{ t('common.navigation.settings') }}</a>
               <form method="post" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                <button class="btn btn-link" type="submit">Log out</button>
+                <button class="btn btn-link" type="submit">{{ t('common.actions.logout') }}</button>
               </form>
             </nav>
           {% endif %}

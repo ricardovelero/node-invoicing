@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "Facturación"
+  },
+  "actions": {
+    "apply": "Aplicar",
+    "cancel": "Cancelar",
+    "clear": "Borrar",
+    "logout": "Cerrar sesión",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "save": "Guardar"
+  },
+  "navigation": {
+    "dashboard": "Panel",
+    "invoices": "Facturas",
+    "customers": "Clientes",
+    "items": "Artículos",
+    "settings": "Ajustes"
+  },
+  "pagination": {
+    "pageStatus": "Página {page} de {totalPages}",
+    "totalCount": "({count} {label})"
+  },
+  "table": {
+    "created": "Creado",
+    "email": "Correo electrónico",
+    "location": "Ubicación",
+    "name": "Nombre"
+  }
+}

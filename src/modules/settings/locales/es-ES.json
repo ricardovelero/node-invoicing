@@ -1,0 +1,29 @@
+{
+  "section": "Organización",
+  "title": "Ajustes",
+  "pageTitle": "Ajustes de la organización",
+  "fields": {
+    "legalName": "Razón social",
+    "billingEmail": "Correo de facturación",
+    "taxId": "NIF/CIF",
+    "defaultCurrency": "Moneda predeterminada",
+    "locale": "Configuración regional",
+    "address": "Dirección",
+    "city": "Ciudad",
+    "country": "País",
+    "paymentInstructions": "Instrucciones de pago"
+  },
+  "help": {
+    "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección."
+  },
+  "placeholders": {
+    "billingEmail": "facturacion@example.com",
+    "paymentInstructions": "Datos de transferencia, condiciones de pago o instrucciones para clientes"
+  },
+  "actions": {
+    "save": "Guardar ajustes"
+  },
+  "flash": {
+    "updated": "Ajustes de la organización actualizados."
+  }
+}

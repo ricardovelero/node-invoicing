@@ -43,7 +43,9 @@ export const listCustomers: RequestHandler = async (req, res) => {
   });
 
   res.render('pages/customers/index.njk', {
-    title: showingArchived ? 'Archived customers' : 'Customers',
+    title: showingArchived
+      ? req.t('customers.archivedTitle')
+      : req.t('customers.title'),
     customers,
     showingArchived,
   });

@@ -12,5 +12,6 @@ test("settings form includes csrf and unsaved changes guard", () => {
   assert.match(template, /action="\/settings"/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
   assert.match(template, /data-unsaved-changes-guard/);
-  assert.match(template, /Save settings/);
+  assert.match(template, /t\('settings\.actions\.save'\)/);
+  assert.match(template, /t\('settings\.fields\.locale'\)/);
 });

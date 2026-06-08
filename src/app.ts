@@ -11,6 +11,7 @@ import { env } from "./config/env";
 import { loadAuthContext, requireAuth } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
+import { localeMiddleware } from "./middleware/i18n";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { customerRouter } from "./modules/customers/customer.routes";
@@ -67,10 +68,11 @@ export const createApp = () => {
     }),
   );
   app.use(flash());
-  app.use(csrfProtection);
   app.use("/assets", express.static(path.join(process.cwd(), "src", "public", "assets")));
   app.use("/assets", express.static(path.join(process.cwd(), "public", "assets")));
   app.use(loadAuthContext);
+  app.use(localeMiddleware);
+  app.use(csrfProtection);
 
   app.use((req, res, next) => {
     res.locals.flash = {
