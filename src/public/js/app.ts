@@ -1,5 +1,6 @@
 import { setupPasswordToggles, setupRegisterForms } from "./auth";
-import { setupInlineEditors, setupInvoiceForms } from "./invoice";
+import { setupInlineEditors } from "./inline-editors";
+import { setupInvoiceForms } from "./invoices";
 import { setupUnsavedChangesGuards } from "./unsaved-changes";
 
 const setupFlashMessages = () => {
