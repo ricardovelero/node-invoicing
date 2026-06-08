@@ -320,7 +320,7 @@
               <input id="reference" name="reference" value="{{ paymentValues.reference }}" maxlength="200" aria-describedby="reference-error">
               {% if paymentErrors.reference %}<p id="reference-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.reference[0] }}</p>{% endif %}
             </div>
-            <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Record payment</button>
+            <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark cursor-pointer" type="submit">Record payment</button>
           </form>
         </div>
       {% endif %}
@@ -331,9 +331,9 @@
           <a class="mt-4 inline-flex w-full items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" href="/invoices/{{ invoice.id }}/edit">Edit invoice</a>
         {% endif %}
         {% if invoiceDisplay.isPrintable %}
-          <a class="{{ 'mt-3' if canEditInvoice else 'mt-4' }} inline-flex w-full items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" href="/invoices/{{ invoice.id }}/print">Print invoice</a>
+          <a class="inline-flex w-full items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" href="/invoices/{{ invoice.id }}/email">Send invoice via email</a>
           <a class="mt-3 inline-flex w-full items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" href="/invoices/{{ invoice.id }}/pdf">Download PDF</a>
-          <a class="mt-3 inline-flex w-full items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" href="/invoices/{{ invoice.id }}/email">Send invoice email</a>
+          <a class="{{ 'mt-3' if canEditInvoice else 'mt-4' }} inline-flex w-full items-center justify-center rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" href="/invoices/{{ invoice.id }}/print">Print invoice</a>
         {% endif %}
         {% if allowedActions.length %}
           <div class="{{ 'mt-3' if invoiceDisplay.isPrintable or canEditInvoice else 'mt-4' }} space-y-3">
@@ -341,7 +341,7 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="send">
-                <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark" type="submit">Mark sent</button>
+                <button class="w-full rounded-md bg-action px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark cursor-pointer" type="submit">Mark sent</button>
               </form>
             {% endif %}
 
@@ -349,7 +349,7 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="markOverdue">
-                <button class="w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" type="submit">Mark overdue</button>
+                <button class="w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel cursor-pointer" type="submit">Mark overdue</button>
               </form>
             {% endif %}
 
@@ -357,7 +357,7 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="void">
-                <button class="w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-muted shadow-sm hover:bg-panel hover:text-ink" type="submit">Void invoice</button>
+                <button class="w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-red-400 shadow-sm hover:bg-panel hover:text-red-700 cursor-pointer" type="submit">Void invoice</button>
               </form>
             {% endif %}
           </div>
