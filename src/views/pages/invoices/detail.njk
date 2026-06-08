@@ -328,7 +328,7 @@
       <div class="card card-body">
         <h2 class="text-lg font-semibold mb-4">Actions</h2>
         {% if canEditInvoice %}
-          <a class="btn btn-full" href="/invoices/{{ invoice.id }}/edit">Edit invoice</a>
+          <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/edit">Edit invoice</a>
         {% endif %}
         {% if invoiceDisplay.isPrintable %}
           <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/email">Send invoice via email</a>
