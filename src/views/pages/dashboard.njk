@@ -1,6 +1,14 @@
 {% extends "layouts/app.njk" %}
 {% from "components/badge.njk" import badge %}
 
+{% macro moneyStack(totals, sizeClass = 'text-3xl') %}
+  <div class="space-y-1">
+    {% for total in totals %}
+      <p class="{{ sizeClass }} font-semibold text-ink">{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</p>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
@@ -10,51 +18,162 @@
     <a href="/invoices/new" class="btn btn-primary">New invoice</a>
   </div>
 
-  <section class="grid gap-4 md:grid-cols-3">
-    <div class="rounded-lg border border-line bg-white p-5">
-      <p class="text-sm text-muted">Customers</p>
-      <p class="mt-3 text-3xl font-semibold">{{ metrics.customerCount }}</p>
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Invoice KPIs">
+    <div class="card card-body">
+      <p class="text-sm font-medium text-muted">Total Invoiced This Month</p>
+      <div class="mt-3">{{ moneyStack(metrics.totalInvoicedThisMonth) }}</div>
     </div>
-    <div class="rounded-lg border border-line bg-white p-5">
-      <p class="text-sm text-muted">Invoices</p>
-      <p class="mt-3 text-3xl font-semibold">{{ metrics.invoiceCount }}</p>
+    <div class="card card-body">
+      <p class="text-sm font-medium text-muted">Paid This Month</p>
+      <div class="mt-3">{{ moneyStack(metrics.paidThisMonth) }}</div>
     </div>
-    <div class="rounded-lg border border-line bg-white p-5">
-      <p class="text-sm text-muted">Open balance</p>
-      <div class="mt-3 space-y-1">
-        {% for balance in metrics.openBalances %}
-          <p class="text-3xl font-semibold">{{ balance.totalCents | money(balance.currency, currentOrganization.locale) }}</p>
-        {% endfor %}
-      </div>
+    <div class="card card-body">
+      <p class="text-sm font-medium text-muted">Outstanding Balance</p>
+      <div class="mt-3">{{ moneyStack(metrics.outstandingBalance) }}</div>
+    </div>
+    <div class="card card-body">
+      <p class="text-sm font-medium text-muted">Overdue Amount</p>
+      <div class="mt-3">{{ moneyStack(metrics.overdueAmount) }}</div>
     </div>
   </section>
 
-  <section class="mt-8">
-    <div class="mb-3 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Latest invoices</h2>
-      <a href="/invoices" class="text-sm font-medium text-action hover:text-action-dark">View all</a>
+  <section class="mt-6 card card-body">
+    <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-sm font-medium text-muted">Shortcuts</p>
+        <h2 class="mt-1 text-lg font-semibold">Quick Actions</h2>
+      </div>
+      <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">View all invoices</a>
     </div>
-    <div class="overflow-hidden rounded-lg border border-line bg-white">
+    <div class="mt-4 grid gap-3 md:grid-cols-4">
+      {% for action in quickActions %}
+        <a class="rounded-md border border-line bg-white p-4 transition hover:border-action hover:shadow-sm" href="{{ action.href }}">
+          <span class="btn {{ 'btn-primary' if action.variant == 'primary' else 'btn-secondary' }} btn-full">{{ action.label }}</span>
+          <span class="mt-3 block text-sm text-muted">{{ action.description }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+    <section class="card card-body">
+      <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-sm font-medium text-muted">Collections</p>
+          <h2 class="mt-1 text-lg font-semibold">Invoices Requiring Attention</h2>
+        </div>
+        <a class="text-sm font-medium text-action hover:text-action-dark" href="/invoices">Open invoice list</a>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        {% for section in attentionSections %}
+          <div class="rounded-md border border-line">
+            <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
+              <h3 class="text-sm font-semibold">{{ section.title }}</h3>
+              <a class="text-xs font-medium text-action hover:text-action-dark" href="{{ section.href }}">View</a>
+            </div>
+            <div class="divide-y divide-line">
+              {% for invoice in section.rows %}
+                <a class="block px-4 py-3 transition hover:bg-panel" href="/invoices/{{ invoice.id }}">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-semibold text-action">{{ invoice.number }}</p>
+                      <p class="mt-0.5 truncate text-sm text-muted">{{ invoice.customerName }}</p>
+                    </div>
+                    {{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3 text-sm">
+                    <span class="text-muted">Due {{ invoice.dueDate | date }}</span>
+                    <span class="font-medium">{{ invoice.outstandingCents | money(invoice.currency, currentOrganization.locale) }}</span>
+                  </div>
+                </a>
+              {% else %}
+                <div class="px-4 py-5">
+                  <p class="text-sm text-muted">{{ section.emptyMessage }}</p>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card card-body">
+      <div>
+        <p class="text-sm font-medium text-muted">Recent months</p>
+        <h2 class="mt-1 text-lg font-semibold">Invoiced vs Paid</h2>
+      </div>
+      <div class="mt-5 space-y-5">
+        {% for month in monthlySeries %}
+          <div>
+            <div class="mb-2 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-semibold">{{ month.label }}</h3>
+              <div class="text-right text-xs text-muted">
+                {% for total in month.invoicedTotals %}
+                  <span>Invoiced {{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>{% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            <div class="space-y-2">
+              <div>
+                <div class="mb-1 flex items-center justify-between text-xs text-muted">
+                  <span>Invoiced</span>
+                  {% for total in month.invoicedTotals %}
+                    <span>{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>
+                  {% endfor %}
+                </div>
+                <div class="h-2 rounded-full bg-panel">
+                  <div class="h-2 rounded-full bg-action" style="width: {{ month.invoicedBarWidth }}%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="mb-1 flex items-center justify-between text-xs text-muted">
+                  <span>Paid</span>
+                  {% for total in month.paidTotals %}
+                    <span>{{ total.totalCents | money(total.currency, currentOrganization.locale) }}</span>
+                  {% endfor %}
+                </div>
+                <div class="h-2 rounded-full bg-panel">
+                  <div class="h-2 rounded-full bg-emerald-500" style="width: {{ month.paidBarWidth }}%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="mt-6 card card-body">
+    <div class="mb-4">
+      <p class="text-sm font-medium text-muted">Latest changes</p>
+      <h2 class="mt-1 text-lg font-semibold">Recent Activity</h2>
+    </div>
+    <div class="overflow-hidden rounded-md border border-line">
       <table class="min-w-full divide-y divide-line text-sm">
         <thead class="bg-panel text-left text-muted">
           <tr>
-            <th class="px-4 py-3 font-medium">Number</th>
+            <th class="px-4 py-3 font-medium">Activity</th>
+            <th class="px-4 py-3 font-medium">Invoice</th>
             <th class="px-4 py-3 font-medium">Customer</th>
-            <th class="px-4 py-3 font-medium">Status</th>
-            <th class="px-4 py-3 text-right font-medium">Total</th>
+            <th class="px-4 py-3 text-right font-medium">Amount</th>
+            <th class="px-4 py-3 font-medium">Date</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-line">
-          {% for invoice in latestInvoiceRows %}
+          {% for activity in recentActivity %}
             <tr>
-              <td class="px-4 py-3 font-medium">{{ invoice.number }}</td>
-              <td class="px-4 py-3 text-muted">{{ invoice.customerName }}</td>
-              <td class="px-4 py-3">{{ badge(invoice.statusBadge.label, invoice.statusBadge.variant) }}</td>
-              <td class="px-4 py-3 text-right">{{ invoice.totalCents | money(invoice.currency, currentOrganization.locale) }}</td>
+              <td class="px-4 py-3 font-medium">{{ activity.label }}</td>
+              <td class="px-4 py-3">
+                <a class="font-medium text-action hover:text-action-dark" href="{{ activity.href }}">{{ activity.invoiceNumber }}</a>
+              </td>
+              <td class="px-4 py-3 text-muted">{{ activity.customerName }}</td>
+              <td class="px-4 py-3 text-right">{{ activity.amountCents | money(activity.currency, currentOrganization.locale) }}</td>
+              <td class="px-4 py-3 text-muted">{{ activity.occurredAt | date }}</td>
             </tr>
           {% else %}
             <tr>
-              <td class="px-4 py-6 text-muted" colspan="4">No invoices yet.</td>
+              <td class="px-4 py-6 text-muted" colspan="5">No recent invoice activity.</td>
             </tr>
           {% endfor %}
         </tbody>
