@@ -18,7 +18,9 @@ test("item form includes csrf and configurable create/edit fields", () => {
   assert.match(template, /name="currency"/);
   assert.match(template, /for currency in currencies/);
   assert.match(template, /name="taxRate"/);
-  assert.match(template, /{{ submitLabel or 'Create item' }}/);
+  assert.match(template, /{{ submitLabel or t\('items\.actions\.create'\) }}/);
   assert.match(template, /href="{{ cancelHref or '\/items' }}"/);
+  assert.match(template, /t\('items\.form\.fields\.unitPrice'\)/);
+  assert.match(template, /t\('common\.actions\.cancel'\)/);
   assert.doesNotMatch(template, /Unit price is a reusable amount/);
 });

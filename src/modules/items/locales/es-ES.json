@@ -1,0 +1,58 @@
+{
+  "section": "Catálogo",
+  "title": "Artículos",
+  "archivedTitle": "Artículos archivados",
+  "actions": {
+    "new": "Nuevo artículo",
+    "active": "Artículos activos",
+    "archived": "Artículos archivados",
+    "edit": "Editar",
+    "archive": "Archivar",
+    "restore": "Restaurar",
+    "create": "Crear artículo",
+    "save": "Guardar artículo"
+  },
+  "filters": {
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre o descripción del artículo",
+    "status": "Estado",
+    "rows": "Filas"
+  },
+  "table": {
+    "description": "Descripción",
+    "unitPrice": "Precio unitario",
+    "taxRate": "Tipo impositivo",
+    "actions": "Acciones",
+    "archivedBadge": "Archivado"
+  },
+  "form": {
+    "newTitle": "Nuevo artículo",
+    "editTitle": "Editar artículo",
+    "fields": {
+      "name": "Nombre",
+      "description": "Descripción",
+      "unitPrice": "Precio unitario",
+      "currency": "Moneda",
+      "taxRate": "Tipo impositivo"
+    }
+  },
+  "emptyState": {
+    "empty": "Aún no hay artículos.",
+    "archived": "No hay artículos archivados.",
+    "filtered": "Ningún artículo del catálogo coincide con estos filtros.",
+    "page": "No hay artículos en esta página."
+  },
+  "pagination": {
+    "ariaLabel": "Paginación de artículos del catálogo",
+    "countLabel": "artículos"
+  },
+  "flash": {
+    "created": "Artículo creado.",
+    "updated": "Artículo actualizado.",
+    "archived": "Artículo archivado.",
+    "restored": "Artículo restaurado."
+  },
+  "errors": {
+    "saveFailed": "No se pudo guardar el artículo."
+  }
+}

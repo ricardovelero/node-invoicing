@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   archiveItem,
   createInlineItem,
@@ -21,6 +22,7 @@ type MockRequest = Request & {
   path: string;
   auth: NonNullable<Request["auth"]>;
   flashMessages: Record<string, string[]>;
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -47,6 +49,9 @@ const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
 const originalUpdateMany = prismaMock.catalogItem.updateMany;
 const currencies = ["EUR", "USD", "GBP", "CAD", "AUD"];
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 afterEach(() => {
   prismaMock.catalogItem.count = originalCount;
@@ -96,6 +101,7 @@ const createRequest = (
     flash(type: string, message: string) {
       flashMessages[type] = [...(flashMessages[type] ?? []), message];
     },
+    t,
   }) as unknown as MockRequest;
 };
 

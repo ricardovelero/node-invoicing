@@ -1,0 +1,58 @@
+{
+  "section": "Catalog",
+  "title": "Items",
+  "archivedTitle": "Archived items",
+  "actions": {
+    "new": "New item",
+    "active": "Active items",
+    "archived": "Archived items",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "create": "Create item",
+    "save": "Save item"
+  },
+  "filters": {
+    "search": "Search",
+    "searchPlaceholder": "Item name or description",
+    "status": "Status",
+    "rows": "Rows"
+  },
+  "table": {
+    "description": "Description",
+    "unitPrice": "Unit price",
+    "taxRate": "Tax rate",
+    "actions": "Actions",
+    "archivedBadge": "Archived"
+  },
+  "form": {
+    "newTitle": "New item",
+    "editTitle": "Edit item",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "unitPrice": "Unit price",
+      "currency": "Currency",
+      "taxRate": "Tax rate"
+    }
+  },
+  "emptyState": {
+    "empty": "No items yet.",
+    "archived": "No archived items.",
+    "filtered": "No catalog items match these filters.",
+    "page": "No items on this page."
+  },
+  "pagination": {
+    "ariaLabel": "Catalog item pagination",
+    "countLabel": "items"
+  },
+  "flash": {
+    "created": "Item created.",
+    "updated": "Item updated.",
+    "archived": "Item archived.",
+    "restored": "Item restored."
+  },
+  "errors": {
+    "saveFailed": "Unable to save item."
+  }
+}

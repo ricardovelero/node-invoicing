@@ -1,4 +1,5 @@
 import type { CatalogItem } from '@prisma/client';
+import type { Translate } from '../../lib/i18n';
 import {
   itemListLimits,
   itemListSortableColumns,
@@ -119,19 +120,22 @@ const createPaginationPages = (query: ItemListQuery, totalPages: number) => {
   });
 };
 
-export const itemIndexView = (itemList: CatalogItemList) => {
+export const itemIndexView = (itemList: CatalogItemList, t?: Translate) => {
   const showingArchived = itemList.query.archived === 'archived';
   const hasSearchFilter = Boolean(itemList.query.q);
   const hasRows = itemList.items.length > 0;
   const emptyMessage =
     hasRows ? ''
-    : itemList.totalCount > 0 ? 'No items on this page.'
-    : hasSearchFilter ? 'No catalog items match these filters.'
-    : showingArchived ? 'No archived items.'
-    : 'No items yet.';
+    : itemList.totalCount > 0 ? t?.('items.emptyState.page') ?? 'No items on this page.'
+    : hasSearchFilter ? t?.('items.emptyState.filtered') ?? 'No catalog items match these filters.'
+    : showingArchived ? t?.('items.emptyState.archived') ?? 'No archived items.'
+    : t?.('items.emptyState.empty') ?? 'No items yet.';
 
   return {
-    title: showingArchived ? 'Archived items' : 'Items',
+    title:
+      showingArchived
+        ? t?.('items.archivedTitle') ?? 'Archived items'
+        : t?.('items.title') ?? 'Items',
     items: createCatalogItemRows(itemList.items),
     showingArchived,
     filters: {
@@ -142,8 +146,16 @@ export const itemIndexView = (itemList: CatalogItemList) => {
       direction: itemList.query.direction,
     },
     archivedOptions: [
-      { value: '', label: 'Active items', selected: !showingArchived },
-      { value: '1', label: 'Archived items', selected: showingArchived },
+      {
+        value: '',
+        label: t?.('items.actions.active') ?? 'Active items',
+        selected: !showingArchived,
+      },
+      {
+        value: '1',
+        label: t?.('items.actions.archived') ?? 'Archived items',
+        selected: showingArchived,
+      },
     ],
     limitOptions: itemListLimits.map((limit) => ({
       value: String(limit),

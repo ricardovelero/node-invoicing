@@ -12,10 +12,11 @@ test("item index includes active archived toggles and item actions", () => {
   assert.match(template, /from "components\/sort-indicator\.njk" import sortIndicator/);
   assert.match(template, /href="{{ archivedItemsHref }}"/);
   assert.match(template, /href="{{ activeItemsHref }}"/);
-  assert.match(template, /Archived items/);
+  assert.match(template, /t\('items\.actions\.archived'\)/);
+  assert.match(template, /t\('items\.archivedTitle'\)/);
   assert.match(template, /href="\/items\/new"/);
   assert.match(template, /for item in items/);
-  assert.match(template, /item\.unitPriceCents \| money\(item\.currency, currentOrganization\.locale\)/);
+  assert.match(template, /item\.unitPriceCents \| money\(item\.currency, currentLocale\)/);
   assert.match(template, /item\.taxRateLabel/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/archive"/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/restore"/);
@@ -62,4 +63,17 @@ test("item index renders presenter empty state", () => {
   );
 
   assert.match(template, /{{ emptyMessage }}/);
+});
+
+test("item index uses namespaced translations for representative text", () => {
+  const template = readFileSync(
+    path.join(process.cwd(), "src", "views", "pages", "items", "index.njk"),
+    "utf8",
+  );
+
+  assert.match(template, /t\('items\.section'\)/);
+  assert.match(template, /t\('items\.filters\.search'\)/);
+  assert.match(template, /t\('items\.table\.unitPrice'\)/);
+  assert.match(template, /t\('common\.pagination\.pageStatus'/);
+  assert.match(template, /item\.createdAt \| date\(currentLocale\)/);
 });

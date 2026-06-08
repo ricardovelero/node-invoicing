@@ -67,7 +67,7 @@ export const listItems: RequestHandler = async (req, res) => {
   const query = itemListQuerySchema.parse(req.query);
   const items = await getCatalogItems(req.auth!.organization.id, query);
 
-  return res.render("pages/items/index.njk", itemIndexView(items));
+  return res.render("pages/items/index.njk", itemIndexView(items, req.t));
 };
 
 export const searchItems: RequestHandler = async (req, res) => {
@@ -99,17 +99,17 @@ export const createInlineItem: RequestHandler = async (req, res) => {
     });
   } catch {
     return res.status(500).json({
-      error: "Unable to save item.",
+      error: req.t("items.errors.saveFailed"),
     });
   }
 };
 
 export const renderNewItem: RequestHandler = (req, res) =>
   renderItemForm(res, {
-    title: "New item",
-    heading: "New item",
+    title: req.t("items.form.newTitle"),
+    heading: req.t("items.form.newTitle"),
     formAction: "/items",
-    submitLabel: "Create item",
+    submitLabel: req.t("items.actions.create"),
     cancelHref: "/items",
     values: createItemFormValues({
       currency: req.auth!.organization.currency,
@@ -123,10 +123,10 @@ export const createItem: RequestHandler = async (req, res) => {
   if (!result.success) {
     return renderItemForm(res, {
       status: 422,
-      title: "New item",
-      heading: "New item",
+      title: req.t("items.form.newTitle"),
+      heading: req.t("items.form.newTitle"),
       formAction: "/items",
-      submitLabel: "Create item",
+      submitLabel: req.t("items.actions.create"),
       cancelHref: "/items",
       values: normalizeItemFormValues(req.body),
       errors: formatItemFormErrors(result.error),
@@ -134,7 +134,7 @@ export const createItem: RequestHandler = async (req, res) => {
   }
 
   await createCatalogItemRecord(req.auth!.organization.id, result.data);
-  req.flash("success", "Item created.");
+  req.flash("success", req.t("items.flash.created"));
   return res.redirect("/items");
 };
 
@@ -150,10 +150,10 @@ export const renderEditItem: RequestHandler = async (req, res) => {
   }
 
   return renderItemForm(res, {
-    title: "Edit item",
-    heading: "Edit item",
+    title: req.t("items.form.editTitle"),
+    heading: req.t("items.form.editTitle"),
     formAction: `/items/${item.id}/edit`,
-    submitLabel: "Save item",
+    submitLabel: req.t("items.actions.save"),
     cancelHref: "/items",
     values: catalogItemToFormValues(item),
     errors: {},
@@ -176,10 +176,10 @@ export const updateItem: RequestHandler = async (req, res) => {
   if (!result.success) {
     return renderItemForm(res, {
       status: 422,
-      title: "Edit item",
-      heading: "Edit item",
+      title: req.t("items.form.editTitle"),
+      heading: req.t("items.form.editTitle"),
       formAction: `/items/${itemId}/edit`,
-      submitLabel: "Save item",
+      submitLabel: req.t("items.actions.save"),
       cancelHref: "/items",
       values: normalizeItemFormValues(req.body),
       errors: formatItemFormErrors(result.error),
@@ -199,7 +199,7 @@ export const updateItem: RequestHandler = async (req, res) => {
     });
   }
 
-  req.flash("success", "Item updated.");
+  req.flash("success", req.t("items.flash.updated"));
   return res.redirect("/items");
 };
 
@@ -217,7 +217,7 @@ export const archiveItem: RequestHandler = async (req, res) => {
     });
   }
 
-  req.flash("success", "Item archived.");
+  req.flash("success", req.t("items.flash.archived"));
   return res.redirect("/items");
 };
 
@@ -235,6 +235,6 @@ export const restoreItem: RequestHandler = async (req, res) => {
     });
   }
 
-  req.flash("success", "Item restored.");
+  req.flash("success", req.t("items.flash.restored"));
   return res.redirect("/items?archived=1");
 };
