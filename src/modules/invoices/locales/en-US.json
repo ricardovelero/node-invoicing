@@ -24,6 +24,12 @@
     "saveCatalogItem": "Save",
     "saveForFutureUse": "Save for future use?"
   },
+  "dialogs": {
+    "void": {
+      "title": "Void invoice?",
+      "description": "This will void the invoice and remove it from active collection workflows. This action cannot be undone."
+    }
+  },
   "form": {
     "newTitle": "New invoice",
     "editTitle": "Edit invoice",

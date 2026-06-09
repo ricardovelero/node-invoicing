@@ -7,6 +7,14 @@ const source = readFileSync(
   path.join(process.cwd(), "src", "public", "js", "invoices", "index.ts"),
   "utf8",
 );
+const appSource = readFileSync(
+  path.join(process.cwd(), "src", "public", "js", "app.ts"),
+  "utf8",
+);
+const confirmDialogsSource = readFileSync(
+  path.join(process.cwd(), "src", "public", "js", "confirm-dialogs.ts"),
+  "utf8",
+);
 const catalogHelpersSource = readFileSync(
   path.join(process.cwd(), "src", "public", "js", "invoices", "catalog.helpers.ts"),
   "utf8",
@@ -101,4 +109,14 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(catalogEventsSource, /updateCatalogSavePromptForForm\(input\)/);
   assert.match(catalogEventsSource, /data-invoice-catalog-save-retry/);
   assert.match(source, /setupCatalogEvents/);
+});
+
+test("app frontend wires native confirmation dialogs", () => {
+  assert.match(appSource, /setupConfirmDialogs/);
+  assert.match(confirmDialogsSource, /data-dialog-open/);
+  assert.match(confirmDialogsSource, /dialogForId\(dialogId\)\?\.showModal\(\)/);
+  assert.match(confirmDialogsSource, /data-dialog-close/);
+  assert.match(confirmDialogsSource, /dialog\.close\(\)/);
+  assert.match(confirmDialogsSource, /event\.target === dialog/);
+  assert.match(confirmDialogsSource, /typeof HTMLDialogElement !== "undefined"/);
 });

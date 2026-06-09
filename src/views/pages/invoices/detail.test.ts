@@ -110,3 +110,27 @@ test('invoice detail includes separate inline metadata editors', () => {
   assert.doesNotMatch(template, /Invoice details/);
   assert.doesNotMatch(template, /Save invoice details/);
 });
+
+test('invoice detail confirms void action in a dialog before submitting', () => {
+  const template = readTemplate('detail.njk');
+
+  assert.match(
+    template,
+    /from "macros\/confirm-dialog\.njk" import confirmDialog/,
+  );
+  assert.match(
+    template,
+    /<button class="btn btn-full btn-danger" type="button" data-dialog-open="void-invoice-dialog">{{ t\('invoices\.actions\.voidInvoice'\) }}<\/button>/,
+  );
+  assert.match(template, /confirmDialog\(/);
+  assert.match(template, /'void-invoice-dialog'/);
+  assert.match(template, /t\('invoices\.dialogs\.void\.title'\)/);
+  assert.match(template, /t\('invoices\.dialogs\.void\.description'\)/);
+  assert.match(template, /'\/invoices\/' ~ invoice\.id ~ '\/status'/);
+  assert.match(template, /csrfToken/);
+  assert.match(template, /<input type="hidden" name="action" value="void">/);
+  assert.doesNotMatch(
+    template,
+    /<form method="post" action="\/invoices\/{{ invoice\.id }}\/status">\s*<input type="hidden" name="_csrf" value="{{ csrfToken }}">\s*<input type="hidden" name="action" value="void">\s*<button class="btn btn-full btn-danger" type="submit">/,
+  );
+});

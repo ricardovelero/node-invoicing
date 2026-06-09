@@ -1,5 +1,6 @@
 {% extends "layouts/app.njk" %}
 {% from "components/badge.njk" import badge %}
+{% from "macros/confirm-dialog.njk" import confirmDialog %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -355,11 +356,20 @@
             {% endif %}
 
             {% if 'void' in allowedActions %}
-              <form method="post" action="/invoices/{{ invoice.id }}/status">
-                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button class="btn btn-full btn-danger" type="button" data-dialog-open="void-invoice-dialog">{{ t('invoices.actions.voidInvoice') }}</button>
+              {% call confirmDialog(
+                'void-invoice-dialog',
+                t('invoices.dialogs.void.title'),
+                t('invoices.dialogs.void.description'),
+                t('invoices.actions.voidInvoice'),
+                t('common.actions.cancel'),
+                '/invoices/' ~ invoice.id ~ '/status',
+                'post',
+                csrfToken,
+                true
+              ) %}
                 <input type="hidden" name="action" value="void">
-                <button class="btn btn-full btn-danger" type="submit">{{ t('invoices.actions.voidInvoice') }}</button>
-              </form>
+              {% endcall %}
             {% endif %}
           </div>
         {% else %}

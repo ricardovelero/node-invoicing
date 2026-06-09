@@ -1,0 +1,22 @@
+{% macro confirmDialog(id, title, description, confirmLabel, cancelLabel, formAction, method='post', csrfToken='', destructive=false) %}
+  <dialog id="{{ id }}" class="confirm-dialog" aria-labelledby="{{ id }}-title" aria-describedby="{{ id }}-description">
+    <div class="confirm-dialog-panel">
+      <div class="confirm-dialog-body">
+        <h2 id="{{ id }}-title" class="confirm-dialog-title">{{ title }}</h2>
+        <p id="{{ id }}-description" class="confirm-dialog-description">{{ description }}</p>
+      </div>
+      <div class="confirm-dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>{{ cancelLabel }}</button>
+        <form method="{{ method }}" action="{{ formAction }}">
+          {% if csrfToken %}
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          {% endif %}
+          {% if caller %}
+            {{ caller() }}
+          {% endif %}
+          <button class="btn {{ 'btn-danger' if destructive else 'btn-primary' }}" type="submit">{{ confirmLabel }}</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+{% endmacro %}

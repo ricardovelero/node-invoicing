@@ -1,4 +1,5 @@
 import { setupPasswordToggles, setupRegisterForms } from "./auth";
+import { setupConfirmDialogs } from "./confirm-dialogs";
 import { setupInlineEditors } from "./inline-editors";
 import { setupInvoiceForms } from "./invoices";
 import { setupUnsavedChangesGuards } from "./unsaved-changes";
@@ -23,6 +24,7 @@ const setupPrintButtons = () => {
 };
 
 setupInvoiceForms();
+setupConfirmDialogs();
 setupInlineEditors();
 setupUnsavedChangesGuards();
 setupFlashMessages();

@@ -24,6 +24,12 @@
     "saveCatalogItem": "Guardar",
     "saveForFutureUse": "¿Guardar para usarlo más adelante?"
   },
+  "dialogs": {
+    "void": {
+      "title": "¿Anular factura?",
+      "description": "Esto anulará la factura y la quitará de los flujos de cobro activos. Esta acción no se puede deshacer."
+    }
+  },
   "form": {
     "newTitle": "Nueva factura",
     "editTitle": "Editar factura",
