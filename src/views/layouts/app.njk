@@ -12,7 +12,9 @@
     <div class="min-h-screen">
       <header class="border-b border-line bg-white">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <a href="/" class="text-lg font-semibold tracking-normal text-ink">{{ t('common.app.name') }}</a>
+          <a href="/" class="inline-flex items-center">
+            <img class="h-9 w-auto" src="/assets/asienta-logo-horizontal.webp" alt="{{ t('common.app.name') }}">
+          </a>
           {% if currentUser %}
             <nav class="flex items-center gap-1 text-sm">
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath == '/' else 'text-muted hover:text-ink' }}" href="/">{{ t('common.navigation.dashboard') }}</a>
