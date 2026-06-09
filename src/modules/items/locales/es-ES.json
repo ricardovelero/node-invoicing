@@ -9,6 +9,7 @@
     "edit": "Editar",
     "archive": "Archivar",
     "restore": "Restaurar",
+    "delete": "Eliminar",
     "create": "Crear artículo",
     "save": "Guardar artículo"
   },
@@ -46,11 +47,18 @@
     "ariaLabel": "Paginación de artículos del catálogo",
     "countLabel": "artículos"
   },
+  "dialogs": {
+    "delete": {
+      "title": "¿Eliminar artículo?",
+      "description": "Esto eliminará permanentemente {name}. Esta acción no se puede deshacer."
+    }
+  },
   "flash": {
     "created": "Artículo creado.",
     "updated": "Artículo actualizado.",
     "archived": "Artículo archivado.",
-    "restored": "Artículo restaurado."
+    "restored": "Artículo restaurado.",
+    "deleted": "Artículo eliminado."
   },
   "errors": {
     "saveFailed": "No se pudo guardar el artículo."

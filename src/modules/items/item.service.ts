@@ -169,3 +169,14 @@ export const restoreCatalogItemRecord = (
       archivedAt: null,
     },
   });
+
+export const deleteCatalogItemRecord = (
+  organizationId: string,
+  itemId: string,
+) =>
+  prisma.catalogItem.deleteMany({
+    where: {
+      id: itemId,
+      organizationId,
+    },
+  });

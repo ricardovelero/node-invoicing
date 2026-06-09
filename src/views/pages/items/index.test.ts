@@ -10,6 +10,7 @@ test("item index includes active archived toggles and item actions", () => {
   );
 
   assert.match(template, /from "components\/sort-indicator\.njk" import sortIndicator/);
+  assert.match(template, /from "macros\/confirm-dialog\.njk" import confirmDialog/);
   assert.match(template, /href="{{ archivedItemsHref }}"/);
   assert.match(template, /href="{{ activeItemsHref }}"/);
   assert.match(template, /t\('items\.actions\.archived'\)/);
@@ -18,9 +19,19 @@ test("item index includes active archived toggles and item actions", () => {
   assert.match(template, /for item in items/);
   assert.match(template, /item\.unitPriceCents \| money\(item\.currency, currentLocale\)/);
   assert.match(template, /item\.taxRateLabel/);
+  assert.match(template, /class="btn-icon text-action hover:bg-panel hover:text-action-dark" href="\/items\/{{ item\.id }}\/edit"/);
+  assert.match(template, /aria-label="{{ t\('items\.actions\.edit'\) }}"/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/archive"/);
+  assert.match(template, /aria-label="{{ t\('items\.actions\.archive'\) }}"/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/restore"/);
+  assert.match(template, /aria-label="{{ t\('items\.actions\.restore'\) }}"/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
+  assert.match(template, /data-dialog-open="delete-item-dialog-{{ item\.id }}"/);
+  assert.match(template, /confirmDialog\(/);
+  assert.match(template, /'delete-item-dialog-' ~ item\.id/);
+  assert.match(template, /t\('items\.dialogs\.delete\.title'\)/);
+  assert.match(template, /t\('items\.dialogs\.delete\.description', { name: item\.name }\)/);
+  assert.match(template, /'\/items\/' ~ item\.id ~ '\/delete'/);
 });
 
 test("item index renders query-driven filter controls", () => {

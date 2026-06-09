@@ -7,6 +7,7 @@ import {
   archiveItem,
   createInlineItem,
   createItem,
+  deleteItem,
   listItems,
   renderEditItem,
   renderNewItem,
@@ -37,6 +38,7 @@ const prismaMock = prisma as unknown as {
   catalogItem: {
     count: unknown;
     create: unknown;
+    deleteMany: unknown;
     findFirst: unknown;
     findMany: unknown;
     updateMany: unknown;
@@ -45,6 +47,7 @@ const prismaMock = prisma as unknown as {
 
 const originalCount = prismaMock.catalogItem.count;
 const originalCreate = prismaMock.catalogItem.create;
+const originalDeleteMany = prismaMock.catalogItem.deleteMany;
 const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
 const originalUpdateMany = prismaMock.catalogItem.updateMany;
@@ -56,6 +59,7 @@ const t = createTranslator("en-GB", loadTranslations(), {
 afterEach(() => {
   prismaMock.catalogItem.count = originalCount;
   prismaMock.catalogItem.create = originalCreate;
+  prismaMock.catalogItem.deleteMany = originalDeleteMany;
   prismaMock.catalogItem.findFirst = originalFindFirst;
   prismaMock.catalogItem.findMany = originalFindMany;
   prismaMock.catalogItem.updateMany = originalUpdateMany;
@@ -633,4 +637,35 @@ test("archiveItem and restoreItem redirect after scoped mutations", async () => 
   assert.equal(archiveRes.redirectPath, "/items");
   assert.deepEqual(restoreReq.flashMessages.success, ["Item restored."]);
   assert.equal(restoreRes.redirectPath, "/items?archived=1");
+});
+
+test("deleteItem redirects after scoped deletion", async () => {
+  let deleteArgs: unknown;
+  prismaMock.catalogItem.deleteMany = async (args: unknown) => {
+    deleteArgs = args;
+    return { count: 1 };
+  };
+  const req = createRequest();
+  const res = createResponse();
+
+  await deleteItem(req, res, () => undefined);
+
+  assert.deepEqual(deleteArgs, {
+    where: {
+      id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    },
+  });
+  assert.deepEqual(req.flashMessages.success, ["Item deleted."]);
+  assert.equal(res.redirectPath, "/items");
+});
+
+test("deleteItem renders not found for missing catalog items", async () => {
+  prismaMock.catalogItem.deleteMany = async () => ({ count: 0 });
+  const res = createResponse();
+
+  await deleteItem(createRequest(), res, () => undefined);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.renderedView, "pages/errors/not-found.njk");
 });

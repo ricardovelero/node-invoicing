@@ -3,6 +3,7 @@ import {
   archiveItem,
   createInlineItem,
   createItem,
+  deleteItem,
   listItems,
   renderEditItem,
   renderNewItem,
@@ -22,3 +23,4 @@ itemRouter.get("/:itemId/edit", renderEditItem);
 itemRouter.post("/:itemId/edit", updateItem);
 itemRouter.post("/:itemId/archive", archiveItem);
 itemRouter.post("/:itemId/restore", restoreItem);
+itemRouter.post("/:itemId/delete", deleteItem);

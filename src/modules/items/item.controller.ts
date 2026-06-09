@@ -12,6 +12,7 @@ import {
 import {
   archiveCatalogItemRecord,
   createCatalogItemRecord,
+  deleteCatalogItemRecord,
   getCatalogItemForEdit,
   getCatalogItems,
   restoreCatalogItemRecord,
@@ -237,4 +238,22 @@ export const restoreItem: RequestHandler = async (req, res) => {
 
   req.flash("success", req.t("items.flash.restored"));
   return res.redirect("/items?archived=1");
+};
+
+export const deleteItem: RequestHandler = async (req, res) => {
+  const itemId = String(req.params.itemId);
+  const deleted = await deleteCatalogItemRecord(
+    req.auth!.organization.id,
+    itemId,
+  );
+
+  if (deleted.count === 0) {
+    return res.status(404).render("pages/errors/not-found.njk", {
+      title: "Not found",
+      path: req.path,
+    });
+  }
+
+  req.flash("success", req.t("items.flash.deleted"));
+  return res.redirect("/items");
 };

@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma";
 import {
   archiveCatalogItemRecord,
   createCatalogItemRecord,
+  deleteCatalogItemRecord,
   getCatalogItemForEdit,
   getCatalogItems,
   restoreCatalogItemRecord,
@@ -15,6 +16,7 @@ const prismaMock = prisma as unknown as {
   catalogItem: {
     count: unknown;
     create: unknown;
+    deleteMany: unknown;
     findFirst: unknown;
     findMany: unknown;
     updateMany: unknown;
@@ -23,6 +25,7 @@ const prismaMock = prisma as unknown as {
 
 const originalCount = prismaMock.catalogItem.count;
 const originalCreate = prismaMock.catalogItem.create;
+const originalDeleteMany = prismaMock.catalogItem.deleteMany;
 const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
 const originalUpdateMany = prismaMock.catalogItem.updateMany;
@@ -30,6 +33,7 @@ const originalUpdateMany = prismaMock.catalogItem.updateMany;
 afterEach(() => {
   prismaMock.catalogItem.count = originalCount;
   prismaMock.catalogItem.create = originalCreate;
+  prismaMock.catalogItem.deleteMany = originalDeleteMany;
   prismaMock.catalogItem.findFirst = originalFindFirst;
   prismaMock.catalogItem.findMany = originalFindMany;
   prismaMock.catalogItem.updateMany = originalUpdateMany;
@@ -294,6 +298,26 @@ test("archiveCatalogItemRecord and restoreCatalogItemRecord are scoped", async (
     },
     data: {
       archivedAt: null,
+    },
+  });
+});
+
+test("deleteCatalogItemRecord is scoped by organization", async () => {
+  let deleteArgs: unknown;
+  prismaMock.catalogItem.deleteMany = async (args: unknown) => {
+    deleteArgs = args;
+    return { count: 1 };
+  };
+
+  await deleteCatalogItemRecord(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "59cad9c9-16c1-4c85-83e1-6630514781a0",
+  );
+
+  assert.deepEqual(deleteArgs, {
+    where: {
+      id: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     },
   });
 });

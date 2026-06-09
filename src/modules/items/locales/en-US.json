@@ -9,6 +9,7 @@
     "edit": "Edit",
     "archive": "Archive",
     "restore": "Restore",
+    "delete": "Delete",
     "create": "Create item",
     "save": "Save item"
   },
@@ -46,11 +47,18 @@
     "ariaLabel": "Catalog item pagination",
     "countLabel": "items"
   },
+  "dialogs": {
+    "delete": {
+      "title": "Delete item?",
+      "description": "This will permanently delete {name}. This action cannot be undone."
+    }
+  },
   "flash": {
     "created": "Item created.",
     "updated": "Item updated.",
     "archived": "Item archived.",
-    "restored": "Item restored."
+    "restored": "Item restored.",
+    "deleted": "Item deleted."
   },
   "errors": {
     "saveFailed": "Unable to save item."

@@ -71,20 +71,20 @@
     @apply border border-line bg-white text-ink hover:bg-panel;
   }
 
-  .btn-danger {
-    @apply border border-line bg-white text-red-500 hover:bg-panel hover:text-red-700;
+  .btn-icon {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md p-0 text-sm font-semibold shadow-none transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-action/20 disabled:cursor-not-allowed disabled:opacity-60 text-action hover:bg-panel hover:text-action-dark;
+  }
+
+  .btn-link {
+    @apply p-0 font-medium text-action shadow-none hover:text-action-dark;
   }
 
   .btn-ghost {
     @apply text-muted shadow-none hover:text-ink;
   }
 
-  .btn-icon {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-md p-0 text-sm font-semibold shadow-none transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-action/20 disabled:cursor-not-allowed disabled:opacity-60;
-  }
-
-  .btn-link {
-    @apply p-0 font-medium text-action shadow-none hover:text-action-dark;
+  .btn-danger {
+    @apply border border-line bg-white text-red-500! hover:bg-panel hover:text-red-700!;
   }
 
   /* Cards / panels */
