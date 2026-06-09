@@ -80,7 +80,7 @@
   }
 
   .btn-icon {
-    @apply inline-flex h-8 w-8 items-center justify-center cursor-pointer shadow-none border-0 p-0;
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md p-0 text-sm font-semibold shadow-none transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-action/20 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-link {
@@ -127,7 +127,15 @@
 
   /* Confirmation dialog */
   .confirm-dialog {
-    @apply max-w-md rounded-lg border border-line bg-white p-0 text-ink shadow-xl;
+    position: fixed;
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    margin: 0;
+    max-height: calc(100vh - 2rem);
+    width: min(calc(100vw - 2rem), 28rem);
+    transform: translate(-50%, -50%);
+    @apply rounded-lg border border-line bg-white p-0 text-ink shadow-xl;
   }
 
   .confirm-dialog::backdrop {
