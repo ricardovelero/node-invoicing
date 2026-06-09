@@ -461,6 +461,45 @@ test("renderNewInvoice defaults payment instructions from organization settings 
   });
 });
 
+test("renderNewInvoice preselects a valid query customer from invoice form options", async () => {
+  const customerId = "59cad9c9-16c1-4c85-83e1-6630514781a0";
+  const customers = [{ id: customerId, name: "Ada Co" }];
+  prismaMock.customer.findMany = async () => customers;
+  const req = createRequest({}, {}, { customerId });
+  const res = createResponse();
+
+  await renderNewInvoice(req, res, () => undefined);
+
+  assert.equal(
+    (res.renderedData as { values: { customerId?: string } }).values.customerId,
+    customerId,
+  );
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {});
+});
+
+test("renderNewInvoice ignores invalid or unavailable query customers", async () => {
+  const customers = [
+    { id: "59cad9c9-16c1-4c85-83e1-6630514781a0", name: "Ada Co" },
+  ];
+  prismaMock.customer.findMany = async () => customers;
+
+  for (const customerId of [
+    "not-a-uuid",
+    "74db2aac-0e94-43d2-a5a5-646e405df9d0",
+  ]) {
+    const req = createRequest({}, {}, { customerId });
+    const res = createResponse();
+
+    await renderNewInvoice(req, res, () => undefined);
+
+    assert.equal(
+      (res.renderedData as { values: { customerId?: string } }).values.customerId,
+      undefined,
+    );
+    assert.deepEqual((res.renderedData as { errors: unknown }).errors, {});
+  }
+});
+
 test("listInvoices renders normalized filters and paginated invoice rows", async () => {
   let findManyArgs: unknown;
 

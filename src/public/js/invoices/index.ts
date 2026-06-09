@@ -83,12 +83,14 @@ export const setupInvoiceForms = () => {
         CatalogSearchState
       >();
       const savedCatalogDescriptions = new WeakMap<HTMLInputElement, string>();
+      const linkedCatalogItemIds = new WeakMap<HTMLInputElement, string>();
       const catalogSaveHideTimeouts = new WeakMap<HTMLInputElement, number>();
       const catalogSaveContext = {
         catalogSaveHideTimeouts,
         catalogSearchStates,
         currencySelect,
         form,
+        linkedCatalogItemIds,
         markDirty: markFormDirty,
         savedCatalogDescriptions,
       };

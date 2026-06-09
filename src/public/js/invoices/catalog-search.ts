@@ -27,6 +27,7 @@ type SelectCatalogSuggestionOptions = {
   input: HTMLInputElement;
   item: CatalogItemSuggestion;
   markDirty: () => void;
+  setLinkedCatalogItemId: (input: HTMLInputElement, itemId: string) => void;
   setCatalogSaveStatus: (
     input: HTMLInputElement,
     status: CatalogSaveStatus,
@@ -240,6 +241,7 @@ export const selectCatalogSuggestion = ({
   input,
   item,
   markDirty,
+  setLinkedCatalogItemId,
   setCatalogSaveStatus,
   updateTotals,
 }: SelectCatalogSuggestionOptions) => {
@@ -258,6 +260,7 @@ export const selectCatalogSuggestion = ({
   );
 
   input.value = item.description?.trim() || item.name;
+  setLinkedCatalogItemId(input, item.id);
 
   if (taxRateInput) {
     taxRateInput.value = item.taxRate;

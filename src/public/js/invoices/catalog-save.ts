@@ -12,6 +12,7 @@ export type CatalogSaveContext = {
   catalogSearchStates: WeakMap<HTMLInputElement, CatalogSearchState>;
   currencySelect: HTMLSelectElement;
   form: HTMLFormElement;
+  linkedCatalogItemIds: WeakMap<HTMLInputElement, string>;
   markDirty: () => void;
   savedCatalogDescriptions: WeakMap<HTMLInputElement, string>;
 };
@@ -126,11 +127,21 @@ const lineHasEnteredUnitPrice = (input: HTMLInputElement) => {
   return Boolean(unitPriceInput && parseNumberInput(unitPriceInput) > 0);
 };
 
+const lineHasLinkedCatalogItem = (
+  input: HTMLInputElement,
+  context: CatalogSaveContext,
+) => context.linkedCatalogItemIds.has(input);
+
 export const updateCatalogSavePrompt = (
   input: HTMLInputElement,
   context: CatalogSaveContext,
 ) => {
   const value = normalizeCatalogText(input.value);
+
+  if (lineHasLinkedCatalogItem(input, context)) {
+    setCatalogSaveStatus(input, 'hidden', context);
+    return;
+  }
 
   if (!value) {
     setCatalogSaveStatus(input, 'hidden', context);
@@ -175,6 +186,11 @@ export const submitCatalogSave = async (
   );
 
   if (!descriptionInput || !nameInput || !csrfInput) {
+    return;
+  }
+
+  if (lineHasLinkedCatalogItem(descriptionInput, context)) {
+    setCatalogSaveStatus(descriptionInput, 'hidden', context);
     return;
   }
 

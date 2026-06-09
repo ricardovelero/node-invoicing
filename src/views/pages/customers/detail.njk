@@ -19,7 +19,7 @@
       <div class="rounded-lg border border-line bg-white p-6">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold">{{ t('customers.detail.invoices') }}</h2>
-          <a class="btn btn-primary" href="/invoices/new">{{ t('customers.actions.newInvoice') }}</a>
+          <a class="btn btn-primary" href="/invoices/new?customerId={{ customer.id }}">{{ t('customers.actions.newInvoice') }}</a>
         </div>
         <div class="overflow-hidden rounded-md border border-line">
           <table class="min-w-full divide-y divide-line text-sm">

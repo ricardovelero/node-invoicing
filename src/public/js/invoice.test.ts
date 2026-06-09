@@ -50,6 +50,7 @@ test("invoice frontend includes catalog autocomplete behavior", () => {
   assert.match(catalogEventsSource, /ArrowUp/);
   assert.match(catalogEventsSource, /Escape/);
   assert.match(catalogSearchSource, /item\.description\?\.trim\(\) \|\| item\.name/);
+  assert.match(catalogSearchSource, /setLinkedCatalogItemId\(input, item\.id\)/);
   assert.match(catalogSearchSource, /item\.currency === currencySelect\.value/);
   assert.match(catalogSearchSource, /unitPriceInput\.value = ['"]{2}/);
   assert.match(catalogSearchSource, /unitPriceInput\.focus\(\)/);
@@ -72,9 +73,16 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(catalogSaveSource, /inputHasExactCatalogMatch/);
   assert.match(catalogSaveSource, /itemName === value \|\| itemDescription === value/);
   assert.match(catalogSaveSource, /lineHasEnteredUnitPrice/);
+  assert.match(catalogSaveSource, /lineHasLinkedCatalogItem/);
+  assert.match(catalogSaveSource, /context\.linkedCatalogItemIds\.has\(input\)/);
+  assert.match(catalogSaveSource, /if \(lineHasLinkedCatalogItem\(input, context\)\)/);
+  assert.match(catalogSaveSource, /if \(lineHasLinkedCatalogItem\(descriptionInput, context\)\)/);
   assert.match(catalogSaveSource, /querySelector<HTMLInputElement>\(\s*'\[data-invoice-unit-price\]'/);
   assert.match(catalogSaveSource, /parseNumberInput\(unitPriceInput\) > 0/);
   assert.match(catalogSaveSource, /if \(!lineHasEnteredUnitPrice\(input\)\)/);
+  assert.match(source, /linkedCatalogItemIds/);
+  assert.match(catalogEventsSource, /linkedCatalogItemIds\.set\(input, itemId\)/);
+  assert.match(catalogEventsSource, /linkedCatalogItemIds\.has\(input\)/);
   assert.match(catalogSaveSource, /savedCatalogDescriptions/);
   assert.match(catalogSaveSource, /fetch\('\/items\/inline'/);
   assert.match(catalogSaveSource, /_csrf: csrfInput\.value/);

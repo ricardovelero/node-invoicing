@@ -134,6 +134,9 @@ export const setupCatalogEvents = ({
         input: event.target,
         item: state.items[state.activeIndex],
         markDirty,
+        setLinkedCatalogItemId: (input, itemId) => {
+          catalogSaveContext.linkedCatalogItemIds.set(input, itemId);
+        },
         setCatalogSaveStatus: setCatalogSaveStatusForForm,
         updateTotals,
       });
@@ -170,6 +173,9 @@ export const setupCatalogEvents = ({
           input,
           item,
           markDirty,
+          setLinkedCatalogItemId: (input, itemId) => {
+            catalogSaveContext.linkedCatalogItemIds.set(input, itemId);
+          },
           setCatalogSaveStatus: setCatalogSaveStatusForForm,
           updateTotals,
         });
@@ -192,6 +198,11 @@ export const setupCatalogEvents = ({
       );
 
       if (input && nameInput) {
+        if (catalogSaveContext.linkedCatalogItemIds.has(input)) {
+          setCatalogSaveStatusForForm(input, 'hidden');
+          return;
+        }
+
         nameInput.value = shortCatalogName(input.value);
         setCatalogSaveStatusForForm(input, 'form');
         markDirty();

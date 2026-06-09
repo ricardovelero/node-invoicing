@@ -20,6 +20,25 @@ test('customer detail profile card links to edit customer', () => {
   assert.match(template, /aria-label="{{ t\('customers\.actions\.edit'\) }}"/);
 });
 
+test('customer detail new invoice action preselects the current customer', () => {
+  const template = readFileSync(
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
+  );
+
+  assert.match(
+    template,
+    /href="\/invoices\/new\?customerId={{ customer\.id }}">{{ t\('customers\.actions\.newInvoice'\) }}<\/a>/,
+  );
+});
+
 test('customer detail actions include a primary edit customer button', () => {
   const template = readFileSync(
     path.join(

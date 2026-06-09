@@ -92,6 +92,32 @@ const newInvoiceFormOptions = {
   cancelHref: '/invoices',
 };
 
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const firstQueryValue = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return firstQueryValue(value[0]);
+  }
+
+  return typeof value === 'string' ? value : '';
+};
+
+const preselectedCustomerIdFromQuery = (
+  query: Request['query'],
+  customers: InvoiceFormCustomers,
+) => {
+  const customerId = firstQueryValue(query.customerId).trim();
+
+  if (!uuidPattern.test(customerId)) {
+    return undefined;
+  }
+
+  return customers.some((customer) => customer.id === customerId)
+    ? customerId
+    : undefined;
+};
+
 const invoiceCreateIntentFromBody = (body: Record<string, unknown>) =>
   body.intent === 'saveAndSend' ? 'saveAndSend' : 'saveDraft';
 
@@ -142,6 +168,15 @@ export const listInvoices: RequestHandler = async (req, res) => {
 
 export const renderNewInvoice: RequestHandler = async (req, res) => {
   const customers = await getInvoiceFormOptions(req.auth!.organization.id);
+  const values = createInvoiceFormValues(
+    req.auth!.organization.paymentInstructions ?? '',
+    req.auth!.organization.currency,
+  );
+  const customerId = preselectedCustomerIdFromQuery(req.query, customers);
+
+  if (customerId) {
+    values.customerId = customerId;
+  }
 
   renderInvoiceForm(res, {
     ...newInvoiceFormOptions,
@@ -149,10 +184,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
     submitLabel: req.t('invoices.actions.saveDraft'),
     sendSubmitLabel: req.t('invoices.actions.saveAndSend'),
     customers,
-    values: createInvoiceFormValues(
-      req.auth!.organization.paymentInstructions ?? '',
-      req.auth!.organization.currency,
-    ),
+    values,
     errors: {},
   });
 };
