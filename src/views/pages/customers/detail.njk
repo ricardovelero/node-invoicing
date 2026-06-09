@@ -1,5 +1,6 @@
 {% extends "layouts/app.njk" %}
 {% from "components/badge.njk" import badge %}
+{% from "macros/confirm-dialog.njk" import confirmDialog %}
 
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -158,10 +159,18 @@
           {% endif %}
 
           {% if customer.invoices.length == 0 %}
-            <form method="post" action="/customers/{{ customer.id }}/delete">
-              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-              <button class="btn btn-full btn-danger" type="submit">{{ t('customers.actions.delete') }}</button>
-            </form>
+            <button class="btn btn-full btn-danger" type="button" data-dialog-open="delete-customer-dialog">{{ t('customers.actions.delete') }}</button>
+            {{ confirmDialog(
+              'delete-customer-dialog',
+              t('customers.dialogs.delete.title'),
+              t('customers.dialogs.delete.description', { name: customer.name }),
+              t('customers.actions.delete'),
+              t('common.actions.cancel'),
+              '/customers/' ~ customer.id ~ '/delete',
+              'post',
+              csrfToken,
+              true
+            ) }}
           {% elif not customer.archivedAt %}
             <form method="post" action="/customers/{{ customer.id }}/archive">
               <input type="hidden" name="_csrf" value="{{ csrfToken }}">

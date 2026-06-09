@@ -59,7 +59,7 @@ test('customer detail actions include a primary edit customer button', () => {
   assert.match(template, /btn btn-primary/);
 });
 
-test('customer detail includes archive delete and restore action forms', () => {
+test('customer detail includes archive restore and guarded delete actions', () => {
   const template = readFileSync(
     path.join(
       process.cwd(),
@@ -72,13 +72,49 @@ test('customer detail includes archive delete and restore action forms', () => {
     'utf8',
   );
 
-  assert.match(template, /action="\/customers\/{{ customer\.id }}\/delete"/);
   assert.match(template, /action="\/customers\/{{ customer\.id }}\/archive"/);
   assert.match(template, /action="\/customers\/{{ customer\.id }}\/restore"/);
+  assert.match(template, /'\/customers\/' ~ customer\.id ~ '\/delete'/);
   assert.match(template, /customer\.invoices\.length == 0/);
   assert.match(template, /elif not customer\.archivedAt/);
   assert.match(template, /if customer\.archivedAt/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
+});
+
+test('customer detail confirms delete action in a dialog before submitting', () => {
+  const template = readFileSync(
+    path.join(
+      process.cwd(),
+      'src',
+      'views',
+      'pages',
+      'customers',
+      'detail.njk',
+    ),
+    'utf8',
+  );
+
+  assert.match(
+    template,
+    /from "macros\/confirm-dialog\.njk" import confirmDialog/,
+  );
+  assert.match(
+    template,
+    /<button class="btn btn-full btn-danger" type="button" data-dialog-open="delete-customer-dialog">{{ t\('customers\.actions\.delete'\) }}<\/button>/,
+  );
+  assert.match(template, /confirmDialog\(/);
+  assert.match(template, /'delete-customer-dialog'/);
+  assert.match(template, /t\('customers\.dialogs\.delete\.title'\)/);
+  assert.match(
+    template,
+    /t\('customers\.dialogs\.delete\.description', { name: customer\.name }\)/,
+  );
+  assert.match(template, /'\/customers\/' ~ customer\.id ~ '\/delete'/);
+  assert.match(template, /csrfToken/);
+  assert.doesNotMatch(
+    template,
+    /<form method="post" action="\/customers\/{{ customer\.id }}\/delete">\s*<input type="hidden" name="_csrf" value="{{ csrfToken }}">\s*<button class="btn btn-full btn-danger" type="submit">/,
+  );
 });
 
 test('customer detail visibly indicates archived customers', () => {

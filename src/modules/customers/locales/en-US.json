@@ -15,6 +15,12 @@
     "archived": "Archived customers",
     "newInvoice": "New invoice"
   },
+  "dialogs": {
+    "delete": {
+      "title": "Delete customer?",
+      "description": "This will permanently delete {name}. This action cannot be undone."
+    }
+  },
   "form": {
     "newTitle": "New customer",
     "editTitle": "Edit customer",

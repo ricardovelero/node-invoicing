@@ -13,6 +13,9 @@ import { env } from "../config/env";
 const oneYearMs = 1000 * 60 * 60 * 24 * 365;
 const translations = loadTranslations();
 
+const getTranslations = () =>
+  env.NODE_ENV === "development" ? loadTranslations() : translations;
+
 declare global {
   namespace Express {
     interface Request {
@@ -47,7 +50,7 @@ export const localeMiddleware: RequestHandler = (req, res, next) => {
     (req.auth ? cookieLocale : pathLocale ?? cookieLocale) ??
     pathLocale ??
     defaultLocale;
-  const t = createTranslator(locale, translations, {
+  const t = createTranslator(locale, getTranslations(), {
     environment: env.NODE_ENV,
   });
 

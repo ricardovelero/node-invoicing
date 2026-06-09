@@ -14,6 +14,21 @@ test("loadTranslations loads common and module namespaces", () => {
 
   assert.equal(t("common.navigation.invoices"), "Facturas");
   assert.equal(t("invoices.title"), "Facturas");
+  assert.equal(t("invoices.dialogs.void.title"), "¿Anular factura?");
+  assert.equal(
+    t("invoices.dialogs.void.description"),
+    "Esto anulará la factura y la quitará de los flujos de cobro activos. Esta acción no se puede deshacer.",
+  );
+  assert.equal(t("customers.dialogs.delete.title"), "¿Eliminar cliente?");
+  assert.equal(
+    t("customers.dialogs.delete.description", { name: "Ada Co" }),
+    "Esto eliminará permanentemente a Ada Co. Esta acción no se puede deshacer.",
+  );
+  assert.equal(t("items.dialogs.delete.title"), "¿Eliminar artículo?");
+  assert.equal(
+    t("items.dialogs.delete.description", { name: "Retainer" }),
+    "Esto eliminará permanentemente Retainer. Esta acción no se puede deshacer.",
+  );
   assert.equal(t("customers.emptyState.active"), "Aún no hay clientes.");
 });
 
