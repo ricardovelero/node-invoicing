@@ -22,7 +22,7 @@
   "table": {
     "description": "Descripción",
     "unitPrice": "Precio unitario",
-    "taxRate": "Tipo impositivo",
+    "taxRate": "IVA",
     "actions": "Acciones",
     "archivedBadge": "Archivado"
   },
@@ -34,7 +34,7 @@
       "description": "Descripción",
       "unitPrice": "Precio unitario",
       "currency": "Moneda",
-      "taxRate": "Tipo impositivo"
+      "taxRate": "IVA"
     }
   },
   "emptyState": {

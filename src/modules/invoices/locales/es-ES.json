@@ -44,7 +44,7 @@
       "quantity": "Cantidad",
       "unitPrice": "Precio unitario",
       "discount": "Descuento",
-      "taxRate": "Tipo impositivo",
+      "taxRate": "IVA",
       "lineNet": "Neto de línea",
       "actions": "Acciones",
       "lineItems": "Líneas de factura",
