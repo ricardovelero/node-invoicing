@@ -4,7 +4,7 @@
 {% block content %}
   <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
     <div>
-      <p class="text-sm font-medium text-muted">Invoice</p>
+      <p class="text-sm font-medium text-muted">{{ t('invoices.detail.section') }}</p>
       <h1 class="mt-1 text-3xl font-semibold">{{ invoice.number }}</h1>
       <p class="mt-2 text-sm text-muted">
         {% if invoiceDisplay.customerHref %}
@@ -14,7 +14,7 @@
         {% endif %}
       </p>
     </div>
-    <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">Back to invoices</a>
+    <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">{{ t('invoices.actions.backToInvoices') }}</a>
   </div>
 
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -22,34 +22,34 @@
       <div class="card card-body">
         <div class="grid gap-5 sm:grid-cols-3">
           <div>
-            <p class="text-sm text-muted">Status</p>
+            <p class="text-sm text-muted">{{ t('invoices.table.status') }}</p>
             <div class="mt-1 flex flex-wrap gap-2">
               {% for statusBadge in invoiceStatusBadges %}
-                {{ badge(statusBadge.label, statusBadge.variant) }}
+                {{ badge(t(statusBadge.labelKey) if statusBadge.labelKey else statusBadge.label, statusBadge.variant) }}
               {% endfor %}
             </div>
           </div>
           <div>
-            <p class="text-sm text-muted">Issue date</p>
-            <p class="mt-1 font-semibold">{{ invoice.issueDate | date }}</p>
+            <p class="text-sm text-muted">{{ t('invoices.form.fields.issueDate') }}</p>
+            <p class="mt-1 font-semibold">{{ invoice.issueDate | date(currentLocale) }}</p>
           </div>
           <div>
-            <p class="text-sm text-muted">Due date</p>
-            <p class="mt-1 font-semibold">{{ invoice.dueDate | date }}</p>
+            <p class="text-sm text-muted">{{ t('invoices.form.fields.dueDate') }}</p>
+            <p class="mt-1 font-semibold">{{ invoice.dueDate | date(currentLocale) }}</p>
           </div>
         </div>
       </div>
 
       {% if invoiceDisplay.snapshot %}
         <div class="card card-body">
-          <h2 class="text-lg font-semibold">Billing snapshot</h2>
+          <h2 class="text-lg font-semibold">{{ t('invoices.detail.billingSnapshot') }}</h2>
           <div class="mt-4 grid gap-6 text-sm sm:grid-cols-2">
             <div>
-              <p class="font-medium">Billed to</p>
+              <p class="font-medium">{{ t('invoices.detail.billedTo') }}</p>
               <div class="mt-2 space-y-1 text-muted">
                 <p class="font-medium text-ink">{{ invoiceDisplay.snapshot.customerName }}</p>
                 {% if invoiceDisplay.snapshot.customerEmail %}<p>{{ invoiceDisplay.snapshot.customerEmail }}</p>{% endif %}
-                {% if invoiceDisplay.snapshot.customerTaxId %}<p>Tax ID: {{ invoiceDisplay.snapshot.customerTaxId }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.customerTaxId %}<p>{{ t('invoices.detail.taxId') }}: {{ invoiceDisplay.snapshot.customerTaxId }}</p>{% endif %}
                 {% if invoiceDisplay.snapshot.customerAddressLine1 %}<p>{{ invoiceDisplay.snapshot.customerAddressLine1 }}</p>{% endif %}
                 {% if invoiceDisplay.snapshot.customerCity or invoiceDisplay.snapshot.customerCountry %}
                   <p>{{ invoiceDisplay.snapshot.customerCity or '' }}{% if invoiceDisplay.snapshot.customerCity and invoiceDisplay.snapshot.customerCountry %}, {% endif %}{{ invoiceDisplay.snapshot.customerCountry or '' }}</p>
@@ -57,23 +57,23 @@
               </div>
             </div>
             <div>
-              <p class="font-medium">Seller</p>
+              <p class="font-medium">{{ t('invoices.detail.seller') }}</p>
               <div class="mt-2 space-y-1 text-muted">
                 <p class="font-medium text-ink">{{ invoiceDisplay.snapshot.sellerLegalName or invoiceDisplay.snapshot.sellerName }}</p>
-                {% if invoiceDisplay.snapshot.sellerTaxId %}<p>Tax ID: {{ invoiceDisplay.snapshot.sellerTaxId }}</p>{% endif %}
+                {% if invoiceDisplay.snapshot.sellerTaxId %}<p>{{ t('invoices.detail.taxId') }}: {{ invoiceDisplay.snapshot.sellerTaxId }}</p>{% endif %}
                 {% if invoiceDisplay.snapshot.sellerAddressLine1 %}<p>{{ invoiceDisplay.snapshot.sellerAddressLine1 }}</p>{% endif %}
                 {% if invoiceDisplay.snapshot.sellerCity or invoiceDisplay.snapshot.sellerCountry %}
                   <p>{{ invoiceDisplay.snapshot.sellerCity or '' }}{% if invoiceDisplay.snapshot.sellerCity and invoiceDisplay.snapshot.sellerCountry %}, {% endif %}{{ invoiceDisplay.snapshot.sellerCountry or '' }}</p>
                 {% endif %}
-                <p>Currency: {{ invoiceDisplay.currency }}</p>
+                <p>{{ t('invoices.detail.currency') }}: {{ invoiceDisplay.currency }}</p>
               </div>
             </div>
           </div>
           {% set isPaymentInstructionsEditorOpen = metadataEditor == 'paymentInstructions' %}
           <div class="mt-5 border-t border-line pt-4 text-sm" data-inline-editor>
             <div class="flex items-center justify-between gap-3">
-              <p class="font-medium">Payment instructions</p>
-              <button class="btn-icon" type="button" aria-label="Edit payment instructions" title="Edit payment instructions" aria-expanded="{{ 'true' if isPaymentInstructionsEditorOpen else 'false' }}" data-inline-editor-open>
+              <p class="font-medium">{{ t('invoices.detail.paymentInstructions') }}</p>
+              <button class="btn-icon" type="button" aria-label="{{ t('invoices.detail.editPaymentInstructions') }}" title="{{ t('invoices.detail.editPaymentInstructions') }}" aria-expanded="{{ 'true' if isPaymentInstructionsEditorOpen else 'false' }}" data-inline-editor-open>
                 <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 20h9"></path>
                   <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
@@ -84,18 +84,18 @@
               {% if invoiceDisplay.snapshot.paymentInstructions %}
                 <p class="whitespace-pre-line text-muted">{{ invoiceDisplay.snapshot.paymentInstructions }}</p>
               {% else %}
-                <p class="text-muted">No payment instructions saved.</p>
+                <p class="text-muted">{{ t('invoices.detail.noPaymentInstructions') }}</p>
               {% endif %}
             </div>
             <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-3 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
               <input type="hidden" name="_csrf" value="{{ csrfToken }}">
               <input type="hidden" name="intent" value="paymentInstructions">
-              <label class="sr-only" for="paymentInstructions">Payment instructions</label>
-              <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="Bank transfer details, payment terms, or customer-facing instructions" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
+              <label class="sr-only" for="paymentInstructions">{{ t('invoices.detail.paymentInstructions') }}</label>
+              <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.paymentInstructions') }}" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
               {% if metadataErrors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.paymentInstructions[0] }}</p>{% endif %}
               <div class="flex flex-wrap items-center gap-3">
-                <button class="btn btn-primary" type="submit">Save instructions</button>
-                <button class="btn btn-secondary" type="button" data-inline-editor-cancel>Cancel</button>
+                <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveInstructions') }}</button>
+                <button class="btn btn-secondary" type="button" data-inline-editor-cancel>{{ t('common.actions.cancel') }}</button>
               </div>
             </form>
           </div>
@@ -104,8 +104,8 @@
         {% set isPaymentInstructionsEditorOpen = metadataEditor == 'paymentInstructions' %}
         <div class="rounded-lg border border-line bg-white p-6 text-sm" data-inline-editor>
           <div class="flex items-center justify-between gap-3">
-            <h2 class="text-lg font-semibold">Payment instructions</h2>
-            <button class="btn-icon" type="button" aria-label="Edit payment instructions" title="Edit payment instructions" aria-expanded="{{ 'true' if isPaymentInstructionsEditorOpen else 'false' }}" data-inline-editor-open>
+            <h2 class="text-lg font-semibold">{{ t('invoices.detail.paymentInstructions') }}</h2>
+            <button class="btn-icon" type="button" aria-label="{{ t('invoices.detail.editPaymentInstructions') }}" title="{{ t('invoices.detail.editPaymentInstructions') }}" aria-expanded="{{ 'true' if isPaymentInstructionsEditorOpen else 'false' }}" data-inline-editor-open>
               <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 20h9"></path>
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
@@ -116,18 +116,18 @@
             {% if invoice.paymentInstructions %}
               <p class="whitespace-pre-line text-muted">{{ invoice.paymentInstructions }}</p>
             {% else %}
-              <p class="text-muted">No payment instructions saved.</p>
+              <p class="text-muted">{{ t('invoices.detail.noPaymentInstructions') }}</p>
             {% endif %}
           </div>
           <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
             <input type="hidden" name="_csrf" value="{{ csrfToken }}">
             <input type="hidden" name="intent" value="paymentInstructions">
-            <label class="sr-only" for="paymentInstructions">Payment instructions</label>
-            <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="Bank transfer details, payment terms, or customer-facing instructions" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
+            <label class="sr-only" for="paymentInstructions">{{ t('invoices.detail.paymentInstructions') }}</label>
+            <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.paymentInstructions') }}" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
             {% if metadataErrors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.paymentInstructions[0] }}</p>{% endif %}
             <div class="flex flex-wrap items-center gap-3">
-              <button class="btn btn-primary" type="submit">Save instructions</button>
-              <button class="btn btn-secondary" type="button" data-inline-editor-cancel>Cancel</button>
+              <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveInstructions') }}</button>
+              <button class="btn btn-secondary" type="button" data-inline-editor-cancel>{{ t('common.actions.cancel') }}</button>
             </div>
           </form>
         </div>
@@ -137,13 +137,13 @@
         <table class="min-w-full divide-y divide-line text-sm">
           <thead class="bg-panel text-left text-muted">
             <tr>
-              <th class="px-4 py-3 font-medium">Description</th>
-              <th class="px-4 py-3 text-right font-medium">Qty</th>
-              <th class="px-4 py-3 text-right font-medium">Unit Price</th>
-              <th class="px-4 py-3 text-right font-medium">Discount</th>
-              <th class="px-4 py-3 text-right font-medium">Net</th>
-              <th class="px-4 py-3 text-right font-medium">Tax</th>
-              <th class="px-4 py-3 text-right font-medium">Total</th>
+              <th class="px-4 py-3 font-medium">{{ t('invoices.table.description') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.quantity') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.unitPrice') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.discount') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.net') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.tax') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.total') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
@@ -151,11 +151,11 @@
               <tr>
                 <td class="px-4 py-3 font-medium">{{ line.description }}</td>
                 <td class="px-4 py-3 text-right text-muted">{{ line.quantity }}</td>
-                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.netCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
-                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }} <span class="text-muted">({{ line.taxRateLabel }})</span></td>
-                <td class="px-4 py-3 text-right font-medium">{{ line.displayTotalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.unitPriceCents | money(invoiceDisplay.currency, currentLocale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.discountCents | money(invoiceDisplay.currency, currentLocale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.netCents | money(invoiceDisplay.currency, currentLocale) }}</td>
+                <td class="px-4 py-3 text-right">{{ line.taxCents | money(invoiceDisplay.currency, currentLocale) }} <span class="text-muted">({{ line.taxRateLabel }})</span></td>
+                <td class="px-4 py-3 text-right font-medium">{{ line.displayTotalCents | money(invoiceDisplay.currency, currentLocale) }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -165,8 +165,8 @@
       <div class="card card-body" data-inline-editor>
         {% set isNotesEditorOpen = metadataEditor == 'notes' %}
         <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold">Notes</h2>
-          <button class="btn-icon" type="button" aria-label="Edit invoice note" title="Edit invoice note" aria-expanded="{{ 'true' if isNotesEditorOpen else 'false' }}" data-inline-editor-open>
+          <h2 class="text-lg font-semibold">{{ t('invoices.detail.notes') }}</h2>
+          <button class="btn-icon" type="button" aria-label="{{ t('invoices.detail.editNote') }}" title="{{ t('invoices.detail.editNote') }}" aria-expanded="{{ 'true' if isNotesEditorOpen else 'false' }}" data-inline-editor-open>
             <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 20h9"></path>
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
@@ -177,45 +177,45 @@
           {% if invoice.notes %}
             <p class="whitespace-pre-line text-muted">{{ invoice.notes }}</p>
           {% else %}
-            <p class="text-muted">No internal notes saved.</p>
+            <p class="text-muted">{{ t('invoices.detail.noNotes') }}</p>
           {% endif %}
         </div>
         <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isNotesEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
           <input type="hidden" name="intent" value="notes">
           <div>
-            <label for="notes">Internal notes</label>
-            <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="Internal notes for your team" data-inline-editor-input>{{ metadataValues.notes or '' }}</textarea>
+            <label for="notes">{{ t('invoices.detail.internalNotes') }}</label>
+            <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.notes') }}" data-inline-editor-input>{{ metadataValues.notes or '' }}</textarea>
             {% if metadataErrors.notes %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.notes[0] }}</p>{% endif %}
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="btn btn-primary" type="submit">Save note</button>
-            <button class="btn btn-secondary" type="button" data-inline-editor-cancel>Cancel</button>
+            <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveNote') }}</button>
+            <button class="btn btn-secondary" type="button" data-inline-editor-cancel>{{ t('common.actions.cancel') }}</button>
           </div>
         </form>
       </div>
 
       <div class="card card-body">
-        <h2 class="text-lg font-semibold">Payments</h2>
+        <h2 class="text-lg font-semibold">{{ t('invoices.detail.payments') }}</h2>
         <div class="mt-4 overflow-hidden rounded-md border border-line">
           <table class="min-w-full divide-y divide-line text-sm">
             <thead class="bg-panel text-left text-muted">
               <tr>
-                <th class="px-4 py-3 font-medium">Paid</th>
-                <th class="px-4 py-3 font-medium">Reference</th>
-                <th class="px-4 py-3 text-right font-medium">Amount</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.paid') }}</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.reference') }}</th>
+                <th class="px-4 py-3 text-right font-medium">{{ t('invoices.table.amount') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-line">
               {% for payment in invoice.payments %}
                 <tr>
-                  <td class="px-4 py-3">{{ payment.paidAt | date }}</td>
+                  <td class="px-4 py-3">{{ payment.paidAt | date(currentLocale) }}</td>
                   <td class="px-4 py-3 text-muted">{{ payment.reference or '—' }}</td>
-                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</td>
+                  <td class="px-4 py-3 text-right">{{ payment.amountCents | money(invoiceDisplay.currency, currentLocale) }}</td>
                 </tr>
               {% else %}
                 <tr>
-                  <td class="px-4 py-6 text-muted" colspan="3">No payments recorded.</td>
+                  <td class="px-4 py-6 text-muted" colspan="3">{{ t('invoices.detail.noPayments') }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -224,44 +224,44 @@
       </div>
 
       <div class="card card-body">
-        <h2 class="text-lg font-semibold">Email deliveries</h2>
+        <h2 class="text-lg font-semibold">{{ t('invoices.detail.emailDeliveries') }}</h2>
         <div class="mt-4 overflow-hidden rounded-md border border-line">
           <table class="min-w-full divide-y divide-line text-sm">
             <thead class="bg-panel text-left text-muted">
               <tr>
-                <th class="px-4 py-3 font-medium">Sent</th>
-                <th class="px-4 py-3 font-medium">Recipient</th>
-                <th class="px-4 py-3 font-medium">Status</th>
-                <th class="px-4 py-3 font-medium">Update</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.sent') }}</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.recipient') }}</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.status') }}</th>
+                <th class="px-4 py-3 font-medium">{{ t('invoices.table.update') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-line">
               {% for delivery in emailDeliveries %}
                 <tr>
-                  <td class="px-4 py-3">{% if delivery.sentAt %}{{ delivery.sentAt | date }}{% else %}{{ delivery.createdAt | date }}{% endif %}</td>
+                  <td class="px-4 py-3">{% if delivery.sentAt %}{{ delivery.sentAt | date(currentLocale) }}{% else %}{{ delivery.createdAt | date(currentLocale) }}{% endif %}</td>
                   <td class="px-4 py-3 text-muted">{{ delivery.toEmail }}</td>
-                  <td class="px-4 py-3">{{ badge(delivery.statusBadge.label, delivery.statusBadge.variant) }}</td>
+                  <td class="px-4 py-3">{{ badge(t(delivery.statusBadge.labelKey) if delivery.statusBadge.labelKey else delivery.statusBadge.label, delivery.statusBadge.variant) }}</td>
                   <td class="px-4 py-3 text-muted">
                     {% if delivery.status == 'DELIVERED' %}
-                      Delivered to recipient
+                      {{ t('invoices.detail.deliveryUpdates.delivered') }}
                     {% elif delivery.status == 'SENT' %}
-                      Accepted for delivery
+                      {{ t('invoices.detail.deliveryUpdates.sent') }}
                     {% elif delivery.status == 'PENDING' %}
-                      Sending email
+                      {{ t('invoices.detail.deliveryUpdates.pending') }}
                     {% elif delivery.status == 'BOUNCED' %}
-                      Bounced by recipient server
+                      {{ t('invoices.detail.deliveryUpdates.bounced') }}
                     {% elif delivery.status == 'SPAM_COMPLAINT' %}
-                      Spam complaint received
+                      {{ t('invoices.detail.deliveryUpdates.spamComplaint') }}
                     {% elif delivery.status == 'FAILED' %}
-                      {{ delivery.errorMessage or 'Email could not be sent' }}
+                      {{ delivery.errorMessage or t('invoices.detail.deliveryUpdates.failed') }}
                     {% else %}
-                      {{ delivery.errorMessage or 'No update available' }}
+                      {{ delivery.errorMessage or t('invoices.detail.deliveryUpdates.empty') }}
                     {% endif %}
                   </td>
                 </tr>
               {% else %}
                 <tr>
-                  <td class="px-4 py-6 text-muted" colspan="4">No invoice emails sent.</td>
+                  <td class="px-4 py-6 text-muted" colspan="4">{{ t('invoices.detail.noEmailDeliveries') }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -272,69 +272,69 @@
 
     <aside class="space-y-6">
       <div class="card card-body">
-        <h2 class="text-lg font-semibold">Totals</h2>
+        <h2 class="text-lg font-semibold">{{ t('invoices.detail.totals') }}</h2>
         <div class="mt-4 space-y-3 text-sm">
           <div class="flex justify-between gap-4">
-            <span class="text-muted">Subtotal</span>
-            <span class="font-medium">{{ invoice.subtotalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="text-muted">{{ t('invoices.form.totals.subtotal') }}</span>
+            <span class="font-medium">{{ invoice.subtotalCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
-            <span class="text-muted">Invoice discount</span>
-            <span class="font-medium">-{{ invoice.discountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="text-muted">{{ t('invoices.form.fields.invoiceDiscount') }}</span>
+            <span class="font-medium">-{{ invoice.discountCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
-            <span class="text-muted">Tax</span>
-            <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="text-muted">{{ t('invoices.form.totals.tax') }}</span>
+            <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
           <div class="flex justify-between gap-4 border-t border-line pt-3 text-base">
-            <span class="font-semibold">Total</span>
-            <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="font-semibold">{{ t('invoices.form.totals.total') }}</span>
+            <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
           <div class="flex justify-between gap-4">
-            <span class="text-muted">Paid</span>
-            <span class="font-medium">{{ paymentSummary.paidCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="text-muted">{{ t('invoices.detail.paid') }}</span>
+            <span class="font-medium">{{ paymentSummary.paidCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
           <div class="flex justify-between gap-4 text-base">
-            <span class="font-semibold">Outstanding</span>
-            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+            <span class="font-semibold">{{ t('invoices.detail.outstanding') }}</span>
+            <span class="font-semibold">{{ paymentSummary.outstandingCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
         </div>
       </div>
 
       {% if canRecordPayment %}
         <div class="card card-body">
-          <h2 class="text-lg font-semibold">Record payment</h2>
+          <h2 class="text-lg font-semibold">{{ t('invoices.detail.recordPayment') }}</h2>
           <form method="post" action="/invoices/{{ invoice.id }}/payments" class="mt-4 space-y-3">
             <input type="hidden" name="_csrf" value="{{ csrfToken }}">
             <div>
-              <label for="paymentAmount">Amount *</label>
+              <label for="paymentAmount">{{ t('invoices.detail.amount') }} *</label>
               <input id="paymentAmount" name="amount" type="number" min="0.01" step="0.01" value="{{ paymentValues.amount }}" required aria-describedby="paymentAmount-error">
               {% if paymentErrors.amount %}<p id="paymentAmount-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.amount[0] }}</p>{% endif %}
             </div>
             <div>
-              <label for="paidAt">Paid date *</label>
+              <label for="paidAt">{{ t('invoices.detail.paidDate') }} *</label>
               <input id="paidAt" name="paidAt" type="date" value="{{ paymentValues.paidAt }}" required aria-describedby="paidAt-error">
               {% if paymentErrors.paidAt %}<p id="paidAt-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.paidAt[0] }}</p>{% endif %}
             </div>
             <div>
-              <label for="reference">Reference</label>
+              <label for="reference">{{ t('invoices.detail.reference') }}</label>
               <input id="reference" name="reference" value="{{ paymentValues.reference }}" maxlength="200" aria-describedby="reference-error">
               {% if paymentErrors.reference %}<p id="reference-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.reference[0] }}</p>{% endif %}
             </div>
-            <button class="btn btn-full btn-primary" type="submit">Record payment</button>
+            <button class="btn btn-full btn-primary" type="submit">{{ t('invoices.actions.recordPayment') }}</button>
           </form>
         </div>
       {% endif %}
 
       <div class="card card-body">
-        <h2 class="text-lg font-semibold mb-4">Actions</h2>
+        <h2 class="text-lg font-semibold mb-4">{{ t('invoices.detail.actions') }}</h2>
         {% if canEditInvoice %}
-          <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/edit">Edit invoice</a>
+          <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/edit">{{ t('invoices.actions.editInvoice') }}</a>
         {% endif %}
         {% if invoiceDisplay.isPrintable %}
-          <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/email">Send invoice via email</a>
-          <a class="mt-3 btn btn-full btn-secondary" href="/invoices/{{ invoice.id }}/pdf">Download PDF</a>
-          <a class="{{ 'mt-3' if canEditInvoice else 'mt-4' }} btn btn-full btn-secondary" href="/invoices/{{ invoice.id }}/print">Print invoice</a>
+          <a class="btn btn-full btn-primary" href="/invoices/{{ invoice.id }}/email">{{ t('invoices.actions.sendEmail') }}</a>
+          <a class="mt-3 btn btn-full btn-secondary" href="/invoices/{{ invoice.id }}/pdf">{{ t('invoices.actions.downloadPdf') }}</a>
+          <a class="{{ 'mt-3' if canEditInvoice else 'mt-4' }} btn btn-full btn-secondary" href="/invoices/{{ invoice.id }}/print">{{ t('invoices.actions.print') }}</a>
         {% endif %}
         {% if allowedActions.length %}
           <div class="{{ 'mt-3' if invoiceDisplay.isPrintable or canEditInvoice else 'mt-4' }} space-y-3">
@@ -342,7 +342,7 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="send">
-                <button class="btn btn-full btn-secondary" type="submit">Mark sent</button>
+                <button class="btn btn-full btn-secondary" type="submit">{{ t('invoices.actions.markSent') }}</button>
               </form>
             {% endif %}
 
@@ -350,7 +350,7 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="markOverdue">
-                <button class="btn btn-full btn-secondary" type="submit">Mark overdue</button>
+                <button class="btn btn-full btn-secondary" type="submit">{{ t('invoices.actions.markOverdue') }}</button>
               </form>
             {% endif %}
 
@@ -358,12 +358,12 @@
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <input type="hidden" name="action" value="void">
-                <button class="btn btn-full btn-danger" type="submit">Void invoice</button>
+                <button class="btn btn-full btn-danger" type="submit">{{ t('invoices.actions.voidInvoice') }}</button>
               </form>
             {% endif %}
           </div>
         {% else %}
-          <p class="mt-3 text-sm text-muted">No further status changes are available.</p>
+          <p class="mt-3 text-sm text-muted">{{ t('invoices.detail.noStatusActions') }}</p>
         {% endif %}
       </div>
     </aside>

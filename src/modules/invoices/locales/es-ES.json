@@ -2,7 +2,77 @@
   "section": "Facturación",
   "title": "Facturas",
   "actions": {
-    "new": "Nueva factura"
+    "new": "Nueva factura",
+    "backToInvoices": "Volver a facturas",
+    "addLine": "Añadir línea",
+    "cancel": "Cancelar",
+    "saveDraft": "Guardar borrador",
+    "saveAndSend": "Guardar y enviar al cliente",
+    "create": "Crear factura",
+    "save": "Guardar factura",
+    "saveInstructions": "Guardar instrucciones",
+    "saveNote": "Guardar nota",
+    "editInvoice": "Editar factura",
+    "sendEmail": "Enviar factura por correo",
+    "downloadPdf": "Descargar PDF",
+    "print": "Imprimir factura",
+    "markSent": "Marcar como enviada",
+    "markOverdue": "Marcar como vencida",
+    "voidInvoice": "Anular factura",
+    "recordPayment": "Registrar pago",
+    "retry": "Reintentar",
+    "saveCatalogItem": "Guardar",
+    "saveForFutureUse": "¿Guardar para usarlo más adelante?"
+  },
+  "form": {
+    "newTitle": "Nueva factura",
+    "editTitle": "Editar factura",
+    "editNumberTitle": "Editar {invoiceNumber}",
+    "chooseCustomer": "Elige un cliente",
+    "fields": {
+      "customer": "Cliente",
+      "currency": "Moneda",
+      "issueDate": "Fecha de emisión",
+      "dueDate": "Fecha de vencimiento",
+      "description": "Descripción",
+      "quantity": "Cantidad",
+      "unitPrice": "Precio unitario",
+      "discount": "Descuento",
+      "taxRate": "Tipo impositivo",
+      "lineNet": "Neto de línea",
+      "actions": "Acciones",
+      "lineItems": "Líneas de factura",
+      "removeLineItem": "Eliminar línea de factura",
+      "invoiceDiscount": "Descuento de factura",
+      "paymentInstructions": "Instrucciones de pago",
+      "notes": "Notas",
+      "catalogItemName": "Nombre del artículo del catálogo",
+      "lineDiscountType": "Tipo de descuento de línea",
+      "lineDiscountValue": "Valor del descuento de línea",
+      "invoiceDiscountType": "Tipo de descuento de factura"
+    },
+    "placeholders": {
+      "lineDescription": "Servicios de consultoría",
+      "paymentInstructions": "Datos de transferencia, condiciones de pago o instrucciones para clientes",
+      "notes": "Notas internas para tu equipo"
+    },
+    "catalog": {
+      "notInCatalog": "No está en el catálogo",
+      "saved": "Artículo guardado correctamente",
+      "saveError": "Error al guardar el nuevo artículo"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "lineDiscounts": "Descuentos de línea",
+      "invoiceDiscountApplied": "Descuento de factura aplicado",
+      "tax": "Impuestos",
+      "total": "Total"
+    },
+    "emptyCustomers": {
+      "title": "Crea primero un cliente",
+      "body": "Las facturas deben estar asociadas a un cliente.",
+      "action": "Nuevo cliente"
+    }
   },
   "filters": {
     "search": "Buscar",
@@ -17,7 +87,19 @@
     "issue": "Emisión",
     "due": "Vencimiento",
     "status": "Estado",
-    "total": "Total"
+    "total": "Total",
+    "description": "Descripción",
+    "quantity": "Cant.",
+    "unitPrice": "Precio unitario",
+    "discount": "Descuento",
+    "net": "Neto",
+    "tax": "Impuestos",
+    "paid": "Pagado",
+    "reference": "Referencia",
+    "amount": "Importe",
+    "sent": "Enviado",
+    "recipient": "Destinatario",
+    "update": "Actualización"
   },
   "statuses": {
     "draft": "Borrador",
@@ -27,6 +109,14 @@
     "overdue": "Vencida",
     "void": "Anulada"
   },
+  "emailStatuses": {
+    "pending": "Pendiente",
+    "sent": "Enviada",
+    "delivered": "Entregada",
+    "failed": "Fallida",
+    "bounced": "Rebotada",
+    "spamComplaint": "Queja de spam"
+  },
   "emptyState": {
     "empty": "Aún no hay facturas.",
     "filtered": "Ninguna factura coincide con estos filtros.",
@@ -34,5 +124,66 @@
   },
   "pagination": {
     "countLabel": "facturas"
+  },
+  "detail": {
+    "section": "Factura",
+    "billingSnapshot": "Instantánea de facturación",
+    "billedTo": "Facturado a",
+    "seller": "Vendedor",
+    "taxId": "NIF/CIF",
+    "currency": "Moneda",
+    "paymentInstructions": "Instrucciones de pago",
+    "editPaymentInstructions": "Editar instrucciones de pago",
+    "noPaymentInstructions": "No hay instrucciones de pago guardadas.",
+    "notes": "Notas",
+    "editNote": "Editar nota de factura",
+    "noNotes": "No hay notas internas guardadas.",
+    "internalNotes": "Notas internas",
+    "payments": "Pagos",
+    "noPayments": "No hay pagos registrados.",
+    "emailDeliveries": "Envíos por correo",
+    "noEmailDeliveries": "No se han enviado correos de esta factura.",
+    "totals": "Totales",
+    "paid": "Pagado",
+    "outstanding": "Pendiente",
+    "recordPayment": "Registrar pago",
+    "amount": "Importe",
+    "paidDate": "Fecha de pago",
+    "reference": "Referencia",
+    "actions": "Acciones",
+    "noStatusActions": "No hay más cambios de estado disponibles.",
+    "deliveryUpdates": {
+      "delivered": "Entregado al destinatario",
+      "sent": "Aceptado para entrega",
+      "pending": "Enviando correo",
+      "bounced": "Rechazado por el servidor del destinatario",
+      "spamComplaint": "Queja de spam recibida",
+      "failed": "No se pudo enviar el correo",
+      "empty": "No hay actualizaciones disponibles"
+    }
+  },
+  "flash": {
+    "created": "Factura creada.",
+    "updated": "Factura actualizada.",
+    "savedAndSent": "Factura guardada y enviada al correo del cliente.",
+    "statusUpdated": "Estado de la factura actualizado.",
+    "detailsUpdated": "Detalles de la factura actualizados.",
+    "paymentRecorded": "Pago registrado."
+  },
+  "errors": {
+    "chooseCustomer": "Elige un cliente.",
+    "chooseCustomerWithEmail": "Elige un cliente con dirección de correo antes de enviar.",
+    "missingBillingEmail": "Añade un correo de facturación en los ajustes de la organización antes de enviar facturas por correo.",
+    "emailProviderFailure": "No se pudo enviar el correo de la factura: {message}",
+    "emailSendFailed": "No se pudo enviar el correo de la factura.",
+    "markSentBeforePrinting": "Marca la factura como enviada antes de imprimirla.",
+    "markSentBeforePdf": "Marca la factura como enviada antes de descargar un PDF.",
+    "invalidStatusAction": "Elige una acción de estado de factura válida.",
+    "statusChangeNotAllowed": "Ese cambio de estado no está permitido para esta factura.",
+    "snapshotRequiredForPaymentInstructions": "Las instrucciones de pago solo pueden editarse cuando ya existe la instantánea de la factura.",
+    "overpayment": "El pago no puede superar el saldo pendiente.",
+    "paymentNotAllowed": "Solo se pueden registrar pagos en facturas abiertas.",
+    "notEditable": "Solo se pueden editar facturas en borrador.",
+    "notFound": "Factura no encontrada"
   }
 }

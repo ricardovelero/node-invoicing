@@ -4,14 +4,70 @@
   "archivedTitle": "Clientes archivados",
   "actions": {
     "new": "Nuevo cliente",
+    "create": "Crear cliente",
+    "edit": "Editar cliente",
+    "saveChanges": "Guardar cambios",
+    "restore": "Restaurar cliente",
+    "delete": "Eliminar cliente",
+    "archive": "Archivar cliente",
+    "backToCustomers": "Volver a clientes",
     "active": "Clientes activos",
-    "archived": "Clientes archivados"
+    "archived": "Clientes archivados",
+    "newInvoice": "Nueva factura"
+  },
+  "form": {
+    "newTitle": "Nuevo cliente",
+    "editTitle": "Editar cliente",
+    "fields": {
+      "name": "Nombre",
+      "email": "Correo electronico",
+      "taxId": "NIF/CIF",
+      "address": "Direccion",
+      "city": "Ciudad",
+      "country": "Pais"
+    }
+  },
+  "detail": {
+    "section": "Cliente",
+    "noEmail": "Sin correo electronico",
+    "invoices": "Facturas",
+    "payments": "Pagos",
+    "profile": "Perfil",
+    "totals": "Totales",
+    "actions": "Acciones",
+    "taxId": "NIF/CIF",
+    "address": "Direccion",
+    "created": "Creado",
+    "archived": "Archivado",
+    "noInvoices": "Este cliente aun no tiene facturas.",
+    "noPayments": "No hay pagos registrados para este cliente."
   },
   "table": {
-    "archivedBadge": "Archivado"
+    "archivedBadge": "Archivado",
+    "number": "Numero",
+    "due": "Vencimiento",
+    "status": "Estado",
+    "total": "Total",
+    "paid": "Pagado",
+    "invoice": "Factura",
+    "reference": "Referencia",
+    "amount": "Importe"
   },
   "emptyState": {
     "active": "Aún no hay clientes.",
     "archived": "No hay clientes archivados."
+  },
+  "flash": {
+    "created": "Cliente creado.",
+    "updated": "Cliente actualizado.",
+    "deleted": "Cliente eliminado.",
+    "archived": "Cliente archivado.",
+    "restored": "Cliente restaurado."
+  },
+  "errors": {
+    "notFound": "No encontrado",
+    "nameRequired": "El nombre del cliente es obligatorio.",
+    "invalidEmail": "Introduce un correo electronico valido.",
+    "deleteHasInvoices": "No se pueden eliminar clientes con facturas. Archiva este cliente."
   }
 }

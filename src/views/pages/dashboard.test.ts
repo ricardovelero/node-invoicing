@@ -36,7 +36,10 @@ test("dashboard attention sections render invoice badges", () => {
   assert.match(template, /for invoice in section\.rows/);
   assert.match(template, /invoice\.customerName/);
   assert.match(template, /for statusBadge in invoice\.statusBadges/);
-  assert.match(template, /badge\(statusBadge\.label, statusBadge\.variant\)/);
+  assert.match(
+    template,
+    /badge\(t\(statusBadge\.labelKey\) if statusBadge\.labelKey else statusBadge\.label, statusBadge\.variant\)/,
+  );
   assert.doesNotMatch(template, /{{ invoice\.status }}/);
 });
 

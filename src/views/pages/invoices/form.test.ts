@@ -14,7 +14,7 @@ test("invoice form includes payment instructions and internal notes fields", () 
   assert.match(template, /values\.paymentInstructions/);
   assert.match(template, /errors\.paymentInstructions/);
   assert.match(template, /name="notes"/);
-  assert.match(template, /Internal notes for your team/);
+  assert.match(template, /t\('invoices\.form\.placeholders\.notes'\)/);
   assert.match(template, /errors\.notes/);
 });
 
@@ -30,19 +30,19 @@ test("invoice form includes catalog autocomplete hooks for line descriptions", (
 
 test("invoice form includes inline save-to-catalog hooks", () => {
   assert.match(template, /data-invoice-catalog-save/);
-  assert.match(template, /Not in catalog/);
-  assert.match(template, /Save for future use\?/);
+  assert.match(template, /t\('invoices\.form\.catalog\.notInCatalog'\)/);
+  assert.match(template, /t\('invoices\.actions\.saveForFutureUse'\)/);
   assert.match(template, /data-invoice-catalog-save-name/);
   assert.match(template, /data-invoice-catalog-save-submit/);
-  assert.match(template, /data-invoice-catalog-save-cancel>Cancel/);
-  assert.match(template, /data-invoice-catalog-save-success>Item saved successfully/);
-  assert.match(template, /Error saving new item/);
-  assert.match(template, /data-invoice-catalog-save-retry>Retry/);
+  assert.match(template, /data-invoice-catalog-save-cancel>{{ t\('common\.actions\.cancel'\) }}/);
+  assert.match(template, /data-invoice-catalog-save-success>{{ t\('invoices\.form\.catalog\.saved'\) }}/);
+  assert.match(template, /t\('invoices\.form\.catalog\.saveError'\)/);
+  assert.match(template, /data-invoice-catalog-save-retry>{{ t\('invoices\.actions\.retry'\) }}/);
 });
 
 test("invoice form renders right-aligned new invoice draft and send actions", () => {
   assert.match(template, /flex items-center justify-end gap-3/);
-  assert.match(template, /href="{{ cancelHref or '\/invoices' }}">Cancel/);
+  assert.match(template, /href="{{ cancelHref or '\/invoices' }}">{{ t\('common\.actions\.cancel'\) }}/);
   assert.match(template, /name="intent" value="saveDraft"/);
   assert.match(template, /name="intent" value="saveAndSend"/);
   assert.match(template, /{{ sendSubmitLabel }}/);

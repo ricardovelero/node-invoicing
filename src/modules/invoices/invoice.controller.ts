@@ -88,10 +88,7 @@ const renderInvoiceForm = (
 };
 
 const newInvoiceFormOptions = {
-  title: 'New invoice',
   formAction: '/invoices',
-  submitLabel: 'Save Draft',
-  sendSubmitLabel: 'Save and send to customer',
   cancelHref: '/invoices',
 };
 
@@ -148,6 +145,9 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
 
   renderInvoiceForm(res, {
     ...newInvoiceFormOptions,
+    title: req.t('invoices.form.newTitle'),
+    submitLabel: req.t('invoices.actions.saveDraft'),
+    sendSubmitLabel: req.t('invoices.actions.saveAndSend'),
     customers,
     values: createInvoiceFormValues(
       req.auth!.organization.paymentInstructions ?? '',
@@ -162,11 +162,17 @@ export const createInvoice: RequestHandler = async (req, res) => {
   const organizationId = req.auth!.organization.id;
   const customers = await getInvoiceFormOptions(organizationId);
   const intent = invoiceCreateIntentFromBody(req.body);
+  const newInvoiceLabels = {
+    title: req.t('invoices.form.newTitle'),
+    submitLabel: req.t('invoices.actions.saveDraft'),
+    sendSubmitLabel: req.t('invoices.actions.saveAndSend'),
+  };
 
   if (!result.success) {
     return renderInvoiceForm(res, {
       status: 422,
       ...newInvoiceFormOptions,
+      ...newInvoiceLabels,
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
@@ -183,9 +189,10 @@ export const createInvoice: RequestHandler = async (req, res) => {
       return renderInvoiceForm(res, {
         status: 422,
         ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
         customers,
         values: normalizeInvoiceFormValues(req.body),
-        errors: { customerId: ['Choose a customer.'] },
+        errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
       });
     }
 
@@ -193,11 +200,12 @@ export const createInvoice: RequestHandler = async (req, res) => {
       return renderInvoiceForm(res, {
         status: 422,
         ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
         customers,
         values: normalizeInvoiceFormValues(req.body),
         errors: {
           customerId: [
-            'Choose a customer with an email address before sending.',
+            req.t('invoices.errors.chooseCustomerWithEmail'),
           ],
         },
       });
@@ -207,11 +215,12 @@ export const createInvoice: RequestHandler = async (req, res) => {
       return renderInvoiceForm(res, {
         status: 422,
         ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
         customers,
         values: normalizeInvoiceFormValues(req.body),
         errors: {},
         formError:
-          'Please, add a billing email in your organization settings before sending invoice emails.',
+          req.t('invoices.errors.missingBillingEmail'),
       });
     }
 
@@ -225,19 +234,21 @@ export const createInvoice: RequestHandler = async (req, res) => {
     if (!sendResult.ok && sendResult.reason === 'providerFailure') {
       req.flash(
         'error',
-        `Invoice email could not be sent: ${sendResult.errorMessage}`,
+        req.t('invoices.errors.emailProviderFailure', {
+          message: sendResult.errorMessage,
+        }),
       );
       return res.redirect(invoicePath);
     }
 
     if (!sendResult.ok) {
-      req.flash('error', 'Invoice email could not be sent.');
+      req.flash('error', req.t('invoices.errors.emailSendFailed'));
       return res.redirect(invoicePath);
     }
 
     req.flash(
       'success',
-      "Invoice saved and sent to the customer's email address.",
+      req.t('invoices.flash.savedAndSent'),
     );
     return res.redirect(invoicePath);
   }
@@ -248,13 +259,14 @@ export const createInvoice: RequestHandler = async (req, res) => {
     return renderInvoiceForm(res, {
       status: 422,
       ...newInvoiceFormOptions,
+      ...newInvoiceLabels,
       customers,
       values: normalizeInvoiceFormValues(req.body),
-      errors: { customerId: ['Choose a customer.'] },
+      errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
     });
   }
 
-  req.flash('success', 'Invoice created.');
+  req.flash('success', req.t('invoices.flash.created'));
   res.redirect('/invoices');
 };
 
@@ -286,7 +298,7 @@ export const printInvoice: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', 'Mark the invoice sent before printing.');
+    req.flash('error', req.t('invoices.errors.markSentBeforePrinting'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -307,7 +319,7 @@ export const downloadInvoicePdf: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', 'Mark the invoice sent before downloading a PDF.');
+    req.flash('error', req.t('invoices.errors.markSentBeforePdf'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -331,11 +343,7 @@ export const updateInvoiceStatusController: RequestHandler = async (
   const result = invoiceStatusActionSchema.safeParse(req.body);
 
   if (!result.success) {
-    req.flash(
-      'error',
-      result.error.issues[0]?.message ??
-        'Choose a valid invoice status action.',
-    );
+    req.flash('error', req.t('invoices.errors.invalidStatusAction'));
     return res.redirect(invoicePath);
   }
 
@@ -353,11 +361,11 @@ export const updateInvoiceStatusController: RequestHandler = async (
   }
 
   if (!updateResult.ok) {
-    req.flash('error', 'That status change is not allowed for this invoice.');
+    req.flash('error', req.t('invoices.errors.statusChangeNotAllowed'));
     return res.redirect(invoicePath);
   }
 
-  req.flash('success', 'Invoice status updated.');
+  req.flash('success', req.t('invoices.flash.statusUpdated'));
   return res.redirect(invoicePath);
 };
 
@@ -411,12 +419,12 @@ export const updateInvoiceMetadataController: RequestHandler = async (
   if (!updateResult.ok) {
     req.flash(
       'error',
-      'Payment instructions can only be edited after the invoice snapshot exists.',
+      req.t('invoices.errors.snapshotRequiredForPaymentInstructions'),
     );
     return res.redirect(invoicePath);
   }
 
-  req.flash('success', 'Invoice details updated.');
+  req.flash('success', req.t('invoices.flash.detailsUpdated'));
   return res.redirect(invoicePath);
 };
 
@@ -477,17 +485,17 @@ export const recordInvoicePaymentController: RequestHandler = async (
     return res.status(422).render(
       'pages/invoices/detail.njk',
       invoiceDetailView(invoice, normalizeInvoicePaymentValues(req.body), {
-        amount: ['Payment cannot exceed the outstanding balance.'],
+        amount: [req.t('invoices.errors.overpayment')],
       }),
     );
   }
 
   if (!paymentResult.ok) {
-    req.flash('error', 'Payments can only be recorded for open invoices.');
+    req.flash('error', req.t('invoices.errors.paymentNotAllowed'));
     return res.redirect(invoicePath);
   }
 
-  req.flash('success', 'Payment recorded.');
+  req.flash('success', req.t('invoices.flash.paymentRecorded'));
   return res.redirect(invoicePath);
 };
 
@@ -498,22 +506,24 @@ export const renderEditInvoice: RequestHandler = async (req, res) => {
 
   if (!invoice) {
     return res.status(404).render('pages/errors/not-found.njk', {
-      title: 'Invoice Not Found',
+      title: req.t('invoices.errors.notFound'),
       path: req.path,
     });
   }
 
   if (!canEditInvoice(invoice.status)) {
-    req.flash('error', 'Only draft invoices can be edited.');
+    req.flash('error', req.t('invoices.errors.notEditable'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
   const customers = await getInvoiceFormOptions(organizationId);
 
   renderInvoiceForm(res, {
-    title: `Edit ${invoice.number}`,
+    title: req.t('invoices.form.editNumberTitle', {
+      invoiceNumber: invoice.number,
+    }),
     formAction: `/invoices/${invoiceId}/edit`,
-    submitLabel: 'Save invoice',
+    submitLabel: req.t('invoices.actions.save'),
     cancelHref: `/invoices/${invoiceId}`,
     customers,
     values: invoiceToFormValues(invoice),
@@ -530,9 +540,9 @@ export const editInvoice: RequestHandler = async (req, res) => {
   if (!result.success) {
     return renderInvoiceForm(res, {
       status: 422,
-      title: 'Edit invoice',
+      title: req.t('invoices.form.editTitle'),
       formAction: `/invoices/${invoiceId}/edit`,
-      submitLabel: 'Save invoice',
+      submitLabel: req.t('invoices.actions.save'),
       cancelHref: `/invoices/${invoiceId}`,
       customers,
       values: normalizeInvoiceFormValues(req.body),
@@ -548,29 +558,29 @@ export const editInvoice: RequestHandler = async (req, res) => {
 
   if (!updateResult.ok && updateResult.reason === 'notFound') {
     return res.status(404).render('pages/errors/not-found.njk', {
-      title: 'Invoice Not Found',
+      title: req.t('invoices.errors.notFound'),
       path: req.path,
     });
   }
 
   if (!updateResult.ok && updateResult.reason === 'notEditable') {
-    req.flash('error', 'Only draft invoices can be edited.');
+    req.flash('error', req.t('invoices.errors.notEditable'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
   if (!updateResult.ok && updateResult.reason === 'invalidCustomer') {
     return renderInvoiceForm(res, {
       status: 422,
-      title: 'Edit invoice',
+      title: req.t('invoices.form.editTitle'),
       formAction: `/invoices/${invoiceId}/edit`,
-      submitLabel: 'Save invoice',
+      submitLabel: req.t('invoices.actions.save'),
       cancelHref: `/invoices/${invoiceId}`,
       customers,
       values: normalizeInvoiceFormValues(req.body),
-      errors: { customerId: ['Choose a customer.'] },
+      errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
     });
   }
 
-  req.flash('success', 'Invoice updated.');
+  req.flash('success', req.t('invoices.flash.updated'));
   return res.redirect(`/invoices/${invoiceId}`);
 };

@@ -951,11 +951,13 @@ test("showInvoice renders invoice details and available actions", async () => {
     isEffectivelyOverdue: false,
     invoiceStatusBadge: {
       label: "Draft",
+      labelKey: "invoices.statuses.draft",
       variant: "neutral",
     },
     invoiceStatusBadges: [
       {
         label: "Draft",
+        labelKey: "invoices.statuses.draft",
         variant: "neutral",
       },
     ],
@@ -1077,26 +1079,32 @@ test("createInvoiceDisplay uses snapshot customer and currency for printable inv
 test("invoice status badges use readable labels and semantic variants", () => {
   assert.deepEqual(createInvoiceStatusBadge("DRAFT"), {
     label: "Draft",
+    labelKey: "invoices.statuses.draft",
     variant: "neutral",
   });
   assert.deepEqual(createInvoiceStatusBadge("SENT"), {
     label: "Sent",
+    labelKey: "invoices.statuses.sent",
     variant: "info",
   });
   assert.deepEqual(createInvoiceStatusBadge("PARTIALLY_PAID"), {
     label: "Partially paid",
+    labelKey: "invoices.statuses.partially_paid",
     variant: "warning",
   });
   assert.deepEqual(createInvoiceStatusBadge("PAID"), {
     label: "Paid",
+    labelKey: "invoices.statuses.paid",
     variant: "success",
   });
   assert.deepEqual(createInvoiceStatusBadge("OVERDUE"), {
     label: "Overdue",
+    labelKey: "invoices.statuses.overdue",
     variant: "danger",
   });
   assert.deepEqual(createInvoiceStatusBadge("VOID"), {
     label: "Void",
+    labelKey: "invoices.statuses.void",
     variant: "muted",
   });
 });
@@ -1112,10 +1120,12 @@ test("invoice status badge list keeps partial payment visible when overdue", () 
     [
       {
         label: "Partially paid",
+        labelKey: "invoices.statuses.partially_paid",
         variant: "warning",
       },
       {
         label: "Overdue",
+        labelKey: "invoices.statuses.overdue",
         variant: "danger",
       },
     ],
@@ -1125,26 +1135,32 @@ test("invoice status badge list keeps partial payment visible when overdue", () 
 test("email delivery status badges use readable labels and semantic variants", () => {
   assert.deepEqual(createEmailDeliveryStatusBadge("PENDING"), {
     label: "Pending",
+    labelKey: "invoices.emailStatuses.pending",
     variant: "warning",
   });
   assert.deepEqual(createEmailDeliveryStatusBadge("SENT"), {
     label: "Sent",
+    labelKey: "invoices.emailStatuses.sent",
     variant: "info",
   });
   assert.deepEqual(createEmailDeliveryStatusBadge("DELIVERED"), {
     label: "Delivered",
+    labelKey: "invoices.emailStatuses.delivered",
     variant: "success",
   });
   assert.deepEqual(createEmailDeliveryStatusBadge("FAILED"), {
     label: "Failed",
+    labelKey: "invoices.emailStatuses.failed",
     variant: "danger",
   });
   assert.deepEqual(createEmailDeliveryStatusBadge("BOUNCED"), {
     label: "Bounced",
+    labelKey: "invoices.emailStatuses.bounced",
     variant: "danger",
   });
   assert.deepEqual(createEmailDeliveryStatusBadge("SPAM_COMPLAINT"), {
     label: "Spam complaint",
+    labelKey: "invoices.emailStatuses.spamComplaint",
     variant: "danger",
   });
 });
@@ -1208,17 +1224,20 @@ test("invoiceIndexView prepares customer names and status badges", () => {
   assert.equal(rows.invoiceRows[0]?.customerName, "Live Ada Co");
   assert.deepEqual(rows.invoiceRows[0]?.statusBadge, {
     label: "Draft",
+    labelKey: "invoices.statuses.draft",
     variant: "neutral",
   });
   assert.deepEqual(rows.invoiceRows[0]?.statusBadges, [
     {
       label: "Draft",
+      labelKey: "invoices.statuses.draft",
       variant: "neutral",
     },
   ]);
   assert.equal(rows.invoiceRows[1]?.customerName, "Snapshot Byron Co");
   assert.deepEqual(rows.invoiceRows[1]?.statusBadge, {
     label: "Sent",
+    labelKey: "invoices.statuses.sent",
     variant: "info",
   });
   assert.equal(rows.statusOptions.find((option) => option.value === "sent")?.selected, true);

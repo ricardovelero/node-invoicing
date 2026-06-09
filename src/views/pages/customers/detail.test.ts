@@ -17,7 +17,7 @@ test('customer detail profile card links to edit customer', () => {
   );
 
   assert.match(template, /href="\/customers\/{{ customer\.id }}\/edit"/);
-  assert.match(template, /aria-label="Edit customer"/);
+  assert.match(template, /aria-label="{{ t\('customers\.actions\.edit'\) }}"/);
 });
 
 test('customer detail actions include a primary edit customer button', () => {
@@ -35,7 +35,7 @@ test('customer detail actions include a primary edit customer button', () => {
 
   assert.match(
     template,
-    /href="\/customers\/{{ customer\.id }}\/edit">Edit customer<\/a>/,
+    /href="\/customers\/{{ customer\.id }}\/edit">{{ t\('customers\.actions\.edit'\) }}<\/a>/,
   );
   assert.match(template, /btn btn-primary/);
 });
@@ -75,8 +75,8 @@ test('customer detail visibly indicates archived customers', () => {
     'utf8',
   );
 
-  assert.match(template, /Archived/);
-  assert.match(template, /{{ customer\.archivedAt \| date }}/);
+  assert.match(template, /t\('customers\.detail\.archived'\)/);
+  assert.match(template, /{{ customer\.archivedAt \| date\(currentLocale\) }}/);
 });
 
 test('customer detail invoice table renders status badges', () => {
@@ -100,7 +100,9 @@ test('customer detail invoice table renders status badges', () => {
   );
   assert.match(
     template,
-    /badge\(statusBadge\.label, statusBadge\.variant\)/,
+    /badge\(t\(statusBadge\.labelKey\) if statusBadge\.labelKey else statusBadge\.label, statusBadge\.variant\)/,
   );
+  assert.match(template, /invoice\.dueDate \| date\(currentLocale\)/);
+  assert.match(template, /invoice\.totalCents \| money\(invoice\.currency, currentLocale\)/);
   assert.doesNotMatch(template, /{{ invoice\.status }}/);
 });

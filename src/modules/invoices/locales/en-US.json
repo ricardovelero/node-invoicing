@@ -2,7 +2,77 @@
   "section": "Billing",
   "title": "Invoices",
   "actions": {
-    "new": "New invoice"
+    "new": "New invoice",
+    "backToInvoices": "Back to invoices",
+    "addLine": "Add line",
+    "cancel": "Cancel",
+    "saveDraft": "Save Draft",
+    "saveAndSend": "Save and send to customer",
+    "create": "Create invoice",
+    "save": "Save invoice",
+    "saveInstructions": "Save instructions",
+    "saveNote": "Save note",
+    "editInvoice": "Edit invoice",
+    "sendEmail": "Send invoice via email",
+    "downloadPdf": "Download PDF",
+    "print": "Print invoice",
+    "markSent": "Mark sent",
+    "markOverdue": "Mark overdue",
+    "voidInvoice": "Void invoice",
+    "recordPayment": "Record payment",
+    "retry": "Retry",
+    "saveCatalogItem": "Save",
+    "saveForFutureUse": "Save for future use?"
+  },
+  "form": {
+    "newTitle": "New invoice",
+    "editTitle": "Edit invoice",
+    "editNumberTitle": "Edit {invoiceNumber}",
+    "chooseCustomer": "Choose a customer",
+    "fields": {
+      "customer": "Customer",
+      "currency": "Currency",
+      "issueDate": "Issue date",
+      "dueDate": "Due date",
+      "description": "Description",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "discount": "Discount",
+      "taxRate": "Tax rate",
+      "lineNet": "Line net",
+      "actions": "Actions",
+      "lineItems": "Line items",
+      "removeLineItem": "Remove line item",
+      "invoiceDiscount": "Invoice discount",
+      "paymentInstructions": "Payment instructions",
+      "notes": "Notes",
+      "catalogItemName": "Catalog item name",
+      "lineDiscountType": "Line discount type",
+      "lineDiscountValue": "Line discount value",
+      "invoiceDiscountType": "Invoice discount type"
+    },
+    "placeholders": {
+      "lineDescription": "Consulting services",
+      "paymentInstructions": "Bank transfer details, payment terms, or customer-facing instructions",
+      "notes": "Internal notes for your team"
+    },
+    "catalog": {
+      "notInCatalog": "Not in catalog",
+      "saved": "Item saved successfully",
+      "saveError": "Error saving new item"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "lineDiscounts": "Line discounts",
+      "invoiceDiscountApplied": "Invoice discount applied",
+      "tax": "Tax",
+      "total": "Total"
+    },
+    "emptyCustomers": {
+      "title": "Create a customer first",
+      "body": "Invoices need to be attached to a customer.",
+      "action": "New customer"
+    }
   },
   "filters": {
     "search": "Search",
@@ -17,7 +87,19 @@
     "issue": "Issue",
     "due": "Due",
     "status": "Status",
-    "total": "Total"
+    "total": "Total",
+    "description": "Description",
+    "quantity": "Qty",
+    "unitPrice": "Unit Price",
+    "discount": "Discount",
+    "net": "Net",
+    "tax": "Tax",
+    "paid": "Paid",
+    "reference": "Reference",
+    "amount": "Amount",
+    "sent": "Sent",
+    "recipient": "Recipient",
+    "update": "Update"
   },
   "statuses": {
     "draft": "Draft",
@@ -27,6 +109,14 @@
     "overdue": "Overdue",
     "void": "Void"
   },
+  "emailStatuses": {
+    "pending": "Pending",
+    "sent": "Sent",
+    "delivered": "Delivered",
+    "failed": "Failed",
+    "bounced": "Bounced",
+    "spamComplaint": "Spam complaint"
+  },
   "emptyState": {
     "empty": "No invoices yet.",
     "filtered": "No invoices match these filters.",
@@ -34,5 +124,66 @@
   },
   "pagination": {
     "countLabel": "invoices"
+  },
+  "detail": {
+    "section": "Invoice",
+    "billingSnapshot": "Billing snapshot",
+    "billedTo": "Billed to",
+    "seller": "Seller",
+    "taxId": "Tax ID",
+    "currency": "Currency",
+    "paymentInstructions": "Payment instructions",
+    "editPaymentInstructions": "Edit payment instructions",
+    "noPaymentInstructions": "No payment instructions saved.",
+    "notes": "Notes",
+    "editNote": "Edit invoice note",
+    "noNotes": "No internal notes saved.",
+    "internalNotes": "Internal notes",
+    "payments": "Payments",
+    "noPayments": "No payments recorded.",
+    "emailDeliveries": "Email deliveries",
+    "noEmailDeliveries": "No invoice emails sent.",
+    "totals": "Totals",
+    "paid": "Paid",
+    "outstanding": "Outstanding",
+    "recordPayment": "Record payment",
+    "amount": "Amount",
+    "paidDate": "Paid date",
+    "reference": "Reference",
+    "actions": "Actions",
+    "noStatusActions": "No further status changes are available.",
+    "deliveryUpdates": {
+      "delivered": "Delivered to recipient",
+      "sent": "Accepted for delivery",
+      "pending": "Sending email",
+      "bounced": "Bounced by recipient server",
+      "spamComplaint": "Spam complaint received",
+      "failed": "Email could not be sent",
+      "empty": "No update available"
+    }
+  },
+  "flash": {
+    "created": "Invoice created.",
+    "updated": "Invoice updated.",
+    "savedAndSent": "Invoice saved and sent to the customer's email address.",
+    "statusUpdated": "Invoice status updated.",
+    "detailsUpdated": "Invoice details updated.",
+    "paymentRecorded": "Payment recorded."
+  },
+  "errors": {
+    "chooseCustomer": "Choose a customer.",
+    "chooseCustomerWithEmail": "Choose a customer with an email address before sending.",
+    "missingBillingEmail": "Please, add a billing email in your organization settings before sending invoice emails.",
+    "emailProviderFailure": "Invoice email could not be sent: {message}",
+    "emailSendFailed": "Invoice email could not be sent.",
+    "markSentBeforePrinting": "Mark the invoice sent before printing.",
+    "markSentBeforePdf": "Mark the invoice sent before downloading a PDF.",
+    "invalidStatusAction": "Choose a valid invoice status action.",
+    "statusChangeNotAllowed": "That status change is not allowed for this invoice.",
+    "snapshotRequiredForPaymentInstructions": "Payment instructions can only be edited after the invoice snapshot exists.",
+    "overpayment": "Payment cannot exceed the outstanding balance.",
+    "paymentNotAllowed": "Payments can only be recorded for open invoices.",
+    "notEditable": "Only draft invoices can be edited.",
+    "notFound": "Invoice Not Found"
   }
 }

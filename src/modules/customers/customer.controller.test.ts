@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   archiveCustomer,
   deleteCustomer,
@@ -17,6 +18,7 @@ type MockRequest = Request & {
   path: string;
   auth: NonNullable<Request["auth"]>;
   flash: Request["flash"];
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -37,6 +39,9 @@ const prismaMock = prisma as unknown as {
 const originalDelete = prismaMock.customer.delete;
 const originalFindFirst = prismaMock.customer.findFirst;
 const originalUpdateMany = prismaMock.customer.updateMany;
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 afterEach(() => {
   prismaMock.customer.delete = originalDelete;
@@ -72,6 +77,7 @@ const createRequest = (
       role: "OWNER",
     },
     flash: (() => undefined) as unknown as Request["flash"],
+    t,
   }) as unknown as MockRequest;
 
 const createResponse = () => {
@@ -144,11 +150,13 @@ test("showCustomer renders customer invoice and payment history", async () => {
         ...customer.invoices[0],
         statusBadge: {
           label: "Sent",
+          labelKey: "invoices.statuses.sent",
           variant: "info",
         },
         statusBadges: [
           {
             label: "Sent",
+            labelKey: "invoices.statuses.sent",
             variant: "info",
           },
         ],
@@ -157,11 +165,13 @@ test("showCustomer renders customer invoice and payment history", async () => {
         ...customer.invoices[1],
         statusBadge: {
           label: "Paid",
+          labelKey: "invoices.statuses.paid",
           variant: "success",
         },
         statusBadges: [
           {
             label: "Paid",
+            labelKey: "invoices.statuses.paid",
             variant: "success",
           },
         ],

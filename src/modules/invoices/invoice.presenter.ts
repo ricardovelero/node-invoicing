@@ -64,26 +64,26 @@ const formatTaxRateLabel = (taxRateBps: number) =>
 
 const invoiceStatusBadges: Record<
   InvoiceStatus,
-  { label: string; variant: BadgeVariant }
+  { label: string; labelKey: string; variant: BadgeVariant }
 > = {
-  DRAFT: { label: 'Draft', variant: 'neutral' },
-  SENT: { label: 'Sent', variant: 'info' },
-  PARTIALLY_PAID: { label: 'Partially paid', variant: 'warning' },
-  PAID: { label: 'Paid', variant: 'success' },
-  OVERDUE: { label: 'Overdue', variant: 'danger' },
-  VOID: { label: 'Void', variant: 'muted' },
+  DRAFT: { label: 'Draft', labelKey: 'invoices.statuses.draft', variant: 'neutral' },
+  SENT: { label: 'Sent', labelKey: 'invoices.statuses.sent', variant: 'info' },
+  PARTIALLY_PAID: { label: 'Partially paid', labelKey: 'invoices.statuses.partially_paid', variant: 'warning' },
+  PAID: { label: 'Paid', labelKey: 'invoices.statuses.paid', variant: 'success' },
+  OVERDUE: { label: 'Overdue', labelKey: 'invoices.statuses.overdue', variant: 'danger' },
+  VOID: { label: 'Void', labelKey: 'invoices.statuses.void', variant: 'muted' },
 };
 
 const emailDeliveryStatusBadges: Record<
   InvoiceEmailDeliveryStatus,
-  { label: string; variant: BadgeVariant }
+  { label: string; labelKey: string; variant: BadgeVariant }
 > = {
-  PENDING: { label: 'Pending', variant: 'warning' },
-  SENT: { label: 'Sent', variant: 'info' },
-  DELIVERED: { label: 'Delivered', variant: 'success' },
-  FAILED: { label: 'Failed', variant: 'danger' },
-  BOUNCED: { label: 'Bounced', variant: 'danger' },
-  SPAM_COMPLAINT: { label: 'Spam complaint', variant: 'danger' },
+  PENDING: { label: 'Pending', labelKey: 'invoices.emailStatuses.pending', variant: 'warning' },
+  SENT: { label: 'Sent', labelKey: 'invoices.emailStatuses.sent', variant: 'info' },
+  DELIVERED: { label: 'Delivered', labelKey: 'invoices.emailStatuses.delivered', variant: 'success' },
+  FAILED: { label: 'Failed', labelKey: 'invoices.emailStatuses.failed', variant: 'danger' },
+  BOUNCED: { label: 'Bounced', labelKey: 'invoices.emailStatuses.bounced', variant: 'danger' },
+  SPAM_COMPLAINT: { label: 'Spam complaint', labelKey: 'invoices.emailStatuses.spamComplaint', variant: 'danger' },
 };
 
 export const createInvoiceStatusBadge = (status: InvoiceStatus) =>

@@ -4,14 +4,70 @@
   "archivedTitle": "Archived customers",
   "actions": {
     "new": "New customer",
+    "create": "Create customer",
+    "edit": "Edit customer",
+    "saveChanges": "Save changes",
+    "restore": "Restore customer",
+    "delete": "Delete customer",
+    "archive": "Archive customer",
+    "backToCustomers": "Back to customers",
     "active": "Active customers",
-    "archived": "Archived customers"
+    "archived": "Archived customers",
+    "newInvoice": "New invoice"
+  },
+  "form": {
+    "newTitle": "New customer",
+    "editTitle": "Edit customer",
+    "fields": {
+      "name": "Name",
+      "email": "Email",
+      "taxId": "Tax ID",
+      "address": "Address",
+      "city": "City",
+      "country": "Country"
+    }
+  },
+  "detail": {
+    "section": "Customer",
+    "noEmail": "No email on file",
+    "invoices": "Invoices",
+    "payments": "Payments",
+    "profile": "Profile",
+    "totals": "Totals",
+    "actions": "Actions",
+    "taxId": "Tax ID",
+    "address": "Address",
+    "created": "Created",
+    "archived": "Archived",
+    "noInvoices": "No invoices for this customer yet.",
+    "noPayments": "No payments recorded for this customer."
   },
   "table": {
-    "archivedBadge": "Archived"
+    "archivedBadge": "Archived",
+    "number": "Number",
+    "due": "Due",
+    "status": "Status",
+    "total": "Total",
+    "paid": "Paid",
+    "invoice": "Invoice",
+    "reference": "Reference",
+    "amount": "Amount"
   },
   "emptyState": {
     "active": "No customers yet.",
     "archived": "No archived customers."
+  },
+  "flash": {
+    "created": "Customer created.",
+    "updated": "Customer updated.",
+    "deleted": "Customer deleted.",
+    "archived": "Customer archived.",
+    "restored": "Customer restored."
+  },
+  "errors": {
+    "notFound": "Not found",
+    "nameRequired": "Customer name is required.",
+    "invalidEmail": "Use a valid email address.",
+    "deleteHasInvoices": "Customers with invoices cannot be deleted. Archive this customer instead."
   }
 }

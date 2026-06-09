@@ -22,7 +22,10 @@ test("invoice index renders status badges from presenter rows", () => {
   assert.match(template, /for invoice in invoiceRows/);
   assert.match(template, /invoice\.customerName/);
   assert.match(template, /for statusBadge in invoice\.statusBadges/);
-  assert.match(template, /badge\(statusBadge\.label, statusBadge\.variant\)/);
+  assert.match(
+    template,
+    /badge\(t\(statusBadge\.labelKey\) if statusBadge\.labelKey else statusBadge\.label, statusBadge\.variant\)/,
+  );
   assert.doesNotMatch(template, /invoice\.status }}<\/td>/);
 });
 

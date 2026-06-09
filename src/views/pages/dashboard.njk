@@ -82,7 +82,7 @@
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
                       {% for statusBadge in invoice.statusBadges %}
-                        {{ badge(statusBadge.label, statusBadge.variant) }}
+                        {{ badge(t(statusBadge.labelKey) if statusBadge.labelKey else statusBadge.label, statusBadge.variant) }}
                       {% endfor %}
                     </div>
                   </div>

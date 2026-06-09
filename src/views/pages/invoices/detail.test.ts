@@ -14,11 +14,11 @@ test('invoice detail links to print page only for printable invoices', () => {
 
   assert.match(template, /if invoiceDisplay\.isPrintable/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/print"/);
-  assert.match(template, /Print/);
+  assert.match(template, /t\('invoices\.actions\.print'\)/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/pdf"/);
-  assert.match(template, /Download PDF/);
+  assert.match(template, /t\('invoices\.actions\.downloadPdf'\)/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/email"/);
-  assert.match(template, /Send invoice via email/);
+  assert.match(template, /t\('invoices\.actions\.sendEmail'\)/);
 });
 
 test('invoice detail links to edit page only for editable invoices', () => {
@@ -26,22 +26,22 @@ test('invoice detail links to edit page only for editable invoices', () => {
 
   assert.match(template, /if canEditInvoice/);
   assert.match(template, /href="\/invoices\/{{ invoice\.id }}\/edit"/);
-  assert.match(template, /Edit invoice/);
+  assert.match(template, /t\('invoices\.actions\.editInvoice'\)/);
 });
 
 test('invoice detail includes email delivery history', () => {
   const template = readTemplate('detail.njk');
 
-  assert.match(template, /Email deliveries/);
+  assert.match(template, /t\('invoices\.detail\.emailDeliveries'\)/);
   assert.match(template, /for delivery in emailDeliveries/);
   assert.match(template, /from "components\/badge\.njk" import badge/);
   assert.match(template, /delivery\.status/);
   assert.match(
     template,
-    /badge\(delivery\.statusBadge\.label, delivery\.statusBadge\.variant\)/,
+    /badge\(t\(delivery\.statusBadge\.labelKey\) if delivery\.statusBadge\.labelKey else delivery\.statusBadge\.label, delivery\.statusBadge\.variant\)/,
   );
-  assert.match(template, /Accepted for delivery/);
-  assert.match(template, /Delivered to recipient/);
+  assert.match(template, /t\('invoices\.detail\.deliveryUpdates\.sent'\)/);
+  assert.match(template, /t\('invoices\.detail\.deliveryUpdates\.delivered'\)/);
   assert.doesNotMatch(
     template,
     /<td class="px-4 py-3">{{ delivery\.status }}<\/td>/,
@@ -59,7 +59,7 @@ test('invoice detail renders the invoice status with the badge component', () =>
   );
   assert.match(
     template,
-    /badge\(statusBadge\.label, statusBadge\.variant\)/,
+    /badge\(t\(statusBadge\.labelKey\) if statusBadge\.labelKey else statusBadge\.label, statusBadge\.variant\)/,
   );
   assert.doesNotMatch(
     template,
@@ -70,13 +70,13 @@ test('invoice detail renders the invoice status with the badge component', () =>
 test('invoice detail uses clear line item display columns', () => {
   const template = readTemplate('detail.njk');
 
-  assert.match(template, /Description/);
-  assert.match(template, /Qty/);
-  assert.match(template, /Unit Price/);
-  assert.match(template, /Discount/);
-  assert.match(template, /Net/);
-  assert.match(template, /Tax/);
-  assert.match(template, /Total/);
+  assert.match(template, /t\('invoices\.table\.description'\)/);
+  assert.match(template, /t\('invoices\.table\.quantity'\)/);
+  assert.match(template, /t\('invoices\.table\.unitPrice'\)/);
+  assert.match(template, /t\('invoices\.table\.discount'\)/);
+  assert.match(template, /t\('invoices\.table\.net'\)/);
+  assert.match(template, /t\('invoices\.table\.tax'\)/);
+  assert.match(template, /t\('invoices\.table\.total'\)/);
   assert.match(template, /for line in invoiceLineDisplays/);
   assert.match(template, /line\.netCents/);
   assert.match(template, /line\.taxRateLabel/);
@@ -94,17 +94,17 @@ test('invoice detail includes separate inline metadata editors', () => {
   assert.match(template, /data-inline-editor-open/);
   assert.match(template, /data-inline-editor-panel/);
   assert.match(template, /data-inline-editor-cancel/);
-  assert.match(template, /Edit invoice note/);
-  assert.match(template, /Save note/);
-  assert.match(template, /Save instructions/);
-  assert.match(template, /title="Edit payment instructions"/);
+  assert.match(template, /t\('invoices\.detail\.editNote'\)/);
+  assert.match(template, /t\('invoices\.actions\.saveNote'\)/);
+  assert.match(template, /t\('invoices\.actions\.saveInstructions'\)/);
+  assert.match(template, /title="{{ t\('invoices\.detail\.editPaymentInstructions'\) }}"/);
   assert.match(template, /name="intent" value="notes"/);
   assert.match(template, /name="intent" value="paymentInstructions"/);
   assert.match(template, /name="paymentInstructions"/);
   assert.match(template, /metadataValues\.paymentInstructions/);
   assert.match(template, /metadataErrors\.paymentInstructions/);
   assert.match(template, /name="notes"/);
-  assert.match(template, /Internal notes/);
+  assert.match(template, /t\('invoices\.detail\.internalNotes'\)/);
   assert.match(template, /metadataValues\.notes/);
   assert.match(template, /metadataErrors\.notes/);
   assert.doesNotMatch(template, /Invoice details/);
