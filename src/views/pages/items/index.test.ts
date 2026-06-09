@@ -19,7 +19,7 @@ test("item index includes active archived toggles and item actions", () => {
   assert.match(template, /for item in items/);
   assert.match(template, /item\.unitPriceCents \| money\(item\.currency, currentLocale\)/);
   assert.match(template, /item\.taxRateLabel/);
-  assert.match(template, /class="btn-icon text-action hover:bg-panel hover:text-action-dark" href="\/items\/{{ item\.id }}\/edit"/);
+  assert.match(template, /class="btn-icon" href="\/items\/{{ item\.id }}\/edit"/);
   assert.match(template, /aria-label="{{ t\('items\.actions\.edit'\) }}"/);
   assert.match(template, /action="\/items\/{{ item\.id }}\/archive"/);
   assert.match(template, /aria-label="{{ t\('items\.actions\.archive'\) }}"/);

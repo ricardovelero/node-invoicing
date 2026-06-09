@@ -22,7 +22,7 @@
   "table": {
     "description": "Description",
     "unitPrice": "Unit price",
-    "taxRate": "Tax rate",
+    "taxRate": "VAT",
     "actions": "Actions",
     "archivedBadge": "Archived"
   },
@@ -34,7 +34,7 @@
       "description": "Description",
       "unitPrice": "Unit price",
       "currency": "Currency",
-      "taxRate": "Tax rate"
+      "taxRate": "VAT"
     }
   },
   "emptyState": {

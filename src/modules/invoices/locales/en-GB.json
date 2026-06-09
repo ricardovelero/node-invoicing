@@ -44,7 +44,7 @@
       "quantity": "Quantity",
       "unitPrice": "Unit price",
       "discount": "Discount",
-      "taxRate": "Tax rate",
+      "taxRate": "VAT",
       "lineNet": "Line net",
       "actions": "Actions",
       "lineItems": "Line items",
