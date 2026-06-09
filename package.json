@@ -1,6 +1,6 @@
 {
-  "name": "node-invoicing",
-  "version": "0.1.0",
+  "name": "asienta",
+  "version": "0.1.5",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
