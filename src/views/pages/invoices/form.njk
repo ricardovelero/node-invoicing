@@ -47,7 +47,7 @@
       <div class="rounded-md border border-line">
         <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
           <h2 class="text-sm font-semibold">Line items</h2>
-          <button class="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm hover:bg-panel" type="button" data-invoice-add-line>
+          <button class="btn btn-secondary gap-2" type="button" data-invoice-add-line>
             <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14"></path>
               <path d="M12 5v14"></path>
@@ -118,7 +118,7 @@
                 {% if lineErrors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.taxRate[0] }}</p>{% endif %}
               </div>
               <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
-              <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
+              <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
                 <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 6h18"></path>
                   <path d="M8 6V4h8v2"></path>
@@ -175,12 +175,12 @@
             <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
             <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
               <div data-invoice-catalog-save-helper class="text-muted">
-                <span>Not in catalog · </span><button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-open>Save for future use?</button>
+                <span>Not in catalog · </span><button class="font-medium text-blue-700 hover:text-blue-800 cursor-pointer" type="button" data-invoice-catalog-save-open>Save for future use?</button>
               </div>
               <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
                 <input type="text" maxlength="120" aria-label="Catalog item name" data-invoice-catalog-save-name>
-                <button class="rounded-md bg-action px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>Save</button>
-                <button class="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>Cancel</button>
+                <button class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>Save</button>
+                <button class="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>Cancel</button>
               </div>
               <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>Item saved successfully</p>
               <p class="hidden text-red-700" data-invoice-catalog-save-error>
@@ -212,7 +212,7 @@
             <input name="taxRate" type="number" min="0" max="100" step="0.01" data-invoice-tax-rate value="0">
           </div>
           <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
-          <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
+          <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="Remove line item">
             <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 6h18"></path>
               <path d="M8 6V4h8v2"></path>
@@ -239,9 +239,9 @@
       <div class="space-y-3 pt-2">
         {% if formError %}<p class="text-sm text-red-700">{{ formError }}</p>{% endif %}
         <div class="flex items-center justify-end gap-3">
-          <a class="text-sm font-medium text-muted hover:text-ink" href="{{ cancelHref or '/invoices' }}">Cancel</a>
+          <a class="btn btn-secondary" href="{{ cancelHref or '/invoices' }}">Cancel</a>
           {% if sendSubmitLabel %}
-            <button class="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm hover:bg-panel" type="submit" name="intent" value="saveDraft">{{ submitLabel or 'Save Draft' }}</button>
+            <button class="btn btn-secondary" type="submit" name="intent" value="saveDraft">{{ submitLabel or 'Save Draft' }}</button>
             <button class="btn btn-primary" type="submit" name="intent" value="saveAndSend">{{ sendSubmitLabel }}</button>
           {% else %}
             <button class="btn btn-primary" type="submit">{{ submitLabel or 'Create invoice' }}</button>
