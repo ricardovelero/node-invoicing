@@ -111,6 +111,16 @@ test("invoice frontend saves free-text line items to the catalog inline", () => 
   assert.match(source, /setupCatalogEvents/);
 });
 
+test("invoice frontend toggles the custom withholding rate input", () => {
+  assert.match(source, /data-invoice-withholding-custom-rate/);
+  assert.match(source, /const isCustom = invoiceWithholdingRateType\.value === 'custom'/);
+  assert.match(
+    source,
+    /invoiceWithholdingCustomRate\?\.classList\.toggle\('hidden', !isCustom\)/,
+  );
+  assert.match(source, /invoiceWithholdingRate\.value = invoiceWithholdingRateType\.value/);
+});
+
 test("app frontend wires native confirmation dialogs", () => {
   assert.match(appSource, /setupConfirmDialogs/);
   assert.match(confirmDialogsSource, /data-dialog-open/);

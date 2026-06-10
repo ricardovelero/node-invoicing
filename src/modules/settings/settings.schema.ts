@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { supportedOrganizationCountryCodes } from '../../lib/countries';
 import { supportedLocales } from '../../lib/i18n';
-import { legalForms, rateToNumber } from '../../lib/withholding';
+import {
+  customRateType,
+  legalForms,
+  rateToNumber,
+  resolveWithholdingRateType,
+} from '../../lib/withholding';
 
 export const supportedCurrencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] as const;
 
@@ -34,7 +39,17 @@ export const organizationSettingsSchema = z.object({
     z.boolean(),
   ).default(false),
   defaultWithholdingType: z.enum(['IRPF']).or(z.literal('')).default(''),
-  defaultWithholdingRateType: z.enum(['15', '7', 'custom']).default('15'),
+  // Country-driven rate-type token: the custom sentinel or any positive numeric
+  // label. The superRefine below enforces consistency with the stored rate.
+  defaultWithholdingRateType: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value),
+    z.string().refine(
+      (value) =>
+        value === customRateType ||
+        (Number.isFinite(Number(value)) && Number(value) > 0),
+      'Choose a supported withholding rate.',
+    ),
+  ).default(customRateType),
   defaultWithholdingRate: z.preprocess(
     (value) => (typeof value === 'string' ? value.trim() : value ?? ''),
     z.string()
@@ -85,7 +100,7 @@ export const organizationSettingsSchema = z.object({
   }
 
   if (
-    settings.defaultWithholdingRateType !== 'custom' &&
+    settings.defaultWithholdingRateType !== customRateType &&
     settings.defaultWithholdingRate !== Number(settings.defaultWithholdingRateType)
   ) {
     ctx.addIssue({
@@ -124,32 +139,33 @@ const sourceText = (
   fallback = '',
 ) => (value === null || value === undefined ? fallback : value.toString());
 
-const withholdingRateTypes = ['15', '7', 'custom'] as const;
-
-const resolveWithholdingRateType = (
+const resolveDefaultWithholdingRateType = (
   organization: OrganizationSettingsSource,
 ) => {
   // Form submissions carry an explicit rate type; the organization row does
-  // not, so fall back to deriving it from the stored rate.
+  // not, so fall back to deriving it from the stored rate for the country.
   const explicit = sourceText(organization.defaultWithholdingRateType);
 
-  if ((withholdingRateTypes as readonly string[]).includes(explicit)) {
+  if (
+    explicit === customRateType ||
+    (explicit !== '' && Number.isFinite(Number(explicit)) && Number(explicit) > 0)
+  ) {
     return explicit;
   }
 
-  const rate = rateToNumber(organization.defaultWithholdingRate);
-
-  if (rate === 15 || rate === 7) {
-    return String(rate);
-  }
-
-  return organization.defaultWithholdingRate ? 'custom' : '15';
+  return (
+    resolveWithholdingRateType(
+      organization.defaultWithholdingRate,
+      sourceText(organization.countryCode) || null,
+    ) || '15'
+  );
 };
 
 export const createOrganizationSettingsValues = (
   organization: OrganizationSettingsSource = {},
 ): OrganizationSettingsValues => {
-  const defaultWithholdingRateType = resolveWithholdingRateType(organization);
+  const defaultWithholdingRateType =
+    resolveDefaultWithholdingRateType(organization);
 
   return {
     legalName: sourceText(organization.legalName),
@@ -164,7 +180,7 @@ export const createOrganizationSettingsValues = (
     defaultWithholdingType: sourceText(organization.defaultWithholdingType),
     defaultWithholdingRateType,
     defaultWithholdingRate:
-      defaultWithholdingRateType === 'custom'
+      defaultWithholdingRateType === customRateType
         ? sourceText(organization.defaultWithholdingRate)
         : rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
     paymentInstructions: sourceText(organization.paymentInstructions),

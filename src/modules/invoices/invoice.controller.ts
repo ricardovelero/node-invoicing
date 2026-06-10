@@ -19,6 +19,7 @@ import {
 import {
   canUseInvoiceWithholding,
   formatRateLabel,
+  getWithholdingRateOptions,
 } from '../../lib/withholding';
 import {
   canEditInvoice,
@@ -60,6 +61,7 @@ type InvoiceFormRenderOptions = {
   withholdingOptions: {
     isAvailable: boolean;
     defaultRate: string;
+    rateOptions: { value: string; label: string }[];
   };
 };
 
@@ -171,6 +173,7 @@ type RequestOrganization = NonNullable<Request['auth']>['organization'];
 const invoiceWithholdingOptions = (organization: RequestOrganization) => ({
   isAvailable: canUseInvoiceWithholding(organization),
   defaultRate: formatRateLabel(organization.defaultWithholdingRate) || '15',
+  rateOptions: getWithholdingRateOptions(organization.countryCode),
 });
 
 const invoiceFormSchemaForOrganization = (organization: RequestOrganization) =>
@@ -194,6 +197,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
     req.auth!.organization.paymentInstructions ?? '',
     req.auth!.organization.currency,
     invoiceWithholdingOptions(req.auth!.organization).defaultRate,
+    req.auth!.organization.countryCode,
   );
   const customerId = preselectedCustomerIdFromQuery(req.query, customers);
 
@@ -587,7 +591,7 @@ export const renderEditInvoice: RequestHandler = async (req, res) => {
     submitLabel: req.t('invoices.actions.save'),
     cancelHref: `/invoices/${invoiceId}`,
     customers,
-    values: invoiceToFormValues(invoice),
+    values: invoiceToFormValues(invoice, req.auth!.organization.countryCode),
     errors: {},
     withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
   });

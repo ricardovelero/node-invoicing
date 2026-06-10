@@ -178,6 +178,7 @@ test("renderOrganizationSettings renders current organization values", () => {
       paymentInstructions: "Pay by bank transfer.",
     },
     withholdingEligible: false,
+    withholdingRateOptions: [],
     errors: {},
   });
 });

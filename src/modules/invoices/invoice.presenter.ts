@@ -1,6 +1,9 @@
 import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
-import { formatRateLabel } from '../../lib/withholding';
+import {
+  formatRateLabel,
+  resolveWithholdingRateType,
+} from '../../lib/withholding';
 import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
@@ -65,6 +68,7 @@ const formatTaxRateLabel = (taxRateBps: number) =>
 
 const invoiceWithholdingRateFormValues = (
   withholdingRate: InvoiceDetails['withholdingRate'],
+  countryCode?: string | null,
 ) => {
   const rate = formatRateLabel(withholdingRate);
 
@@ -76,7 +80,7 @@ const invoiceWithholdingRateFormValues = (
   }
 
   return {
-    withholdingRateType: rate === '15' || rate === '7' ? rate : 'custom',
+    withholdingRateType: resolveWithholdingRateType(withholdingRate, countryCode),
     withholdingRate: rate,
   } satisfies Pick<InvoiceFormValues, 'withholdingRateType' | 'withholdingRate'>;
 };
@@ -337,7 +341,10 @@ export const createInvoiceTableRows = <Invoice extends InvoiceListItem>(
     statusBadges: createInvoiceStatusBadges(invoice),
   }));
 
-export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues => ({
+export const invoiceToFormValues = (
+  invoice: InvoiceDetails,
+  countryCode?: string | null,
+): InvoiceFormValues => ({
   customerId: invoice.customerId,
   issueDate: dateToInputValue(invoice.issueDate),
   dueDate: dateToInputValue(invoice.dueDate),
@@ -348,7 +355,7 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
   invoiceDiscountValue: centsToAmountInput(invoice.discountCents),
   applyWithholding: invoice.withholdingType === 'IRPF',
   withholdingType: invoice.withholdingType === 'IRPF' ? 'IRPF' : '',
-  ...invoiceWithholdingRateFormValues(invoice.withholdingRate),
+  ...invoiceWithholdingRateFormValues(invoice.withholdingRate, countryCode),
   lines: invoice.lines.map((line) => ({
     description: line.description,
     quantity: String(line.quantity),

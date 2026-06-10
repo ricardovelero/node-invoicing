@@ -85,8 +85,9 @@
         <div>
           <label for="defaultWithholdingRateType">{{ t('settings.fields.defaultWithholdingRate') }}</label>
           <select id="defaultWithholdingRateType" name="defaultWithholdingRateType" data-withholding-rate-type>
-            <option value="15" {{ 'selected' if values.defaultWithholdingRateType == '15' else '' }}>15%</option>
-            <option value="7" {{ 'selected' if values.defaultWithholdingRateType == '7' else '' }}>7%</option>
+            {% for option in withholdingRateOptions %}
+              <option value="{{ option.value }}" {{ 'selected' if values.defaultWithholdingRateType == option.value else '' }}>{{ option.label }}</option>
+            {% endfor %}
             <option value="custom" {{ 'selected' if values.defaultWithholdingRateType == 'custom' else '' }}>{{ t('settings.withholding.customRate') }}</option>
           </select>
         </div>

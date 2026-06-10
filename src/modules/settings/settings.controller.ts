@@ -5,7 +5,10 @@ import {
   localizationSettingsSchema,
   organizationSettingsSchema,
 } from "./settings.schema";
-import { isSpanishIrpfEligible } from "../../lib/withholding";
+import {
+  getWithholdingRateOptions,
+  isSpanishIrpfEligible,
+} from "../../lib/withholding";
 import {
   updateLocalizationSettings,
   updateOrganizationSettings,
@@ -39,6 +42,7 @@ export const renderOrganizationSettings: RequestHandler = (req, res) => {
     activeSettingsPage: "organization",
     values,
     withholdingEligible: valuesAreIrpfEligible(values),
+    withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
     errors: {},
   });
 };
@@ -47,13 +51,14 @@ export const updateOrganizationSettingsController: RequestHandler = async (req, 
   const result = organizationSettingsSchema.safeParse(req.body);
 
   if (!result.success) {
+    const values = createOrganizationSettingsValues(req.body);
+
     return res.status(422).render("pages/settings/organization.njk", {
       title: req.t("settings.sections.organization.title"),
       activeSettingsPage: "organization",
-      values: createOrganizationSettingsValues(req.body),
-      withholdingEligible: valuesAreIrpfEligible(
-        createOrganizationSettingsValues(req.body),
-      ),
+      values,
+      withholdingEligible: valuesAreIrpfEligible(values),
+      withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
       errors: result.error.flatten().fieldErrors,
     });
   }

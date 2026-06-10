@@ -30,7 +30,7 @@ describe("organizationSettingsSchema", () => {
       currency: "GBP",
       withholdingEnabled: false,
       defaultWithholdingType: "",
-      defaultWithholdingRateType: "15",
+      defaultWithholdingRateType: "custom",
       defaultWithholdingRate: null,
       paymentInstructions: "Pay by bank transfer.",
     });
