@@ -7,6 +7,10 @@ import {
   type DiscountType,
 } from "../../lib/money";
 import { supportedCurrencies } from "../settings/settings.schema";
+import {
+  customRateType,
+  resolveWithholdingRateType,
+} from "../../lib/withholding";
 
 export const dueDateBeforeIssueDateMessage = "Due date cannot be before the issue date.";
 export const paidAtRequiredMessage = "Enter a paid date.";
@@ -133,7 +137,18 @@ const dateInput = (requiredMessage: string, invalidMessage: string) =>
   );
 
 const discountTypeSchema = z.enum(["amount", "percent"]);
-const withholdingRateTypeSchema = z.enum(["15", "7", "custom"]);
+// The rate-type token is country-driven (the standard rates vary), so accept the
+// custom sentinel or any positive numeric label. The superRefine below enforces
+// that a non-custom token matches the submitted rate.
+const withholdingRateTypeSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim() : value),
+  z.string().refine(
+    (value) =>
+      value === customRateType ||
+      (Number.isFinite(Number(value)) && Number(value) > 0),
+    "Choose a supported withholding rate.",
+  ),
+);
 
 const discountValueSchema = z.coerce.number().nonnegative("Discount cannot be negative.");
 const unitPriceSchema = z.preprocess(
@@ -258,7 +273,7 @@ export const createInvoiceFormSchema = (options: {
     invoiceDiscountValue: discountValueSchema.default(0),
     applyWithholding: z.boolean().default(false),
     withholdingType: z.enum(["IRPF"]).optional(),
-    withholdingRateType: withholdingRateTypeSchema.default("15"),
+    withholdingRateType: withholdingRateTypeSchema.default(customRateType),
     withholdingRate: z.preprocess(
       (value) => (typeof value === "string" ? value.trim() : value === undefined ? "" : String(value)),
       z.string()
@@ -509,7 +524,7 @@ export type InvoiceFormValues = {
   invoiceDiscountValue: string;
   applyWithholding: boolean;
   withholdingType: "IRPF" | "";
-  withholdingRateType: "15" | "7" | "custom";
+  withholdingRateType: string;
   withholdingRate: string;
   paymentInstructions: string;
   notes: string;
@@ -539,6 +554,7 @@ export const createInvoiceFormValues = (
   paymentInstructions = "",
   currency = "EUR",
   defaultWithholdingRate = "15",
+  countryCode?: string | null,
 ): InvoiceFormValues => ({
   currency,
   issueDate: new Date().toISOString().slice(0, 10),
@@ -546,7 +562,8 @@ export const createInvoiceFormValues = (
   invoiceDiscountValue: "0",
   applyWithholding: false,
   withholdingType: "IRPF",
-  withholdingRateType: defaultWithholdingRate === "7" ? "7" : defaultWithholdingRate === "15" ? "15" : "custom",
+  withholdingRateType:
+    resolveWithholdingRateType(defaultWithholdingRate, countryCode) || customRateType,
   withholdingRate: defaultWithholdingRate,
   paymentInstructions,
   notes: "",
@@ -595,9 +612,15 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
       form.applyWithholding === true,
     withholdingType: stringValue(form.withholdingType) === "IRPF" ? "IRPF" : "",
     withholdingRateType: (() => {
-      const rateType = stringValue(form.withholdingRateType, "15");
+      const rateType = stringValue(form.withholdingRateType, customRateType);
 
-      return rateType === "7" || rateType === "custom" ? rateType : "15";
+      if (rateType === customRateType) {
+        return rateType;
+      }
+
+      const numeric = Number(rateType);
+
+      return Number.isFinite(numeric) && numeric > 0 ? rateType : customRateType;
     })(),
     withholdingRate,
     paymentInstructions: stringValue(form.paymentInstructions),

@@ -173,12 +173,13 @@
                   <div>
                     <label class="sr-only" for="withholdingRateType">{{ t('invoices.form.fields.withholdingRate') }}</label>
                     <select id="withholdingRateType" name="withholdingRateType" data-invoice-withholding-rate-type>
-                      <option value="15" {{ 'selected' if values.withholdingRateType == '15' else '' }}>15%</option>
-                      <option value="7" {{ 'selected' if values.withholdingRateType == '7' else '' }}>7%</option>
+                      {% for option in withholdingOptions.rateOptions %}
+                        <option value="{{ option.value }}" {{ 'selected' if values.withholdingRateType == option.value else '' }}>{{ option.label }}</option>
+                      {% endfor %}
                       <option value="custom" {{ 'selected' if values.withholdingRateType == 'custom' else '' }}>{{ t('invoices.form.withholding.customRate') }}</option>
                     </select>
                   </div>
-                  <div>
+                  <div class="{{ 'hidden' if values.withholdingRateType != 'custom' else '' }}" data-invoice-withholding-custom-rate>
                     <label class="sr-only" for="withholdingRate">{{ t('invoices.form.fields.withholdingRate') }}</label>
                     <input id="withholdingRate" name="withholdingRate" type="number" min="0.01" max="100" step="0.01" value="{{ values.withholdingRate or withholdingOptions.defaultRate }}" data-invoice-withholding-rate>
                     {% if errors.withholdingRate %}<p class="mt-1 text-sm text-red-700">{{ errors.withholdingRate[0] }}</p>{% endif %}

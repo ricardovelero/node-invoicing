@@ -59,6 +59,14 @@ describe('organization settings form', () => {
     );
   });
 
+  test('builds the withholding rate options from config', () => {
+    assert.match(settingsTemplate, /{% for option in withholdingRateOptions %}/);
+    assert.match(
+      settingsTemplate,
+      /value="{{ option\.value }}" {{ 'selected' if values\.defaultWithholdingRateType == option\.value/,
+    );
+  });
+
   test('renders withholding controls with server-side initial visibility that matches the JS rules', () => {
     assert.doesNotMatch(settingsTemplate, /{% if withholdingEligible %}/);
     assert.match(settingsTemplate, /data-withholding-settings>/);

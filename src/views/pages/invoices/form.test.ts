@@ -58,3 +58,15 @@ test("invoice form renders the IRPF section only when withholding options are av
   assert.match(template, /data-invoice-withholding-rate/);
   assert.match(template, /data-invoice-withholding-row/);
 });
+
+test("invoice form builds rate options from config and hides custom input by default", () => {
+  assert.match(template, /{% for option in withholdingOptions\.rateOptions %}/);
+  assert.match(
+    template,
+    /value="{{ option\.value }}" {{ 'selected' if values\.withholdingRateType == option\.value/,
+  );
+  assert.match(
+    template,
+    /{{ 'hidden' if values\.withholdingRateType != 'custom' else '' }}" data-invoice-withholding-custom-rate/,
+  );
+});

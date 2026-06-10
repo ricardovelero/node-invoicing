@@ -58,6 +58,9 @@ export const setupInvoiceForms = () => {
       const invoiceWithholdingRateType = form.querySelector<HTMLSelectElement>(
         '[data-invoice-withholding-rate-type]',
       );
+      const invoiceWithholdingCustomRate = form.querySelector<HTMLElement>(
+        '[data-invoice-withholding-custom-rate]',
+      );
       const invoiceDiscountType = form.querySelector<HTMLSelectElement>(
         '[data-invoice-discount-type]',
       );
@@ -152,17 +155,16 @@ export const setupInvoiceForms = () => {
         }
       };
 
-      const syncStandardWithholdingRate = () => {
+      const applyWithholdingRateControls = () => {
         if (!invoiceWithholdingRate || !invoiceWithholdingRateType) {
           return;
         }
 
-        if (invoiceWithholdingRateType.value === '15') {
-          invoiceWithholdingRate.value = '15';
-        }
+        const isCustom = invoiceWithholdingRateType.value === 'custom';
+        invoiceWithholdingCustomRate?.classList.toggle('hidden', !isCustom);
 
-        if (invoiceWithholdingRateType.value === '7') {
-          invoiceWithholdingRate.value = '7';
+        if (!isCustom) {
+          invoiceWithholdingRate.value = invoiceWithholdingRateType.value;
         }
       };
 
@@ -205,6 +207,7 @@ export const setupInvoiceForms = () => {
 
         if (event.target.matches('[data-invoice-apply-withholding]')) {
           updateWithholdingVisibility();
+          applyWithholdingRateControls();
           updateTotalsForForm();
         }
       });
@@ -224,7 +227,7 @@ export const setupInvoiceForms = () => {
             updateCurrencyForForm();
           }
           if (event.target.matches('[data-invoice-withholding-rate-type]')) {
-            syncStandardWithholdingRate();
+            applyWithholdingRateControls();
           }
           updateTotalsForForm();
         }
@@ -282,7 +285,7 @@ export const setupInvoiceForms = () => {
 
       updateCurrencyForForm();
       updateWithholdingVisibility();
-      syncStandardWithholdingRate();
+      applyWithholdingRateControls();
       updateTotalsForForm();
     });
 };

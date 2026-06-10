@@ -444,7 +444,7 @@ test("renderNewInvoice defaults payment instructions from organization settings 
       invoiceDiscountValue: "0",
       applyWithholding: false,
       withholdingType: "IRPF",
-      withholdingRateType: "15",
+      withholdingRateType: "custom",
       withholdingRate: "15",
       currency: "EUR",
       paymentInstructions: "Pay by bank transfer.",
@@ -465,6 +465,7 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",
+      rateOptions: [],
     },
   });
 });
@@ -524,6 +525,10 @@ test("renderNewInvoice exposes IRPF options only when organization settings allo
   assert.deepEqual((res.renderedData as { withholdingOptions: unknown }).withholdingOptions, {
     isAvailable: true,
     defaultRate: "7",
+    rateOptions: [
+      { value: "15", label: "15%" },
+      { value: "7", label: "7%" },
+    ],
   });
   assert.equal((res.renderedData as { values: { applyWithholding: boolean } }).values.applyWithholding, false);
   assert.equal((res.renderedData as { values: { withholdingRate: string } }).values.withholdingRate, "7");
@@ -887,6 +892,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",
+      rateOptions: [],
     },
   });
 });
