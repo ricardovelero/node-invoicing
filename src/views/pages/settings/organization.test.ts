@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, test } from "node:test";
 
 const settingsTemplate = readFileSync(
-  path.join(process.cwd(), "src", "views", "pages", "settings", "form.njk"),
+  path.join(process.cwd(), "src", "views", "pages", "settings", "organization.njk"),
   "utf8",
 );
 
@@ -13,13 +13,20 @@ const countrySelectTemplate = readFileSync(
   "utf8",
 );
 
-describe("settings form", () => {
+describe("organization settings form", () => {
   test("includes csrf and unsaved changes guard", () => {
-    assert.match(settingsTemplate, /action="\/settings"/);
+    assert.match(settingsTemplate, /action="\/settings\/organization"/);
     assert.match(settingsTemplate, /name="_csrf" value="{{ csrfToken }}"/);
     assert.match(settingsTemplate, /data-unsaved-changes-guard/);
     assert.match(settingsTemplate, /t\('settings\.actions\.save'\)/);
-    assert.match(settingsTemplate, /t\('settings\.fields\.locale'\)/);
+  });
+
+  test("extends the shared settings layout", () => {
+    assert.match(settingsTemplate, /extends "pages\/settings\/_layout\.njk"/);
+  });
+
+  test("no longer contains the locale field", () => {
+    assert.doesNotMatch(settingsTemplate, /name="locale"/);
   });
 
   test("uses countryCode as the only editable organization country field", () => {

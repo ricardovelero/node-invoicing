@@ -29,7 +29,6 @@ export const organizationSettingsSchema = z.object({
   currency: z.enum(supportedCurrencies, {
     error: 'Choose a supported currency.',
   }),
-  locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
   withholdingEnabled: z.preprocess(
     (value) => value === 'on' || value === 'true' || value === true,
     z.boolean(),
@@ -136,7 +135,6 @@ export const createOrganizationSettingsValues = (
   countryCode: sourceText(organization.countryCode),
   legalForm: sourceText(organization.legalForm, 'other'),
   currency: sourceText(organization.currency, 'EUR'),
-  locale: sourceText(organization.locale, 'en-GB'),
   withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
   defaultWithholdingType: sourceText(organization.defaultWithholdingType),
   defaultWithholdingRateType: (() => {
@@ -151,4 +149,31 @@ export const createOrganizationSettingsValues = (
   defaultWithholdingRate:
     rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
   paymentInstructions: sourceText(organization.paymentInstructions),
+});
+
+export const localizationSettingsSchema = z.object({
+  locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
+});
+
+export type LocalizationSettingsForm = z.infer<
+  typeof localizationSettingsSchema
+>;
+
+export type LocalizationSettingsValues = Record<
+  keyof LocalizationSettingsForm,
+  string
+>;
+
+export type LocalizationSettingsErrors = Partial<
+  Record<keyof LocalizationSettingsForm, string[]>
+>;
+
+type LocalizationSettingsSource = Partial<{
+  locale: string | { toString: () => string } | null | undefined;
+}>;
+
+export const createLocalizationSettingsValues = (
+  organization: LocalizationSettingsSource = {},
+): LocalizationSettingsValues => ({
+  locale: sourceText(organization.locale, 'en-GB'),
 });

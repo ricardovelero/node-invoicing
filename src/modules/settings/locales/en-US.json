@@ -1,7 +1,39 @@
 {
-  "section": "Organization",
   "title": "Settings",
-  "pageTitle": "Organization settings",
+  "intro": "Manage your organization, preferences, and security from one place.",
+  "nav": {
+    "label": "Settings sections",
+    "general": "General",
+    "organization": "Organization",
+    "localization": "Localization",
+    "security": "Security",
+    "organizations": "Organizations"
+  },
+  "sections": {
+    "general": {
+      "title": "General settings",
+      "description": "Basic account and application preferences.",
+      "placeholder": "General account settings will appear here soon."
+    },
+    "organization": {
+      "title": "Organization settings",
+      "description": "Legal details, billing, and invoicing defaults for your organization."
+    },
+    "localization": {
+      "title": "Localization settings",
+      "description": "Language and regional preferences."
+    },
+    "security": {
+      "title": "Security settings",
+      "description": "Password and account security.",
+      "placeholder": "Password reset and other security options are coming soon."
+    },
+    "organizations": {
+      "title": "Organizations",
+      "description": "Manage and switch between organizations.",
+      "placeholder": "Creating and switching organizations is coming soon."
+    }
+  },
   "fields": {
     "legalName": "Legal name",
     "billingEmail": "Billing email",
@@ -27,7 +59,8 @@
     "customRate": "Custom"
   },
   "help": {
-    "billingEmail": "Customer replies to invoice emails will go to this address."
+    "billingEmail": "Customer replies to invoice emails will go to this address.",
+    "locale": "Controls the language and formats used across the app and your invoices."
   },
   "placeholders": {
     "billingEmail": "billing@example.com",
@@ -37,6 +70,7 @@
     "save": "Save settings"
   },
   "flash": {
-    "updated": "Organization settings updated."
+    "updated": "Organization settings updated.",
+    "localizationUpdated": "Localization settings updated."
   }
 }

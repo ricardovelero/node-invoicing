@@ -129,7 +129,8 @@ test("all server-rendered POST forms include a CSRF field", () => {
     "pages/customers/form.njk",
     "pages/invoices/detail.njk",
     "pages/invoices/form.njk",
-    "pages/settings/form.njk",
+    "pages/settings/organization.njk",
+    "pages/settings/localization.njk",
   ];
 
   templates.forEach((template) => {

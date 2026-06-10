@@ -1,13 +1,13 @@
-{% extends "layouts/app.njk" %}
+{% extends "pages/settings/_layout.njk" %}
 {% from "components/country-select.njk" import countrySelect %}
 
-{% block content %}
-  <div class="mb-8">
-    <p class="text-sm font-medium text-muted">{{ t('settings.section') }}</p>
-    <h1 class="mt-1 text-3xl font-semibold">{{ t('settings.title') }}</h1>
+{% block settingsContent %}
+  <div class="mb-6 max-w-3xl">
+    <h2 class="text-xl font-semibold">{{ t('settings.sections.organization.title') }}</h2>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.sections.organization.description') }}</p>
   </div>
 
-  <form method="post" action="/settings" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+  <form method="post" action="/settings/organization" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
     <div>
@@ -37,15 +37,6 @@
           {% endfor %}
         </select>
         {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
-      </div>
-      <div>
-        <label for="locale">{{ t('settings.fields.locale') }} <span aria-hidden="true">*</span></label>
-        <select id="locale" name="locale" required>
-          {% for locale in ['en-GB', 'en-US', 'es-ES'] %}
-            <option value="{{ locale }}" {{ 'selected' if values.locale == locale else '' }}>{{ locale }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.locale %}<p class="mt-1 text-sm text-red-700">{{ errors.locale[0] }}</p>{% endif %}
       </div>
     </div>
 
@@ -117,7 +108,7 @@
     </div>
 
     <div class="flex items-center justify-end gap-3 pt-2">
-      <a class="btn btn-secondary" href="/">{{ t('common.actions.cancel') }}</a>
+      <a class="btn btn-secondary" href="/settings">{{ t('common.actions.cancel') }}</a>
       <button class="btn btn-primary" type="submit">{{ t('settings.actions.save') }}</button>
     </div>
   </form>

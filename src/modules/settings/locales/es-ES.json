@@ -1,7 +1,39 @@
 {
-  "section": "Organización",
   "title": "Ajustes",
-  "pageTitle": "Ajustes de la organización",
+  "intro": "Gestiona tu organización, tus preferencias y la seguridad desde un solo lugar.",
+  "nav": {
+    "label": "Secciones de ajustes",
+    "general": "General",
+    "organization": "Organización",
+    "localization": "Localización",
+    "security": "Seguridad",
+    "organizations": "Organizaciones"
+  },
+  "sections": {
+    "general": {
+      "title": "Ajustes generales",
+      "description": "Preferencias básicas de la cuenta y de la aplicación.",
+      "placeholder": "Los ajustes generales de la cuenta estarán disponibles pronto."
+    },
+    "organization": {
+      "title": "Ajustes de la organización",
+      "description": "Datos legales, facturación y valores predeterminados de tu organización."
+    },
+    "localization": {
+      "title": "Ajustes de localización",
+      "description": "Idioma y preferencias regionales."
+    },
+    "security": {
+      "title": "Ajustes de seguridad",
+      "description": "Contraseña y seguridad de la cuenta.",
+      "placeholder": "El restablecimiento de contraseña y otras opciones de seguridad estarán disponibles pronto."
+    },
+    "organizations": {
+      "title": "Organizaciones",
+      "description": "Gestiona y cambia entre organizaciones.",
+      "placeholder": "Crear y cambiar de organización estará disponible pronto."
+    }
+  },
   "fields": {
     "legalName": "Razón social",
     "billingEmail": "Correo de facturación",
@@ -27,7 +59,8 @@
     "customRate": "Personalizado"
   },
   "help": {
-    "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección."
+    "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección.",
+    "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas."
   },
   "placeholders": {
     "billingEmail": "facturacion@example.com",
@@ -37,6 +70,7 @@
     "save": "Guardar ajustes"
   },
   "flash": {
-    "updated": "Ajustes de la organización actualizados."
+    "updated": "Ajustes de la organización actualizados.",
+    "localizationUpdated": "Ajustes de localización actualizados."
   }
 }

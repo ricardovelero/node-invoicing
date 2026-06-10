@@ -1,0 +1,28 @@
+{% extends "pages/settings/_layout.njk" %}
+
+{% block settingsContent %}
+  <div class="mb-6 max-w-3xl">
+    <h2 class="text-xl font-semibold">{{ t('settings.sections.localization.title') }}</h2>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.sections.localization.description') }}</p>
+  </div>
+
+  <form method="post" action="/settings/localization" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <div class="max-w-xs">
+      <label for="locale">{{ t('settings.fields.locale') }} <span aria-hidden="true">*</span></label>
+      <select id="locale" name="locale" required>
+        {% for locale in ['en-GB', 'en-US', 'es-ES'] %}
+          <option value="{{ locale }}" {{ 'selected' if values.locale == locale else '' }}>{{ locale }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.locale %}<p class="mt-1 text-sm text-red-700">{{ errors.locale[0] }}</p>{% endif %}
+      <p class="mt-1 text-sm text-muted">{{ t('settings.help.locale') }}</p>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a class="btn btn-secondary" href="/settings">{{ t('common.actions.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ t('settings.actions.save') }}</button>
+    </div>
+  </form>
+{% endblock %}
