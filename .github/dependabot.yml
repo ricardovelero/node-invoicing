@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # npm ecosystem also covers pnpm (Dependabot reads pnpm-lock.yaml).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Madrid"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    # Bundle the routine minor/patch churn into two PRs (prod / dev) to keep
+    # noise down. Major bumps still come as individual PRs so they get a proper
+    # look. Security updates are separate and unaffected by this grouping.
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
