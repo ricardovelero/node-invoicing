@@ -1,24 +1,37 @@
-const sectionSelector = "[data-withholding-settings]";
+const sectionSelector = '[data-withholding-settings]';
 
 export const setupWithholdingRateControls = () => {
   document.querySelectorAll<HTMLElement>(sectionSelector).forEach((section) => {
+    const form = section.closest('form');
+    const countrySelect = form?.querySelector<HTMLSelectElement>(
+      '[name="countryCode"]',
+    );
+    const legalFormSelect = form?.querySelector<HTMLSelectElement>(
+      '[data-withholding-legal-form]',
+    );
+    const enableRow = section.querySelector<HTMLElement>(
+      '[data-withholding-enable-row]',
+    );
     const enabledCheckbox = section.querySelector<HTMLInputElement>(
-      "[data-withholding-enabled]",
+      '[data-withholding-enabled]',
     );
     const rateFields = section.querySelector<HTMLElement>(
-      "[data-withholding-rate-fields]",
+      '[data-withholding-rate-fields]',
     );
     const rateTypeSelect = section.querySelector<HTMLSelectElement>(
-      "[data-withholding-rate-type]",
+      '[data-withholding-rate-type]',
     );
     const customRateField = section.querySelector<HTMLElement>(
-      "[data-withholding-custom-rate]",
+      '[data-withholding-custom-rate]',
     );
     const rateInput = section.querySelector<HTMLInputElement>(
-      "[data-withholding-rate-input]",
+      '[data-withholding-rate-input]',
     );
 
     if (
+      !countrySelect ||
+      !legalFormSelect ||
+      !enableRow ||
       !enabledCheckbox ||
       !rateFields ||
       !rateTypeSelect ||
@@ -29,21 +42,26 @@ export const setupWithholdingRateControls = () => {
     }
 
     const applyControls = () => {
-      // The rate only makes sense once withholding is enabled; hide the whole
-      // group otherwise so a discarded value can't look like it was saved.
-      rateFields.hidden = !enabledCheckbox.checked;
+      const isSpain = countrySelect.value === 'ES';
+      const isCompany = legalFormSelect.value === 'company';
+      const canUseWithholding = isSpain && !isCompany;
+      const shouldShowRateFields = canUseWithholding && enabledCheckbox.checked;
+      const isCustomRate = rateTypeSelect.value === 'custom';
 
-      const isCustom = rateTypeSelect.value === "custom";
-      customRateField.hidden = !isCustom;
+      section.hidden = !canUseWithholding;
+      enableRow.hidden = !canUseWithholding;
+      rateFields.hidden = !shouldShowRateFields;
+      customRateField.hidden = !shouldShowRateFields || !isCustomRate;
 
-      // Presets must submit their own rate; a stale custom value fails validation.
-      if (!isCustom) {
+      if (!isCustomRate) {
         rateInput.value = rateTypeSelect.value;
       }
     };
 
-    enabledCheckbox.addEventListener("change", applyControls);
-    rateTypeSelect.addEventListener("change", applyControls);
+    countrySelect.addEventListener('change', applyControls);
+    legalFormSelect.addEventListener('change', applyControls);
+    enabledCheckbox.addEventListener('change', applyControls);
+    rateTypeSelect.addEventListener('change', applyControls);
     applyControls();
   });
 };
