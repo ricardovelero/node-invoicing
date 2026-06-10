@@ -9,3 +9,7 @@ overrides:
   # (serveStatic middleware bypass via repeated slashes). Not used by the app
   # itself; only ships inside Prisma's local dev tooling.
   '@hono/node-server': ^1.19.13
+  # Patch transitive on-headers (the 1.0.2 copy via morgan) for GHSA-76c9-3jph-rj3q
+  # (HTTP response header manipulation). compression/express-session already use
+  # 1.1.0; this dedupes morgan's copy onto the patched line.
+  'on-headers': ^1.1.0
