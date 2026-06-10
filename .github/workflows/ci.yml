@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Tests mock the Prisma boundary, so no real database is needed. A dummy
+      # URL satisfies prisma.config.ts (env("DATABASE_URL")) for client
+      # generation and the build/test run.
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install pnpm before setup-node so its cache can find the pnpm store.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+
+      # `pnpm test` runs the full build (tailwind + esbuild + tsc) and then the
+      # Node test runner against the compiled output.
+      - name: Build and test
+        run: pnpm test
