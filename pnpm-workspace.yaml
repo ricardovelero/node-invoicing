@@ -4,3 +4,8 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
+overrides:
+  # Patch transitive @hono/node-server (via @prisma/dev) for GHSA-92pp-h63x-v22m
+  # (serveStatic middleware bypass via repeated slashes). Not used by the app
+  # itself; only ships inside Prisma's local dev tooling.
+  '@hono/node-server': ^1.19.13
