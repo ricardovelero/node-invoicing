@@ -8,10 +8,23 @@
     "taxId": "Tax ID",
     "defaultCurrency": "Default currency",
     "locale": "Locale",
+    "countryCode": "Country",
+    "legalForm": "Legal form",
     "address": "Address",
     "city": "City",
-    "country": "Country",
+    "defaultWithholdingRate": "Default IRPF rate",
+    "customWithholdingRate": "Rate",
     "paymentInstructions": "Payment instructions"
+  },
+  "legalForms": {
+    "soleTrader": "Sole proprietor",
+    "company": "Company",
+    "other": "Other"
+  },
+  "withholding": {
+    "enableIrpf": "Enable IRPF withholding",
+    "irpfHelp": "Available for Spanish non-company organizations.",
+    "customRate": "Custom"
   },
   "help": {
     "billingEmail": "Customer replies to invoice emails will go to this address."

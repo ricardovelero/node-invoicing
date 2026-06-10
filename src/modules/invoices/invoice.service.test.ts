@@ -53,6 +53,9 @@ type InvoiceCreateTransactionMock = {
   customer: {
     findFirst: (args: unknown) => Promise<unknown>;
   };
+  organization: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
   invoice: {
     create: (args: { data: unknown; include?: unknown }) => Promise<unknown>;
   };
@@ -69,6 +72,9 @@ type SentInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
 
 type DraftUpdateTransactionMock = {
   customer: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
+  organization: {
     findFirst: (args: unknown) => Promise<unknown>;
   };
   invoice: {
@@ -94,6 +100,14 @@ const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
 const originalPaymentAggregate = prismaMock.payment.aggregate;
 const originalPaymentCreate = prismaMock.payment.create;
+
+const defaultOrganizationInvoiceSettings = {
+  countryCode: null,
+  legalForm: "other",
+  withholdingEnabled: false,
+  defaultWithholdingType: null,
+  defaultWithholdingRate: null,
+};
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
@@ -148,6 +162,11 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
         async findFirst(args) {
           customerFindFirstArgs = args;
           return { id: "customer_1" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return defaultOrganizationInvoiceSettings;
         },
       },
       invoice: {
@@ -211,6 +230,9 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
     subtotalCents: 31250,
     discountCents: 2969,
     taxCents: 4553,
+    withholdingType: null,
+    withholdingRate: null,
+    withholdingAmountCents: null,
     totalCents: 31271,
     currency: "GBP",
     paymentInstructions: "Pay this invoice by bank transfer.",
@@ -242,6 +264,135 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
   });
 });
 
+test("createInvoiceRecord applies Spanish IRPF to the taxable base", async () => {
+  let createdInvoiceData: unknown;
+
+  prismaMock.$transaction = async (
+    callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [{ reservedValue: 1 }],
+      customer: {
+        async findFirst() {
+          return { id: "customer_1" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return {
+            countryCode: "ES",
+            legalForm: "sole_trader",
+            withholdingEnabled: true,
+            defaultWithholdingType: "IRPF",
+            defaultWithholdingRate: 15,
+          };
+        },
+      },
+      invoice: {
+        async create(args) {
+          createdInvoiceData = args.data;
+          return { id: "invoice_1" };
+        },
+      },
+    });
+
+  const result = await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR",
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "amount",
+    invoiceDiscountValue: 0,
+    applyWithholding: true,
+    withholdingType: "IRPF",
+    withholdingRateType: "15",
+    withholdingRate: 15,
+    paymentInstructions: "",
+    notes: "",
+    lines: [
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPrice: 1000,
+        discountType: "amount",
+        discountValue: 0,
+        taxRate: 21,
+      },
+    ],
+  });
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "invoice_1" } });
+  assert.equal((createdInvoiceData as { subtotalCents: number }).subtotalCents, 100000);
+  assert.equal((createdInvoiceData as { taxCents: number }).taxCents, 21000);
+  assert.equal((createdInvoiceData as { withholdingType: string }).withholdingType, "IRPF");
+  assert.equal((createdInvoiceData as { withholdingRate: number }).withholdingRate, 15);
+  assert.equal((createdInvoiceData as { withholdingAmountCents: number }).withholdingAmountCents, 15000);
+  assert.equal((createdInvoiceData as { totalCents: number }).totalCents, 106000);
+});
+
+test("createInvoiceRecord ignores withholding input for organizations that cannot use it", async () => {
+  let createdInvoiceData: unknown;
+
+  prismaMock.$transaction = async (
+    callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [{ reservedValue: 1 }],
+      customer: {
+        async findFirst() {
+          return { id: "customer_1" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return {
+            countryCode: "GB",
+            legalForm: "sole_trader",
+            withholdingEnabled: true,
+            defaultWithholdingType: "IRPF",
+            defaultWithholdingRate: 15,
+          };
+        },
+      },
+      invoice: {
+        async create(args) {
+          createdInvoiceData = args.data;
+          return { id: "invoice_1" };
+        },
+      },
+    });
+
+  await createInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR",
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "amount",
+    invoiceDiscountValue: 0,
+    applyWithholding: true,
+    withholdingType: "IRPF",
+    withholdingRateType: "15",
+    withholdingRate: 15,
+    paymentInstructions: "",
+    notes: "",
+    lines: [
+      {
+        description: "Consulting services",
+        quantity: 1,
+        unitPrice: 1000,
+        discountType: "amount",
+        discountValue: 0,
+        taxRate: 21,
+      },
+    ],
+  });
+
+  assert.equal((createdInvoiceData as { withholdingType: string | null }).withholdingType, null);
+  assert.equal((createdInvoiceData as { withholdingRate: number | null }).withholdingRate, null);
+  assert.equal((createdInvoiceData as { withholdingAmountCents: number | null }).withholdingAmountCents, null);
+  assert.equal((createdInvoiceData as { totalCents: number }).totalCents, 121000);
+});
+
 test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", async () => {
   let createdInvoiceData: unknown;
   let createdInvoiceInclude: unknown;
@@ -257,7 +408,10 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
     subtotalCents: 10000,
     discountCents: 0,
     taxCents: 2100,
-    totalCents: 12100,
+          withholdingType: null,
+          withholdingRate: null,
+          withholdingAmountCents: null,
+          totalCents: 12100,
     paymentInstructions: "Pay this invoice by bank transfer.",
     customer: {
       name: "Ada Co",
@@ -273,7 +427,7 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
       taxId: "VAT123",
       addressLine1: "1 Seller St",
       city: "Madrid",
-      country: "ES",
+      countryCode: "ES",
     },
     snapshot: null,
   };
@@ -352,7 +506,14 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
   });
   assert.deepEqual(organizationFindFirstArgs, {
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
-    select: { billingEmail: true },
+    select: {
+      billingEmail: true,
+      countryCode: true,
+      legalForm: true,
+      withholdingEnabled: true,
+      defaultWithholdingType: true,
+      defaultWithholdingRate: true,
+    },
   });
   assert.deepEqual(createdInvoiceData, {
     organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
@@ -364,6 +525,9 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
     subtotalCents: 10000,
     discountCents: 0,
     taxCents: 2100,
+    withholdingType: null,
+    withholdingRate: null,
+    withholdingAmountCents: null,
     totalCents: 12100,
     currency: "EUR",
     paymentInstructions: "Pay this invoice by bank transfer.",
@@ -401,7 +565,7 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
         taxId: true,
         addressLine1: true,
         city: true,
-        country: true,
+        countryCode: true,
       },
     },
     snapshot: {
@@ -424,11 +588,14 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
       sellerTaxId: "VAT123",
       sellerAddressLine1: "1 Seller St",
       sellerCity: "Madrid",
-      sellerCountry: "ES",
+      sellerCountry: "Spain",
       paymentInstructions: "Pay this invoice by bank transfer.",
       subtotalCents: 10000,
       discountCents: 0,
       taxCents: 2100,
+      withholdingType: null,
+      withholdingRate: null,
+      withholdingAmountCents: null,
       totalCents: 12100,
     },
   });
@@ -548,6 +715,11 @@ test("createInvoiceRecord rejects archived customers", async () => {
           return null;
         },
       },
+      organization: {
+        async findFirst() {
+          return defaultOrganizationInvoiceSettings;
+        },
+      },
       invoice: {
         async create() {
           invoiceCreateCalls += 1;
@@ -598,6 +770,11 @@ test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice tot
         async findFirst(args) {
           customerFindFirstArgs = args;
           return { id: "customer_2" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return defaultOrganizationInvoiceSettings;
         },
       },
       invoice: {
@@ -672,6 +849,9 @@ test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice tot
     subtotalCents: 20000,
     discountCents: 1900,
     taxCents: 3591,
+    withholdingType: null,
+    withholdingRate: null,
+    withholdingAmountCents: null,
     totalCents: 20691,
     currency: "USD",
     paymentInstructions: "Updated draft payment instructions.",
@@ -751,6 +931,11 @@ test("updateDraftInvoiceRecord rejects missing, non-draft, and invalid customer 
           async findFirst() {
             customerFindFirstCalls += 1;
             return testCase.customer;
+          },
+        },
+        organization: {
+          async findFirst() {
+            return defaultOrganizationInvoiceSettings;
           },
         },
         invoice: {
@@ -1099,7 +1284,7 @@ const invoiceForStatusUpdate = {
     taxId: "VAT123",
     addressLine1: "1 Seller St",
     city: "Madrid",
-    country: "ES",
+    countryCode: "ES",
     paymentInstructions: "Organization default instructions.",
   },
   snapshot: null,
@@ -1294,6 +1479,9 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
       subtotalCents: true,
       discountCents: true,
       taxCents: true,
+      withholdingType: true,
+      withholdingRate: true,
+      withholdingAmountCents: true,
       totalCents: true,
       paymentInstructions: true,
       customer: {
@@ -1313,7 +1501,7 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
           taxId: true,
           addressLine1: true,
           city: true,
-          country: true,
+          countryCode: true,
         },
       },
       snapshot: {
@@ -1337,11 +1525,14 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
       sellerTaxId: "VAT123",
       sellerAddressLine1: "1 Seller St",
       sellerCity: "Madrid",
-      sellerCountry: "ES",
+      sellerCountry: "Spain",
       paymentInstructions: "Pay this invoice by card.",
       subtotalCents: 10000,
       discountCents: 1000,
       taxCents: 1890,
+      withholdingType: null,
+      withholdingRate: null,
+      withholdingAmountCents: null,
       totalCents: 10890,
     },
   });
@@ -1403,7 +1594,7 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
         taxId: null,
         addressLine1: null,
         city: null,
-        country: null,
+        countryCode: null,
         paymentInstructions: null,
       },
     },
@@ -1438,6 +1629,9 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
       subtotalCents: 10000,
       discountCents: 1000,
       taxCents: 1890,
+      withholdingType: null,
+      withholdingRate: null,
+      withholdingAmountCents: null,
       totalCents: 10890,
     },
   });

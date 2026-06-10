@@ -133,6 +133,7 @@ const dateInput = (requiredMessage: string, invalidMessage: string) =>
   );
 
 const discountTypeSchema = z.enum(["amount", "percent"]);
+const withholdingRateTypeSchema = z.enum(["15", "7", "custom"]);
 
 const discountValueSchema = z.coerce.number().nonnegative("Discount cannot be negative.");
 const unitPriceSchema = z.preprocess(
@@ -222,8 +223,15 @@ const normalizeLineInputs = (form: Record<string, unknown>) => {
   }));
 };
 
-export const invoiceFormSchema = z.preprocess((value) => {
+export const createInvoiceFormSchema = (options: {
+  withholdingAllowed?: boolean;
+} = {}) => z.preprocess((value) => {
   const form = asFormRecord(value);
+  const applyWithholding =
+    options.withholdingAllowed === true &&
+    (form.applyWithholding === "on" ||
+      form.applyWithholding === "true" ||
+      form.applyWithholding === true);
 
   return {
     customerId: form.customerId,
@@ -232,6 +240,10 @@ export const invoiceFormSchema = z.preprocess((value) => {
     dueDate: form.dueDate,
     invoiceDiscountType: form.invoiceDiscountType,
     invoiceDiscountValue: form.invoiceDiscountValue,
+    applyWithholding,
+    withholdingType: applyWithholding ? form.withholdingType : undefined,
+    withholdingRateType: applyWithholding ? form.withholdingRateType : undefined,
+    withholdingRate: applyWithholding ? form.withholdingRate : undefined,
     paymentInstructions: form.paymentInstructions,
     notes: form.notes,
     lines: normalizeLineInputs(form),
@@ -244,6 +256,31 @@ export const invoiceFormSchema = z.preprocess((value) => {
     dueDate: dateInput("Enter a due date.", "Enter a valid due date."),
     invoiceDiscountType: discountTypeSchema.default("amount"),
     invoiceDiscountValue: discountValueSchema.default(0),
+    applyWithholding: z.boolean().default(false),
+    withholdingType: z.enum(["IRPF"]).optional(),
+    withholdingRateType: withholdingRateTypeSchema.default("15"),
+    withholdingRate: z.preprocess(
+      (value) => (typeof value === "string" ? value.trim() : value === undefined ? "" : String(value)),
+      z.string()
+        .transform((value, ctx) => {
+          if (value === "") {
+            return null;
+          }
+
+          const rate = Number(value);
+
+          if (!Number.isFinite(rate)) {
+            ctx.addIssue({
+              code: "custom",
+              message: "Enter a valid withholding rate.",
+            });
+            return z.NEVER;
+          }
+
+          return rate;
+        })
+        .refine((rate) => rate === null || rate > 0, "Withholding rate must be greater than zero."),
+    ).default(null),
     paymentInstructions: z
       .string()
       .trim()
@@ -259,6 +296,35 @@ export const invoiceFormSchema = z.preprocess((value) => {
         path: ["dueDate"],
         message: dueDateBeforeIssueDateMessage,
       });
+    }
+
+    if (invoice.applyWithholding) {
+      if (invoice.withholdingType !== "IRPF") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["withholdingType"],
+          message: "Choose a supported withholding type.",
+        });
+      }
+
+      if (invoice.withholdingRate === null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["withholdingRate"],
+          message: "Enter a withholding rate.",
+        });
+      }
+
+      if (
+        invoice.withholdingRateType !== "custom" &&
+        invoice.withholdingRate !== Number(invoice.withholdingRateType)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["withholdingRate"],
+          message: "Choose the selected withholding rate or use custom.",
+        });
+      }
     }
 
     if (invoice.invoiceDiscountType === "percent" && invoice.invoiceDiscountValue > 100) {
@@ -289,9 +355,28 @@ export const invoiceFormSchema = z.preprocess((value) => {
         message: "Invoice discount cannot exceed the subtotal after line discounts.",
       });
     }
-  }));
+  })
+  .transform((invoice) => ({
+    ...invoice,
+    withholdingType: invoice.applyWithholding ? "IRPF" as const : undefined,
+    withholdingRate: invoice.applyWithholding ? invoice.withholdingRate : null,
+  })));
 
-export type InvoiceForm = z.infer<typeof invoiceFormSchema>;
+export const invoiceFormSchema = createInvoiceFormSchema({
+  withholdingAllowed: true,
+});
+
+type ParsedInvoiceForm = z.infer<typeof invoiceFormSchema>;
+export type InvoiceForm = Omit<
+  ParsedInvoiceForm,
+  'applyWithholding' | 'withholdingType' | 'withholdingRateType' | 'withholdingRate'
+> &
+  Partial<
+    Pick<
+      ParsedInvoiceForm,
+      'applyWithholding' | 'withholdingType' | 'withholdingRateType' | 'withholdingRate'
+    >
+  >;
 export type InvoiceLineForm = InvoiceForm["lines"][number];
 
 export const invoiceStatusActionSchema = z.preprocess((value) => {
@@ -422,6 +507,10 @@ export type InvoiceFormValues = {
   dueDate?: string;
   invoiceDiscountType: DiscountType;
   invoiceDiscountValue: string;
+  applyWithholding: boolean;
+  withholdingType: "IRPF" | "";
+  withholdingRateType: "15" | "7" | "custom";
+  withholdingRate: string;
   paymentInstructions: string;
   notes: string;
   lines: InvoiceLineValues[];
@@ -435,6 +524,8 @@ export type InvoiceFormErrors = Partial<
     | "issueDate"
     | "dueDate"
     | "invoiceDiscountValue"
+    | "withholdingType"
+    | "withholdingRate"
     | "paymentInstructions"
     | "notes"
     | "lineItems",
@@ -447,11 +538,16 @@ export type InvoiceFormErrors = Partial<
 export const createInvoiceFormValues = (
   paymentInstructions = "",
   currency = "EUR",
+  defaultWithholdingRate = "15",
 ): InvoiceFormValues => ({
   currency,
   issueDate: new Date().toISOString().slice(0, 10),
   invoiceDiscountType: "amount",
   invoiceDiscountValue: "0",
+  applyWithholding: false,
+  withholdingType: "IRPF",
+  withholdingRateType: defaultWithholdingRate === "7" ? "7" : defaultWithholdingRate === "15" ? "15" : "custom",
+  withholdingRate: defaultWithholdingRate,
   paymentInstructions,
   notes: "",
   lines: [
@@ -474,6 +570,7 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
   const discountTypes = toArray(form.lineDiscountType);
   const discountValues = toArray(form.lineDiscountValue);
   const taxRates = toArray(form.taxRate);
+  const withholdingRate = stringValue(form.withholdingRate, "15");
   const lineCount = Math.max(
     descriptions.length,
     quantities.length,
@@ -492,6 +589,17 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
     invoiceDiscountType:
       stringValue(form.invoiceDiscountType, "amount") === "percent" ? "percent" : "amount",
     invoiceDiscountValue: stringValue(form.invoiceDiscountValue, "0"),
+    applyWithholding:
+      form.applyWithholding === "on" ||
+      form.applyWithholding === "true" ||
+      form.applyWithholding === true,
+    withholdingType: stringValue(form.withholdingType) === "IRPF" ? "IRPF" : "",
+    withholdingRateType: (() => {
+      const rateType = stringValue(form.withholdingRateType, "15");
+
+      return rateType === "7" || rateType === "custom" ? rateType : "15";
+    })(),
+    withholdingRate,
     paymentInstructions: stringValue(form.paymentInstructions),
     notes: stringValue(form.notes),
     lines: Array.from({ length: lineCount }, (_, index) => ({
@@ -567,6 +675,8 @@ export const formatInvoiceFormErrors = (error: z.ZodError<InvoiceForm>) =>
         | "issueDate"
         | "dueDate"
         | "invoiceDiscountValue"
+        | "withholdingType"
+        | "withholdingRate"
         | "paymentInstructions"
         | "notes";
 

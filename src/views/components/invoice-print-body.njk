@@ -95,6 +95,12 @@
         <span class="text-muted">Tax</span>
         <span class="font-medium">{{ snapshot.taxCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
       </div>
+      {% if invoiceDisplay.withholding %}
+        <div class="flex justify-between gap-4">
+          <span class="text-muted">IRPF{% if invoiceDisplay.withholding.rateLabel %} ({{ invoiceDisplay.withholding.rateLabel }}%){% endif %}</span>
+          <span class="font-medium">-{{ invoiceDisplay.withholding.amountCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>
+        </div>
+      {% endif %}
       <div class="flex justify-between gap-4 border-t border-line pt-3 text-base">
         <span class="font-semibold">Invoice Total</span>
         <span class="font-semibold">{{ snapshot.totalCents | money(invoiceDisplay.currency, currentOrganization.locale) }}</span>

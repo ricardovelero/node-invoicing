@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   dueDateBeforeIssueDateMessage,
+  createInvoiceFormSchema,
   formatInvoiceFormErrors,
   formatInvoiceMetadataErrors,
   invoiceFormSchema,
@@ -141,6 +142,50 @@ describe("invoiceFormSchema", () => {
     assert.equal(result.data.invoiceDiscountValue, 12.5);
     assert.equal(result.data.paymentInstructions, "Pay by bank transfer.");
     assert.equal(result.data.notes, "Pay within 14 days.");
+  });
+
+  test("validates invoice-level IRPF withholding rates when allowed", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      applyWithholding: "on",
+      withholdingType: "IRPF",
+      withholdingRateType: "custom",
+      withholdingRate: "12.5",
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.applyWithholding, true);
+    assert.equal(result.data.withholdingType, "IRPF");
+    assert.equal(result.data.withholdingRate, 12.5);
+  });
+
+  test("rejects non-positive IRPF rates when withholding is applied", () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validInvoiceForm,
+      applyWithholding: "on",
+      withholdingType: "IRPF",
+      withholdingRateType: "custom",
+      withholdingRate: "0",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(formatInvoiceFormErrors(result.error).withholdingRate, [
+      "Withholding rate must be greater than zero.",
+    ]);
+  });
+
+  test("strips withholding fields when organization settings do not allow withholding", () => {
+    const result = createInvoiceFormSchema({ withholdingAllowed: false }).safeParse({
+      ...validInvoiceForm,
+      applyWithholding: "on",
+      withholdingType: "IRPF",
+      withholdingRateType: "15",
+      withholdingRate: "15",
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.applyWithholding, false);
+    assert.equal(result.data.withholdingRate, null);
   });
 
   test("rejects long payment instructions", () => {

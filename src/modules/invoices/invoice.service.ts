@@ -1,6 +1,8 @@
 import type { InvoiceStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma';
+import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
+import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
 import { nextInvoiceNumber } from './invoice-numbering';
 import type {
   InvoiceForm,
@@ -89,8 +91,23 @@ export const canEditInvoice = (status: InvoiceStatus) => {
   return status === 'DRAFT';
 };
 
-const calculateTotalsFromInvoiceForm = (data: InvoiceForm) =>
-  calculateInvoiceTotals(
+type OrganizationInvoiceSettings = {
+  countryCode: string | null;
+  legalForm: string;
+  withholdingEnabled: boolean;
+  defaultWithholdingType: string | null;
+  defaultWithholdingRate: Prisma.Decimal | null;
+};
+
+const calculateTotalsFromInvoiceForm = (
+  data: InvoiceForm,
+  organization?: OrganizationInvoiceSettings | null,
+) => {
+  const withholding = organization
+    ? resolveInvoiceWithholding(organization, data)
+    : { withholdingType: null, withholdingRate: null };
+
+  return calculateInvoiceTotals(
     data.lines.map((line) => ({
       quantity: line.quantity,
       unitPrice: line.unitPrice,
@@ -104,7 +121,33 @@ const calculateTotalsFromInvoiceForm = (data: InvoiceForm) =>
       type: data.invoiceDiscountType,
       value: data.invoiceDiscountValue,
     },
+    withholding.withholdingType === 'IRPF' && withholding.withholdingRate
+      ? { type: 'IRPF', rate: withholding.withholdingRate }
+      : null,
   );
+};
+
+const invoiceWithholdingData = (
+  data: InvoiceForm,
+  organization: OrganizationInvoiceSettings,
+  totals: ReturnType<typeof calculateTotalsFromInvoiceForm>,
+) => {
+  const withholding = resolveInvoiceWithholding(organization, data);
+
+  if (withholding.withholdingType !== 'IRPF' || !withholding.withholdingRate) {
+    return {
+      withholdingType: null,
+      withholdingRate: null,
+      withholdingAmountCents: null,
+    };
+  }
+
+  return {
+    withholdingType: 'IRPF',
+    withholdingRate: withholding.withholdingRate,
+    withholdingAmountCents: totals.withholdingAmountCents,
+  };
+};
 
 const invoiceLineCreateData = (
   data: InvoiceForm,
@@ -159,7 +202,29 @@ const findOrganizationEmailSettings = (
 ) =>
   tx.organization.findFirst({
     where: { id: organizationId },
-    select: { billingEmail: true },
+    select: {
+      billingEmail: true,
+      countryCode: true,
+      legalForm: true,
+      withholdingEnabled: true,
+      defaultWithholdingType: true,
+      defaultWithholdingRate: true,
+    },
+  });
+
+const findOrganizationInvoiceSettings = (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+) =>
+  tx.organization.findFirst({
+    where: { id: organizationId },
+    select: {
+      countryCode: true,
+      legalForm: true,
+      withholdingEnabled: true,
+      defaultWithholdingType: true,
+      defaultWithholdingRate: true,
+    },
   });
 
 const findEditableDraftInvoice = async (
@@ -369,8 +434,6 @@ export const createInvoiceRecord = async (
   organizationId: string,
   data: InvoiceForm,
 ) => {
-  const totals = calculateTotalsFromInvoiceForm(data);
-
   return prisma.$transaction(async (tx) => {
     const customer = await findActiveCustomer(
       tx,
@@ -382,6 +445,18 @@ export const createInvoiceRecord = async (
       return { ok: false as const, reason: 'invalidCustomer' as const };
     }
 
+    const organization = await findOrganizationInvoiceSettings(
+      tx,
+      organizationId,
+    );
+    const totals = calculateTotalsFromInvoiceForm(data, organization);
+    const withholding = organization
+      ? invoiceWithholdingData(data, organization, totals)
+      : {
+          withholdingType: null,
+          withholdingRate: null,
+          withholdingAmountCents: null,
+        };
     const number = await nextInvoiceNumber(tx, organizationId);
 
     const invoice = await tx.invoice.create({
@@ -394,6 +469,7 @@ export const createInvoiceRecord = async (
         subtotalCents: totals.subtotalCents,
         discountCents: totals.discountCents,
         taxCents: totals.taxCents,
+        ...withholding,
         totalCents: totals.totalCents,
         currency: data.currency,
         paymentInstructions: data.paymentInstructions || null,
@@ -412,8 +488,6 @@ export const createSentInvoiceRecord = async (
   organizationId: string,
   data: InvoiceForm,
 ) => {
-  const totals = calculateTotalsFromInvoiceForm(data);
-
   return prisma.$transaction(async (tx) => {
     const customer = await findActiveCustomerForSending(
       tx,
@@ -440,6 +514,8 @@ export const createSentInvoiceRecord = async (
       return { ok: false as const, reason: 'missingBillingEmail' as const };
     }
 
+    const totals = calculateTotalsFromInvoiceForm(data, organization);
+    const withholding = invoiceWithholdingData(data, organization, totals);
     const number = await nextInvoiceNumber(tx, organizationId);
 
     const invoice = await tx.invoice.create({
@@ -453,6 +529,7 @@ export const createSentInvoiceRecord = async (
         subtotalCents: totals.subtotalCents,
         discountCents: totals.discountCents,
         taxCents: totals.taxCents,
+        ...withholding,
         totalCents: totals.totalCents,
         currency: data.currency,
         paymentInstructions: data.paymentInstructions || null,
@@ -479,7 +556,7 @@ export const createSentInvoiceRecord = async (
             taxId: true,
             addressLine1: true,
             city: true,
-            country: true,
+            countryCode: true,
           },
         },
         snapshot: {
@@ -501,8 +578,6 @@ export const updateDraftInvoiceRecord = async (
   invoiceId: string,
   data: InvoiceForm,
 ) => {
-  const totals = calculateTotalsFromInvoiceForm(data);
-
   return prisma.$transaction(async (tx) => {
     const editableInvoice = await findEditableDraftInvoice(
       tx,
@@ -525,6 +600,18 @@ export const updateDraftInvoiceRecord = async (
       return { ok: false as const, reason: 'invalidCustomer' as const };
     }
 
+    const organization = await findOrganizationInvoiceSettings(
+      tx,
+      organizationId,
+    );
+    const totals = calculateTotalsFromInvoiceForm(data, organization);
+    const withholding = organization
+      ? invoiceWithholdingData(data, organization, totals)
+      : {
+          withholdingType: null,
+          withholdingRate: null,
+          withholdingAmountCents: null,
+        };
     const updatedInvoice = await tx.invoice.update({
       where: { id: invoice.id },
       data: {
@@ -534,6 +621,7 @@ export const updateDraftInvoiceRecord = async (
         subtotalCents: totals.subtotalCents,
         discountCents: totals.discountCents,
         taxCents: totals.taxCents,
+        ...withholding,
         totalCents: totals.totalCents,
         currency: data.currency,
         paymentInstructions: data.paymentInstructions || null,
@@ -551,6 +639,9 @@ type InvoiceSnapshotSource = {
   subtotalCents: number;
   discountCents: number;
   taxCents: number;
+  withholdingType: string | null;
+  withholdingRate: Prisma.Decimal | number | null;
+  withholdingAmountCents: number | null;
   totalCents: number;
   paymentInstructions: string | null;
   customer: {
@@ -567,7 +658,7 @@ type InvoiceSnapshotSource = {
     taxId: string | null;
     addressLine1: string | null;
     city: string | null;
-    country: string | null;
+    countryCode: string | null;
   };
   snapshot: { invoiceId: string } | null;
 };
@@ -594,11 +685,14 @@ const captureInvoiceSnapshot = (
       sellerTaxId: invoice.organization.taxId,
       sellerAddressLine1: invoice.organization.addressLine1,
       sellerCity: invoice.organization.city,
-      sellerCountry: invoice.organization.country,
+      sellerCountry: getOrganizationCountryLabel(invoice.organization.countryCode),
       paymentInstructions: invoice.paymentInstructions,
       subtotalCents: invoice.subtotalCents,
       discountCents: invoice.discountCents,
       taxCents: invoice.taxCents,
+      withholdingType: invoice.withholdingType ?? null,
+      withholdingRate: rateToNumber(invoice.withholdingRate),
+      withholdingAmountCents: invoice.withholdingAmountCents ?? null,
       totalCents: invoice.totalCents,
     },
   });
@@ -621,6 +715,9 @@ export const updateInvoiceStatus = async (
         subtotalCents: true,
         discountCents: true,
         taxCents: true,
+        withholdingType: true,
+        withholdingRate: true,
+        withholdingAmountCents: true,
         totalCents: true,
         paymentInstructions: true,
         customer: {
@@ -640,7 +737,7 @@ export const updateInvoiceStatus = async (
             taxId: true,
             addressLine1: true,
             city: true,
-            country: true,
+            countryCode: true,
           },
         },
         snapshot: {

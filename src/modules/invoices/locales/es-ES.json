@@ -55,7 +55,12 @@
       "catalogItemName": "Nombre del artículo del catálogo",
       "lineDiscountType": "Tipo de descuento de línea",
       "lineDiscountValue": "Valor del descuento de línea",
-      "invoiceDiscountType": "Tipo de descuento de factura"
+      "invoiceDiscountType": "Tipo de descuento de factura",
+      "withholdingRate": "Tipo de IRPF"
+    },
+    "withholding": {
+      "applyIrpf": "Aplicar retención de IRPF a esta factura",
+      "customRate": "Personalizado"
     },
     "placeholders": {
       "lineDescription": "Servicios de consultoría",

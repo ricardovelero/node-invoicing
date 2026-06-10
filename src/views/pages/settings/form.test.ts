@@ -1,17 +1,49 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 
-test("settings form includes csrf and unsaved changes guard", () => {
-  const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "pages", "settings", "form.njk"),
-    "utf8",
-  );
+const settingsTemplate = readFileSync(
+  path.join(process.cwd(), "src", "views", "pages", "settings", "form.njk"),
+  "utf8",
+);
 
-  assert.match(template, /action="\/settings"/);
-  assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
-  assert.match(template, /data-unsaved-changes-guard/);
-  assert.match(template, /t\('settings\.actions\.save'\)/);
-  assert.match(template, /t\('settings\.fields\.locale'\)/);
+const countrySelectTemplate = readFileSync(
+  path.join(process.cwd(), "src", "views", "components", "country-select.njk"),
+  "utf8",
+);
+
+describe("settings form", () => {
+  test("includes csrf and unsaved changes guard", () => {
+    assert.match(settingsTemplate, /action="\/settings"/);
+    assert.match(settingsTemplate, /name="_csrf" value="{{ csrfToken }}"/);
+    assert.match(settingsTemplate, /data-unsaved-changes-guard/);
+    assert.match(settingsTemplate, /t\('settings\.actions\.save'\)/);
+    assert.match(settingsTemplate, /t\('settings\.fields\.locale'\)/);
+  });
+
+  test("uses countryCode as the only editable organization country field", () => {
+    assert.match(
+      settingsTemplate,
+      /from "components\/country-select\.njk" import countrySelect/,
+    );
+    assert.match(
+      settingsTemplate,
+      /countrySelect\('countryCode', 'countryCode', values\.countryCode, true\)/,
+    );
+    assert.doesNotMatch(settingsTemplate, /name="country"/);
+    assert.doesNotMatch(settingsTemplate, /id="country"/);
+  });
+
+  test("country select maps supported labels to persisted country codes", () => {
+    assert.match(countrySelectTemplate, /<option value="ES"[^>]*>Spain<\/option>/);
+    assert.match(
+      countrySelectTemplate,
+      /<option value="GB"[^>]*>United Kingdom<\/option>/,
+    );
+    assert.match(
+      countrySelectTemplate,
+      /<option value="US"[^>]*>United States of America<\/option>/,
+    );
+  });
 });

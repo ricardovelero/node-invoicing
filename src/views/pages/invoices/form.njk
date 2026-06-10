@@ -159,6 +159,37 @@
               <span class="font-medium text-muted">{{ t('invoices.form.totals.tax') }}</span>
               <span class="text-right font-semibold" data-invoice-tax>€0.00</span>
             </div>
+            {% if withholdingOptions.isAvailable %}
+              <div class="rounded-md border border-line bg-white p-3" data-invoice-withholding-section>
+                <div class="flex items-start gap-3">
+                  <input id="applyWithholding" class="mt-1 h-4 w-4" name="applyWithholding" type="checkbox" {{ 'checked' if values.applyWithholding else '' }} data-invoice-apply-withholding>
+                  <div>
+                    <label class="font-medium" for="applyWithholding">{{ t('invoices.form.withholding.applyIrpf') }}</label>
+                    <input type="hidden" name="withholdingType" value="IRPF">
+                    {% if errors.withholdingType %}<p class="mt-1 text-sm text-red-700">{{ errors.withholdingType[0] }}</p>{% endif %}
+                  </div>
+                </div>
+                <div class="{{ 'mt-3' if values.applyWithholding else 'mt-3 hidden' }} grid gap-2 sm:grid-cols-[120px_1fr]" data-invoice-withholding-rate-panel>
+                  <div>
+                    <label class="sr-only" for="withholdingRateType">{{ t('invoices.form.fields.withholdingRate') }}</label>
+                    <select id="withholdingRateType" name="withholdingRateType" data-invoice-withholding-rate-type>
+                      <option value="15" {{ 'selected' if values.withholdingRateType == '15' else '' }}>15%</option>
+                      <option value="7" {{ 'selected' if values.withholdingRateType == '7' else '' }}>7%</option>
+                      <option value="custom" {{ 'selected' if values.withholdingRateType == 'custom' else '' }}>{{ t('invoices.form.withholding.customRate') }}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="sr-only" for="withholdingRate">{{ t('invoices.form.fields.withholdingRate') }}</label>
+                    <input id="withholdingRate" name="withholdingRate" type="number" min="0.01" max="100" step="0.01" value="{{ values.withholdingRate or withholdingOptions.defaultRate }}" data-invoice-withholding-rate>
+                    {% if errors.withholdingRate %}<p class="mt-1 text-sm text-red-700">{{ errors.withholdingRate[0] }}</p>{% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="{{ '' if values.applyWithholding else 'hidden' }} grid grid-cols-2 gap-4" data-invoice-withholding-row>
+                <span class="font-medium text-muted" data-invoice-withholding-label>IRPF</span>
+                <span class="text-right font-semibold" data-invoice-withholding>-€0.00</span>
+              </div>
+            {% endif %}
             <div class="grid grid-cols-2 gap-4 border-t border-line pt-3 text-base">
               <span class="font-semibold">{{ t('invoices.form.totals.total') }}</span>
               <span class="text-right font-semibold" data-invoice-total>€0.00</span>

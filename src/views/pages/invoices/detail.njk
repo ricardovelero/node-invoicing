@@ -287,6 +287,12 @@
             <span class="text-muted">{{ t('invoices.form.totals.tax') }}</span>
             <span class="font-medium">{{ invoice.taxCents | money(invoiceDisplay.currency, currentLocale) }}</span>
           </div>
+          {% if invoiceDisplay.withholding %}
+            <div class="flex justify-between gap-4">
+              <span class="text-muted">IRPF{% if invoiceDisplay.withholding.rateLabel %} ({{ invoiceDisplay.withholding.rateLabel }}%){% endif %}</span>
+              <span class="font-medium">-{{ invoiceDisplay.withholding.amountCents | money(invoiceDisplay.currency, currentLocale) }}</span>
+            </div>
+          {% endif %}
           <div class="flex justify-between gap-4 border-t border-line pt-3 text-base">
             <span class="font-semibold">{{ t('invoices.form.totals.total') }}</span>
             <span class="font-semibold">{{ invoice.totalCents | money(invoiceDisplay.currency, currentLocale) }}</span>

@@ -8,10 +8,23 @@
     "taxId": "NIF/CIF",
     "defaultCurrency": "Moneda predeterminada",
     "locale": "Configuración regional",
+    "countryCode": "País",
+    "legalForm": "Forma jurídica",
     "address": "Dirección",
     "city": "Ciudad",
-    "country": "País",
+    "defaultWithholdingRate": "Tipo de IRPF predeterminado",
+    "customWithholdingRate": "Tipo",
     "paymentInstructions": "Instrucciones de pago"
+  },
+  "legalForms": {
+    "soleTrader": "Autónomo",
+    "company": "Empresa",
+    "other": "Otro"
+  },
+  "withholding": {
+    "enableIrpf": "Activar retención de IRPF",
+    "irpfHelp": "Disponible para organizaciones españolas que no sean empresa.",
+    "customRate": "Personalizado"
   },
   "help": {
     "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección."

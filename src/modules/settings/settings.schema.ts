@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { supportedOrganizationCountryCodes } from '../../lib/countries';
 import { supportedLocales } from '../../lib/i18n';
+import { legalForms, rateToNumber } from '../../lib/withholding';
 
 export const supportedCurrencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] as const;
 
@@ -15,15 +17,84 @@ export const organizationSettingsSchema = z.object({
   taxId: optionalText(80, 'Tax ID must be 80 characters or fewer.'),
   addressLine1: optionalText(200, 'Address must be 200 characters or fewer.'),
   city: optionalText(120, 'City must be 120 characters or fewer.'),
-  country: optionalText(120, 'Country must be 120 characters or fewer.'),
+  countryCode: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toUpperCase() : ''),
+    z.enum(supportedOrganizationCountryCodes, {
+      error: 'Choose a supported country.',
+    }),
+  ),
+  legalForm: z.enum(legalForms, {
+    error: 'Choose a supported legal form.',
+  }).default('other'),
   currency: z.enum(supportedCurrencies, {
     error: 'Choose a supported currency.',
   }),
   locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
+  withholdingEnabled: z.preprocess(
+    (value) => value === 'on' || value === 'true' || value === true,
+    z.boolean(),
+  ).default(false),
+  defaultWithholdingType: z.enum(['IRPF']).or(z.literal('')).default(''),
+  defaultWithholdingRateType: z.enum(['15', '7', 'custom']).default('15'),
+  defaultWithholdingRate: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value ?? ''),
+    z.string()
+      .transform((value, ctx) => {
+        if (value === '') {
+          return null;
+        }
+
+        const rate = Number(value);
+
+        if (!Number.isFinite(rate)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Enter a valid withholding rate.',
+          });
+          return z.NEVER;
+        }
+
+        return rate;
+      })
+      .refine((rate) => rate === null || rate > 0, {
+        message: 'Withholding rate must be greater than zero.',
+      }),
+  ).default(null),
   paymentInstructions: optionalText(
     2000,
     'Payment instructions must be 2,000 characters or fewer.',
   ),
+}).superRefine((settings, ctx) => {
+  if (!settings.withholdingEnabled) {
+    return;
+  }
+
+  if (settings.defaultWithholdingType !== 'IRPF') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['defaultWithholdingType'],
+      message: 'Choose a supported withholding type.',
+    });
+  }
+
+  if (settings.defaultWithholdingRate === null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['defaultWithholdingRate'],
+      message: 'Enter a withholding rate.',
+    });
+  }
+
+  if (
+    settings.defaultWithholdingRateType !== 'custom' &&
+    settings.defaultWithholdingRate !== Number(settings.defaultWithholdingRateType)
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['defaultWithholdingRate'],
+      message: 'Choose the selected withholding rate or use custom.',
+    });
+  }
 });
 
 export type OrganizationSettingsForm = z.infer<
@@ -39,20 +110,45 @@ export type OrganizationSettingsErrors = Partial<
   Record<keyof OrganizationSettingsForm, string[]>
 >;
 
-type OrganizationSettingsSource = Partial<
-  Record<keyof OrganizationSettingsForm, string | null | undefined>
->;
+type OrganizationSettingsSource = Partial<{
+  [Key in keyof OrganizationSettingsForm]:
+    | string
+    | number
+    | boolean
+    | { toString: () => string }
+    | null
+    | undefined;
+}>;
+
+const sourceText = (
+  value: string | number | boolean | { toString: () => string } | null | undefined,
+  fallback = '',
+) => (value === null || value === undefined ? fallback : value.toString());
 
 export const createOrganizationSettingsValues = (
   organization: OrganizationSettingsSource = {},
 ): OrganizationSettingsValues => ({
-  legalName: organization.legalName ?? '',
-  billingEmail: organization.billingEmail ?? '',
-  taxId: organization.taxId ?? '',
-  addressLine1: organization.addressLine1 ?? '',
-  city: organization.city ?? '',
-  country: organization.country ?? '',
-  currency: organization.currency ?? 'EUR',
-  locale: organization.locale ?? 'en-GB',
-  paymentInstructions: organization.paymentInstructions ?? '',
+  legalName: sourceText(organization.legalName),
+  billingEmail: sourceText(organization.billingEmail),
+  taxId: sourceText(organization.taxId),
+  addressLine1: sourceText(organization.addressLine1),
+  city: sourceText(organization.city),
+  countryCode: sourceText(organization.countryCode),
+  legalForm: sourceText(organization.legalForm, 'other'),
+  currency: sourceText(organization.currency, 'EUR'),
+  locale: sourceText(organization.locale, 'en-GB'),
+  withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
+  defaultWithholdingType: sourceText(organization.defaultWithholdingType),
+  defaultWithholdingRateType: (() => {
+    const rate = rateToNumber(organization.defaultWithholdingRate);
+
+    if (rate === 15 || rate === 7) {
+      return String(rate);
+    }
+
+    return organization.defaultWithholdingRate ? 'custom' : '15';
+  })(),
+  defaultWithholdingRate:
+    rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
+  paymentInstructions: sourceText(organization.paymentInstructions),
 });

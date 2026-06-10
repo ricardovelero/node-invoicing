@@ -1,0 +1,7 @@
+{% macro countrySelect(name, id, value, required = false) %}
+  <select id="{{ id }}" name="{{ name }}" {{ 'required' if required else '' }}>
+    <option value="ES" {{ 'selected' if value == 'ES' else '' }}>Spain</option>
+    <option value="GB" {{ 'selected' if value == 'GB' else '' }}>United Kingdom</option>
+    <option value="US" {{ 'selected' if value == 'US' else '' }}>United States of America</option>
+  </select>
+{% endmacro %}

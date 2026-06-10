@@ -10,7 +10,7 @@ describe("organizationSettingsSchema", () => {
       taxId: "  VAT123  ",
       addressLine1: "  1 Example Street  ",
       city: "  London  ",
-      country: "  United Kingdom  ",
+      countryCode: "  gb  ",
       currency: "GBP",
       locale: "es-ES",
       paymentInstructions: "  Pay by bank transfer.  ",
@@ -23,9 +23,14 @@ describe("organizationSettingsSchema", () => {
       taxId: "VAT123",
       addressLine1: "1 Example Street",
       city: "London",
-      country: "United Kingdom",
+      countryCode: "GB",
+      legalForm: "other",
       currency: "GBP",
       locale: "es-ES",
+      withholdingEnabled: false,
+      defaultWithholdingType: "",
+      defaultWithholdingRateType: "15",
+      defaultWithholdingRate: null,
       paymentInstructions: "Pay by bank transfer.",
     });
   });
@@ -33,6 +38,7 @@ describe("organizationSettingsSchema", () => {
   test("rejects invalid billing email", () => {
     const result = organizationSettingsSchema.safeParse({
       billingEmail: "not-an-email",
+      countryCode: "GB",
       currency: "EUR",
       locale: "en-GB",
     });
@@ -46,6 +52,7 @@ describe("organizationSettingsSchema", () => {
   test("rejects unsupported currencies", () => {
     const result = organizationSettingsSchema.safeParse({
       currency: "JPY",
+      countryCode: "GB",
       locale: "en-GB",
     });
 
@@ -58,6 +65,7 @@ describe("organizationSettingsSchema", () => {
   test("rejects unsupported locales", () => {
     const result = organizationSettingsSchema.safeParse({
       currency: "EUR",
+      countryCode: "GB",
       locale: "fr-FR",
     });
 
@@ -70,6 +78,7 @@ describe("organizationSettingsSchema", () => {
   test("rejects payment instructions over 2,000 characters", () => {
     const result = organizationSettingsSchema.safeParse({
       currency: "EUR",
+      countryCode: "GB",
       locale: "en-GB",
       paymentInstructions: "x".repeat(2001),
     });

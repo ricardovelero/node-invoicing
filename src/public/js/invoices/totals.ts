@@ -88,6 +88,11 @@ type UpdateTotalsOptions = {
   invoiceSubtotal: HTMLElement;
   invoiceTax: HTMLElement;
   invoiceTotal: HTMLElement;
+  invoiceWithholding?: HTMLElement | null;
+  invoiceWithholdingLabel?: HTMLElement | null;
+  invoiceWithholdingRate?: HTMLInputElement | null;
+  invoiceWithholdingRow?: HTMLElement | null;
+  invoiceWithholdingToggle?: HTMLInputElement | null;
   lineDiscountTotal: HTMLElement;
 };
 
@@ -101,13 +106,22 @@ export const updateTotals = ({
   invoiceSubtotal,
   invoiceTax,
   invoiceTotal,
+  invoiceWithholding,
+  invoiceWithholdingLabel,
+  invoiceWithholdingRate,
+  invoiceWithholdingRow,
+  invoiceWithholdingToggle,
   lineDiscountTotal,
 }: UpdateTotalsOptions) => {
   const rows = getRows();
+  const applyWithholding = invoiceWithholdingToggle?.checked === true;
+  const withholdingRate = invoiceWithholdingRate
+    ? parseNumberInput(invoiceWithholdingRate)
+    : 0;
   const totals = calculateInvoiceTotals(rows.map(readLineInput), {
     type: parseDiscountType(invoiceDiscountType),
     value: parseNumberInput(invoiceDiscountValue),
-  });
+  }, applyWithholding ? { type: 'IRPF', rate: withholdingRate } : null);
 
   rows.forEach((row, index) => {
     const lineTotal = row.querySelector<HTMLElement>(
@@ -125,6 +139,21 @@ export const updateTotals = ({
   );
   invoiceDiscountTotal.textContent = formatDiscountCents(totals.discountCents);
   invoiceTax.textContent = formatCents(totals.taxCents);
+  if (invoiceWithholding && invoiceWithholdingRow) {
+    invoiceWithholding.textContent = formatDiscountCents(
+      totals.withholdingAmountCents,
+    );
+    invoiceWithholdingRow.classList.toggle(
+      'hidden',
+      !applyWithholding || totals.withholdingAmountCents <= 0,
+    );
+  }
+  if (invoiceWithholdingLabel) {
+    invoiceWithholdingLabel.textContent =
+      applyWithholding && withholdingRate > 0
+        ? `IRPF (${withholdingRate.toFixed(2).replace(/\.?0+$/, '')}%)`
+        : 'IRPF';
+  }
   invoiceTotal.textContent = formatCents(totals.totalCents);
   updateRemoveButtons(rows);
 };

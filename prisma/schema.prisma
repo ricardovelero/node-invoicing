@@ -66,10 +66,15 @@ model Organization {
   addressLine1 String?
   city        String?
   country     String?
+  countryCode String?
+  legalForm   String   @default("other")
   currency    String   @default("EUR")
   locale      String   @default("en-GB")
   paymentInstructions String?
   billingEmail String?
+  withholdingEnabled Boolean @default(false)
+  defaultWithholdingType String?
+  defaultWithholdingRate Decimal? @db.Decimal(5, 2)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -150,6 +155,9 @@ model Invoice {
   subtotalCents  Int
   discountCents  Int           @default(0)
   taxCents       Int           @default(0)
+  withholdingType String?
+  withholdingRate Decimal?     @db.Decimal(5, 2)
+  withholdingAmountCents Int?
   totalCents     Int
   currency       String
   paymentInstructions String?
@@ -201,6 +209,9 @@ model InvoiceSnapshot {
   subtotalCents        Int
   discountCents        Int
   taxCents             Int
+  withholdingType      String?
+  withholdingRate      Decimal? @db.Decimal(5, 2)
+  withholdingAmountCents Int?
   totalCents           Int
   createdAt            DateTime @default(now())
   invoice              Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)

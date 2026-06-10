@@ -442,6 +442,10 @@ test("renderNewInvoice defaults payment instructions from organization settings 
       issueDate: new Date().toISOString().slice(0, 10),
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "0",
+      applyWithholding: false,
+      withholdingType: "IRPF",
+      withholdingRateType: "15",
+      withholdingRate: "15",
       currency: "EUR",
       paymentInstructions: "Pay by bank transfer.",
       notes: "",
@@ -458,6 +462,10 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     },
     errors: {},
     formError: undefined,
+    withholdingOptions: {
+      isAvailable: false,
+      defaultRate: "15",
+    },
   });
 });
 
@@ -498,6 +506,44 @@ test("renderNewInvoice ignores invalid or unavailable query customers", async ()
     );
     assert.deepEqual((res.renderedData as { errors: unknown }).errors, {});
   }
+});
+
+test("renderNewInvoice exposes IRPF options only when organization settings allow it", async () => {
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  prismaMock.customer.findMany = async () => customers;
+  const req = createRequest();
+  req.auth.organization.countryCode = "ES";
+  req.auth.organization.legalForm = "sole_trader";
+  req.auth.organization.withholdingEnabled = true;
+  req.auth.organization.defaultWithholdingType = "IRPF";
+  req.auth.organization.defaultWithholdingRate = { toString: () => "7" } as never;
+  const res = createResponse();
+
+  await renderNewInvoice(req, res, () => undefined);
+
+  assert.deepEqual((res.renderedData as { withholdingOptions: unknown }).withholdingOptions, {
+    isAvailable: true,
+    defaultRate: "7",
+  });
+  assert.equal((res.renderedData as { values: { applyWithholding: boolean } }).values.applyWithholding, false);
+  assert.equal((res.renderedData as { values: { withholdingRate: string } }).values.withholdingRate, "7");
+});
+
+test("createInvoiceDisplay uses stored invoice withholding values", () => {
+  const display = createInvoiceDisplay({
+    ...printableInvoice,
+    withholdingType: "IRPF",
+    withholdingRate: { toString: () => "7" } as never,
+    withholdingAmountCents: 700,
+    snapshot: null,
+    status: "DRAFT",
+  } as never);
+
+  assert.deepEqual((display as { withholding: unknown }).withholding, {
+    type: "IRPF",
+    rateLabel: "7",
+    amountCents: 700,
+  });
 });
 
 test("listInvoices renders normalized filters and paginated invoice rows", async () => {
@@ -821,6 +867,10 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
       notes: "Existing notes.",
       invoiceDiscountType: "amount",
       invoiceDiscountValue: "10.00",
+      applyWithholding: false,
+      withholdingType: "",
+      withholdingRateType: "custom",
+      withholdingRate: "15",
       lines: [
         {
           description: "Consulting services",
@@ -834,6 +884,10 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
     },
     errors: {},
     formError: undefined,
+    withholdingOptions: {
+      isAvailable: false,
+      defaultRate: "15",
+    },
   });
 });
 
@@ -854,6 +908,7 @@ test("editInvoice updates valid draft invoices and redirects to detail", async (
   prismaMock.$transaction = async (
     callback: (tx: {
       customer: { findFirst: () => Promise<unknown> };
+      organization: { findFirst: () => Promise<unknown> };
       invoice: {
         findFirst: () => Promise<unknown>;
         update: (args: { data: unknown }) => Promise<unknown>;
@@ -865,6 +920,17 @@ test("editInvoice updates valid draft invoices and redirects to detail", async (
       customer: {
         async findFirst() {
           return { id: "59cad9c9-16c1-4c85-83e1-6630514781a0" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return {
+            countryCode: null,
+            legalForm: "other",
+            withholdingEnabled: false,
+            defaultWithholdingType: null,
+            defaultWithholdingRate: null,
+          };
         },
       },
       invoice: {

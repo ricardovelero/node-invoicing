@@ -55,7 +55,12 @@
       "catalogItemName": "Catalog item name",
       "lineDiscountType": "Line discount type",
       "lineDiscountValue": "Line discount value",
-      "invoiceDiscountType": "Invoice discount type"
+      "invoiceDiscountType": "Invoice discount type",
+      "withholdingRate": "IRPF rate"
+    },
+    "withholding": {
+      "applyIrpf": "Apply IRPF withholding to this invoice",
+      "customRate": "Custom"
     },
     "placeholders": {
       "lineDescription": "Consulting services",

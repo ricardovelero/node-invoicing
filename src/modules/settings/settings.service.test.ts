@@ -29,9 +29,14 @@ test("updateOrganizationSettings updates the current organization and stores emp
     taxId: "",
     addressLine1: "1 Example Street",
     city: "",
-    country: "United Kingdom",
+    countryCode: "GB",
+    legalForm: "company",
     currency: "GBP",
     locale: "es-ES",
+    withholdingEnabled: true,
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRateType: "15",
+    defaultWithholdingRate: 15,
     paymentInstructions: "",
   });
 
@@ -44,10 +49,93 @@ test("updateOrganizationSettings updates the current organization and stores emp
       taxId: null,
       addressLine1: "1 Example Street",
       city: null,
-      country: "United Kingdom",
+      countryCode: "GB",
+      legalForm: "company",
       currency: "GBP",
       locale: "es-ES",
+      withholdingEnabled: false,
+      defaultWithholdingType: null,
+      defaultWithholdingRate: null,
       paymentInstructions: null,
     },
   });
+});
+
+test("updateOrganizationSettings allows Spanish sole traders to enable IRPF withholding", async () => {
+  let updateArgs: unknown;
+
+  prismaMock.organization.update = async (args: unknown) => {
+    updateArgs = args;
+    return { id: "org_1" };
+  };
+
+  await updateOrganizationSettings("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+    legalName: "",
+    billingEmail: "",
+    taxId: "",
+    addressLine1: "",
+    city: "",
+    countryCode: "ES",
+    legalForm: "sole_trader",
+    currency: "EUR",
+    locale: "es-ES",
+    withholdingEnabled: true,
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRateType: "15",
+    defaultWithholdingRate: 15,
+    paymentInstructions: "",
+  });
+
+  assert.deepEqual((updateArgs as { data: unknown }).data, {
+    legalName: null,
+    billingEmail: null,
+    taxId: null,
+    addressLine1: null,
+    city: null,
+    countryCode: "ES",
+    legalForm: "sole_trader",
+    currency: "EUR",
+    locale: "es-ES",
+    withholdingEnabled: true,
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRate: 15,
+    paymentInstructions: null,
+  });
+});
+
+test("updateOrganizationSettings forces IRPF off for Spanish companies and non-Spanish organizations", async () => {
+  const cases = [
+    { countryCode: "ES" as const, legalForm: "company" as const },
+    { countryCode: "US" as const, legalForm: "sole_trader" as const },
+  ];
+
+  for (const testCase of cases) {
+    let updateArgs: unknown;
+
+    prismaMock.organization.update = async (args: unknown) => {
+      updateArgs = args;
+      return { id: "org_1" };
+    };
+
+    await updateOrganizationSettings("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+      legalName: "",
+      billingEmail: "",
+      taxId: "",
+      addressLine1: "",
+      city: "",
+      countryCode: testCase.countryCode,
+      legalForm: testCase.legalForm,
+      currency: "EUR",
+      locale: "en-GB",
+      withholdingEnabled: true,
+      defaultWithholdingType: "IRPF",
+      defaultWithholdingRateType: "15",
+      defaultWithholdingRate: 15,
+      paymentInstructions: "",
+    });
+
+    assert.equal((updateArgs as { data: { withholdingEnabled: boolean } }).data.withholdingEnabled, false);
+    assert.equal((updateArgs as { data: { defaultWithholdingType: string | null } }).data.defaultWithholdingType, null);
+    assert.equal((updateArgs as { data: { defaultWithholdingRate: number | null } }).data.defaultWithholdingRate, null);
+  }
 });

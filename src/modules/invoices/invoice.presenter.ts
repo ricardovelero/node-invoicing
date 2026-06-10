@@ -1,5 +1,6 @@
 import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
+import { formatRateLabel } from '../../lib/withholding';
 import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
@@ -327,6 +328,14 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
   notes: invoice.notes ?? '',
   invoiceDiscountType: 'amount',
   invoiceDiscountValue: centsToAmountInput(invoice.discountCents),
+  applyWithholding: invoice.withholdingType === 'IRPF',
+  withholdingType: invoice.withholdingType === 'IRPF' ? 'IRPF' : '',
+  withholdingRateType: (() => {
+    const rate = formatRateLabel(invoice.withholdingRate);
+
+    return rate === '15' || rate === '7' ? rate : 'custom';
+  })(),
+  withholdingRate: formatRateLabel(invoice.withholdingRate) || '15',
   lines: invoice.lines.map((line) => ({
     description: line.description,
     quantity: String(line.quantity),
@@ -339,14 +348,29 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
 
 export const createInvoiceDisplay = (invoice: InvoiceDisplaySource) => {
   const snapshot = invoice.status !== 'DRAFT' ? invoice.snapshot : null;
+  const withholdingType = snapshot?.withholdingType ?? invoice.withholdingType;
+  const withholdingRate = snapshot?.withholdingRate ?? invoice.withholdingRate;
+  const withholdingAmountCents =
+    snapshot?.withholdingAmountCents ?? invoice.withholdingAmountCents;
 
-  return {
+  const display = {
     customerName: snapshot?.customerName ?? invoice.customer.name,
     customerHref: snapshot ? null : `/customers/${invoice.customer.id}`,
     currency: invoice.currency,
     snapshot,
     isPrintable: invoice.status !== 'DRAFT' && Boolean(invoice.snapshot),
   };
+
+  return withholdingType === 'IRPF' && withholdingAmountCents
+    ? {
+        ...display,
+        withholding: {
+          type: 'IRPF',
+          rateLabel: formatRateLabel(withholdingRate),
+          amountCents: withholdingAmountCents,
+        },
+      }
+    : display;
 };
 
 export const invoiceDetailView = (

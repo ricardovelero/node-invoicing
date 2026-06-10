@@ -44,9 +44,15 @@ export type InvoiceCalculation = {
   lineDiscountCents: number;
   discountCents: number;
   taxCents: number;
+  withholdingAmountCents: number;
   totalCents: number;
   lines: InvoiceLineCalculation[];
 };
+
+export type WithholdingCalculationInput = {
+  type: 'IRPF';
+  rate: number;
+} | null;
 
 export const amountToCents = (amount: number) => Math.round(amount * 100);
 
@@ -73,6 +79,19 @@ export const calculateDiscountCents = (
 
 const calculateTaxCents = (taxableCents: number, taxRate: number) =>
   Math.round((taxableCents * percentToBasisPoints(taxRate)) / 10_000);
+
+export const calculateWithholdingCents = (
+  taxableBaseCents: number,
+  withholding: WithholdingCalculationInput,
+) => {
+  if (!withholding || taxableBaseCents <= 0 || withholding.rate <= 0) {
+    return 0;
+  }
+
+  return Math.round(
+    (taxableBaseCents * percentToBasisPoints(withholding.rate)) / 10_000,
+  );
+};
 
 const allocateCents = (amountCents: number, weights: number[]) => {
   const totalWeight = weights.reduce((total, weight) => total + weight, 0);
@@ -112,6 +131,7 @@ const allocateCents = (amountCents: number, weights: number[]) => {
 export const calculateInvoiceTotals = (
   lineInputs: InvoiceLineCalculationInput[],
   invoiceDiscount: DiscountInput,
+  withholding: WithholdingCalculationInput = null,
 ): InvoiceCalculation => {
   const linesBeforeInvoiceDiscount = lineInputs.map((line) => {
     const unitPriceCents = amountToCents(line.unitPrice);
@@ -166,13 +186,19 @@ export const calculateInvoiceTotals = (
     };
   });
   const taxCents = lines.reduce((total, line) => total + line.taxCents, 0);
+  const taxableBaseCents = taxableSubtotalCents - discountCents;
+  const withholdingAmountCents = calculateWithholdingCents(
+    taxableBaseCents,
+    withholding,
+  );
 
   return {
     subtotalCents,
     lineDiscountCents,
     discountCents,
     taxCents,
-    totalCents: taxableSubtotalCents - discountCents + taxCents,
+    withholdingAmountCents,
+    totalCents: taxableBaseCents + taxCents - withholdingAmountCents,
     lines,
   };
 };

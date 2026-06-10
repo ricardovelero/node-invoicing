@@ -13,9 +13,14 @@ type CurrentOrganization = Pick<
   | "addressLine1"
   | "city"
   | "country"
+  | "countryCode"
+  | "legalForm"
   | "currency"
   | "locale"
   | "paymentInstructions"
+  | "withholdingEnabled"
+  | "defaultWithholdingType"
+  | "defaultWithholdingRate"
 >;
 
 export type AuthContext = {
@@ -73,9 +78,14 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
             addressLine1: true,
             city: true,
             country: true,
+            countryCode: true,
+            legalForm: true,
             currency: true,
             locale: true,
             paymentInstructions: true,
+            withholdingEnabled: true,
+            defaultWithholdingType: true,
+            defaultWithholdingRate: true,
           },
         },
       },

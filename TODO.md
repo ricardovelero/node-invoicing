@@ -4,8 +4,6 @@
 
 ## Billing correctness
 
-- Add tax rate models and country-specific tax behavior.
-
 ## Documents and delivery
 
 ## Engineering

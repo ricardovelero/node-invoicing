@@ -1,10 +1,10 @@
 import type { Request, RequestHandler, Response } from 'express';
 import {
   createInvoiceFormValues,
+  createInvoiceFormSchema,
   formatInvoiceMetadataErrors,
   formatInvoiceFormErrors,
   formatInvoicePaymentErrors,
-  invoiceFormSchema,
   invoiceListQuerySchema,
   invoiceMetadataSchema,
   invoicePaymentSchema,
@@ -16,6 +16,10 @@ import {
   type InvoiceFormValues,
   type InvoiceMetadataIntent,
 } from './invoice.schema';
+import {
+  canUseInvoiceWithholding,
+  formatRateLabel,
+} from '../../lib/withholding';
 import {
   canEditInvoice,
   createInvoiceRecord,
@@ -53,6 +57,10 @@ type InvoiceFormRenderOptions = {
   values: InvoiceFormValues;
   errors: InvoiceFormErrors;
   formError?: string;
+  withholdingOptions: {
+    isAvailable: boolean;
+    defaultRate: string;
+  };
 };
 
 const renderInvoiceForm = (
@@ -69,6 +77,7 @@ const renderInvoiceForm = (
     values,
     errors,
     formError,
+    withholdingOptions,
   }: InvoiceFormRenderOptions,
 ) => {
   const response = status ? res.status(status) : res;
@@ -84,6 +93,7 @@ const renderInvoiceForm = (
     values,
     errors,
     formError,
+    withholdingOptions,
   });
 };
 
@@ -156,6 +166,18 @@ const invoicePdfFileName = (invoiceNumber: string) => {
 const absoluteInvoiceUrl = (req: Request, path: string) =>
   `${req.protocol}://${req.get('host')}${path}`;
 
+type RequestOrganization = NonNullable<Request['auth']>['organization'];
+
+const invoiceWithholdingOptions = (organization: RequestOrganization) => ({
+  isAvailable: canUseInvoiceWithholding(organization),
+  defaultRate: formatRateLabel(organization.defaultWithholdingRate) || '15',
+});
+
+const invoiceFormSchemaForOrganization = (organization: RequestOrganization) =>
+  createInvoiceFormSchema({
+    withholdingAllowed: canUseInvoiceWithholding(organization),
+  });
+
 export const listInvoices: RequestHandler = async (req, res) => {
   const query = invoiceListQuerySchema.parse(req.query);
   const invoices = await getInvoices(req.auth!.organization.id, query);
@@ -171,6 +193,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
   const values = createInvoiceFormValues(
     req.auth!.organization.paymentInstructions ?? '',
     req.auth!.organization.currency,
+    invoiceWithholdingOptions(req.auth!.organization).defaultRate,
   );
   const customerId = preselectedCustomerIdFromQuery(req.query, customers);
 
@@ -186,11 +209,12 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
     customers,
     values,
     errors: {},
+    withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
   });
 };
 
 export const createInvoice: RequestHandler = async (req, res) => {
-  const result = invoiceFormSchema.safeParse(req.body);
+  const result = invoiceFormSchemaForOrganization(req.auth!.organization).safeParse(req.body);
   const organizationId = req.auth!.organization.id;
   const customers = await getInvoiceFormOptions(organizationId);
   const intent = invoiceCreateIntentFromBody(req.body);
@@ -208,6 +232,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
 
@@ -225,6 +250,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
         customers,
         values: normalizeInvoiceFormValues(req.body),
         errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
 
@@ -240,6 +266,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
             req.t('invoices.errors.chooseCustomerWithEmail'),
           ],
         },
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
 
@@ -253,6 +280,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
         errors: {},
         formError:
           req.t('invoices.errors.missingBillingEmail'),
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
 
@@ -295,6 +323,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
 
@@ -560,13 +589,14 @@ export const renderEditInvoice: RequestHandler = async (req, res) => {
     customers,
     values: invoiceToFormValues(invoice),
     errors: {},
+    withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
   });
 };
 
 export const editInvoice: RequestHandler = async (req, res) => {
   const invoiceId = String(req.params.invoiceId);
   const organizationId = req.auth!.organization.id;
-  const result = invoiceFormSchema.safeParse(req.body);
+  const result = invoiceFormSchemaForOrganization(req.auth!.organization).safeParse(req.body);
   const customers = await getInvoiceFormOptions(organizationId);
 
   if (!result.success) {
@@ -579,6 +609,7 @@ export const editInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
 
@@ -610,6 +641,7 @@ export const editInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
 

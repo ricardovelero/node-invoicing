@@ -37,6 +37,27 @@ export const setupInvoiceForms = () => {
       const invoiceTotal = form.querySelector<HTMLElement>(
         '[data-invoice-total]',
       );
+      const invoiceWithholding = form.querySelector<HTMLElement>(
+        '[data-invoice-withholding]',
+      );
+      const invoiceWithholdingLabel = form.querySelector<HTMLElement>(
+        '[data-invoice-withholding-label]',
+      );
+      const invoiceWithholdingRow = form.querySelector<HTMLElement>(
+        '[data-invoice-withholding-row]',
+      );
+      const invoiceWithholdingToggle = form.querySelector<HTMLInputElement>(
+        '[data-invoice-apply-withholding]',
+      );
+      const invoiceWithholdingRate = form.querySelector<HTMLInputElement>(
+        '[data-invoice-withholding-rate]',
+      );
+      const invoiceWithholdingRatePanel = form.querySelector<HTMLElement>(
+        '[data-invoice-withholding-rate-panel]',
+      );
+      const invoiceWithholdingRateType = form.querySelector<HTMLSelectElement>(
+        '[data-invoice-withholding-rate-type]',
+      );
       const invoiceDiscountType = form.querySelector<HTMLSelectElement>(
         '[data-invoice-discount-type]',
       );
@@ -114,8 +135,35 @@ export const setupInvoiceForms = () => {
           invoiceSubtotal,
           invoiceTax,
           invoiceTotal,
+          invoiceWithholding,
+          invoiceWithholdingLabel,
+          invoiceWithholdingRate,
+          invoiceWithholdingRow,
+          invoiceWithholdingToggle,
           lineDiscountTotal,
         });
+      };
+
+      const updateWithholdingVisibility = () => {
+        const isApplied = invoiceWithholdingToggle?.checked === true;
+        invoiceWithholdingRatePanel?.classList.toggle('hidden', !isApplied);
+        if (!isApplied) {
+          invoiceWithholdingRow?.classList.add('hidden');
+        }
+      };
+
+      const syncStandardWithholdingRate = () => {
+        if (!invoiceWithholdingRate || !invoiceWithholdingRateType) {
+          return;
+        }
+
+        if (invoiceWithholdingRateType.value === '15') {
+          invoiceWithholdingRate.value = '15';
+        }
+
+        if (invoiceWithholdingRateType.value === '7') {
+          invoiceWithholdingRate.value = '7';
+        }
       };
 
       const addLineForForm = () => {
@@ -149,8 +197,14 @@ export const setupInvoiceForms = () => {
           event.target.matches('[data-invoice-unit-price]') ||
           event.target.matches('[data-invoice-line-discount-value]') ||
           event.target.matches('[data-invoice-tax-rate]') ||
-          event.target.matches('[data-invoice-discount-value]')
+          event.target.matches('[data-invoice-discount-value]') ||
+          event.target.matches('[data-invoice-withholding-rate]')
         ) {
+          updateTotalsForForm();
+        }
+
+        if (event.target.matches('[data-invoice-apply-withholding]')) {
+          updateWithholdingVisibility();
           updateTotalsForForm();
         }
       });
@@ -163,10 +217,14 @@ export const setupInvoiceForms = () => {
         if (
           event.target.matches('[data-invoice-line-discount-type]') ||
           event.target.matches('[data-invoice-discount-type]') ||
-          event.target.matches('[data-invoice-currency-select]')
+          event.target.matches('[data-invoice-currency-select]') ||
+          event.target.matches('[data-invoice-withholding-rate-type]')
         ) {
           if (event.target.matches('[data-invoice-currency-select]')) {
             updateCurrencyForForm();
+          }
+          if (event.target.matches('[data-invoice-withholding-rate-type]')) {
+            syncStandardWithholdingRate();
           }
           updateTotalsForForm();
         }
@@ -223,6 +281,8 @@ export const setupInvoiceForms = () => {
       });
 
       updateCurrencyForForm();
+      updateWithholdingVisibility();
+      syncStandardWithholdingRate();
       updateTotalsForForm();
     });
 };

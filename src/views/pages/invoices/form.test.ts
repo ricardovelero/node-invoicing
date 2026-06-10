@@ -49,3 +49,12 @@ test("invoice form renders right-aligned new invoice draft and send actions", ()
   assert.match(template, /{% if sendSubmitLabel %}/);
   assert.match(template, /{% else %}/);
 });
+
+test("invoice form renders the IRPF section only when withholding options are available", () => {
+  assert.match(template, /if withholdingOptions\.isAvailable/);
+  assert.match(template, /name="applyWithholding"/);
+  assert.match(template, /data-invoice-apply-withholding/);
+  assert.match(template, /name="withholdingType" value="IRPF"/);
+  assert.match(template, /data-invoice-withholding-rate/);
+  assert.match(template, /data-invoice-withholding-row/);
+});
