@@ -72,9 +72,9 @@
     </div>
 
     {% if withholdingEligible %}
-      <section class="rounded-md border border-line bg-panel p-4">
+      <section class="rounded-md border border-line bg-panel p-4" data-withholding-settings>
         <div class="flex items-start gap-3">
-          <input id="withholdingEnabled" class="mt-1 h-4 w-4" name="withholdingEnabled" type="checkbox" {{ 'checked' if values.withholdingEnabled else '' }}>
+          <input id="withholdingEnabled" class="mt-1 h-4 w-4" name="withholdingEnabled" type="checkbox" {{ 'checked' if values.withholdingEnabled else '' }} data-withholding-enabled>
           <div>
             <label class="font-semibold" for="withholdingEnabled">{{ t('settings.withholding.enableIrpf') }}</label>
             <p class="mt-1 text-sm text-muted">{{ t('settings.withholding.irpfHelp') }}</p>
@@ -82,18 +82,18 @@
           </div>
         </div>
         <input type="hidden" name="defaultWithholdingType" value="IRPF">
-        <div class="mt-4 grid gap-5 sm:grid-cols-[180px_1fr]">
+        <div class="mt-4 grid gap-5 sm:grid-cols-[180px_1fr]" data-withholding-rate-fields>
           <div>
             <label for="defaultWithholdingRateType">{{ t('settings.fields.defaultWithholdingRate') }}</label>
-            <select id="defaultWithholdingRateType" name="defaultWithholdingRateType">
+            <select id="defaultWithholdingRateType" name="defaultWithholdingRateType" data-withholding-rate-type>
               <option value="15" {{ 'selected' if values.defaultWithholdingRateType == '15' else '' }}>15%</option>
               <option value="7" {{ 'selected' if values.defaultWithholdingRateType == '7' else '' }}>7%</option>
               <option value="custom" {{ 'selected' if values.defaultWithholdingRateType == 'custom' else '' }}>{{ t('settings.withholding.customRate') }}</option>
             </select>
           </div>
-          <div>
+          <div data-withholding-custom-rate>
             <label for="defaultWithholdingRate">{{ t('settings.fields.customWithholdingRate') }}</label>
-            <input id="defaultWithholdingRate" name="defaultWithholdingRate" type="number" min="0.01" max="100" step="0.01" value="{{ values.defaultWithholdingRate or '15' }}">
+            <input id="defaultWithholdingRate" name="defaultWithholdingRate" type="number" min="0.01" max="100" step="0.01" value="{{ values.defaultWithholdingRate }}" data-withholding-rate-input>
             {% if errors.defaultWithholdingType %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingType[0] }}</p>{% endif %}
             {% if errors.defaultWithholdingRate %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingRate[0] }}</p>{% endif %}
           </div>

@@ -182,6 +182,34 @@ test("renderOrganizationSettings renders current organization values", () => {
   });
 });
 
+test("renderOrganizationSettings preserves stored custom withholding rate values", () => {
+  const req = createRequest();
+  req.auth.organization.countryCode = "ES";
+  req.auth.organization.legalForm = "sole_trader";
+  req.auth.organization.withholdingEnabled = true;
+  req.auth.organization.defaultWithholdingType = "IRPF";
+  req.auth.organization.defaultWithholdingRate = { toString: () => "12.5" } as never;
+  const res = createResponse();
+
+  renderOrganizationSettings(req, res, () => undefined);
+
+  const data = res.renderedData as {
+    values: {
+      withholdingEnabled: string;
+      defaultWithholdingType: string;
+      defaultWithholdingRateType: string;
+      defaultWithholdingRate: string;
+    };
+    withholdingEligible: boolean;
+  };
+
+  assert.equal(data.withholdingEligible, true);
+  assert.equal(data.values.withholdingEnabled, "on");
+  assert.equal(data.values.defaultWithholdingType, "IRPF");
+  assert.equal(data.values.defaultWithholdingRateType, "custom");
+  assert.equal(data.values.defaultWithholdingRate, "12.5");
+});
+
 test("updateOrganizationSettingsController returns field errors for invalid submissions", async () => {
   let updateCalls = 0;
   prismaMock.organization.update = async () => {
@@ -246,6 +274,37 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
   });
   assert.deepEqual(req.flashMessages.success, ["Organisation settings updated."]);
   assert.equal(res.redirectedTo, "/settings/organization");
+});
+
+test("updateOrganizationSettingsController keeps the custom rate type selected when the rate is missing", async () => {
+  let updateCalls = 0;
+  prismaMock.organization.update = async () => {
+    updateCalls += 1;
+  };
+  const req = createRequest({
+    countryCode: "ES",
+    legalForm: "sole_trader",
+    currency: "EUR",
+    withholdingEnabled: "on",
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRateType: "custom",
+    defaultWithholdingRate: "",
+  });
+  const res = createResponse();
+
+  await updateOrganizationSettingsController(req, res, () => undefined);
+
+  assert.equal(updateCalls, 0);
+  assert.equal(res.statusCode, 422);
+
+  const data = res.renderedData as {
+    values: { defaultWithholdingRateType: string; defaultWithholdingRate: string };
+    errors: Record<string, string[]>;
+  };
+
+  assert.equal(data.values.defaultWithholdingRateType, "custom");
+  assert.equal(data.values.defaultWithholdingRate, "");
+  assert.deepEqual(data.errors.defaultWithholdingRate, ["Enter a withholding rate."]);
 });
 
 test("renderLocalizationSettings renders the current locale", () => {

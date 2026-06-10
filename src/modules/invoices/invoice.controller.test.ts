@@ -869,7 +869,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
       invoiceDiscountValue: "10.00",
       applyWithholding: false,
       withholdingType: "",
-      withholdingRateType: "custom",
+      withholdingRateType: "15",
       withholdingRate: "15",
       lines: [
         {
@@ -889,6 +889,43 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
       defaultRate: "15",
     },
   });
+});
+
+test("renderEditInvoice preserves custom withholding values", async () => {
+  const invoice = {
+    ...printableInvoice,
+    status: "DRAFT" as const,
+    snapshot: null,
+    withholdingType: "IRPF",
+    withholdingRate: { toString: () => "12.5" } as never,
+    withholdingAmountCents: 1250,
+  };
+  const customers = [{ id: "customer_1", name: "Ada Co" }];
+  prismaMock.invoice.findFirst = async () => invoice;
+  prismaMock.customer.findMany = async () => customers;
+  const req = createRequest({}, { invoiceId: invoice.id });
+  req.auth.organization.countryCode = "ES";
+  req.auth.organization.legalForm = "sole_trader";
+  req.auth.organization.withholdingEnabled = true;
+  req.auth.organization.defaultWithholdingType = "IRPF";
+  req.auth.organization.defaultWithholdingRate = { toString: () => "15" } as never;
+  const res = createResponse();
+
+  await renderEditInvoice(req, res, () => undefined);
+
+  const values = (res.renderedData as {
+    values: {
+      applyWithholding: boolean;
+      withholdingType: string;
+      withholdingRateType: string;
+      withholdingRate: string;
+    };
+  }).values;
+
+  assert.equal(values.applyWithholding, true);
+  assert.equal(values.withholdingType, "IRPF");
+  assert.equal(values.withholdingRateType, "custom");
+  assert.equal(values.withholdingRate, "12.5");
 });
 
 test("renderEditInvoice redirects non-draft invoices", async () => {

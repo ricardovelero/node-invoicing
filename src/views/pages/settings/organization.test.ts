@@ -29,6 +29,24 @@ describe("organization settings form", () => {
     assert.doesNotMatch(settingsTemplate, /name="locale"/);
   });
 
+  test("exposes data hooks for the custom withholding rate toggle", () => {
+    assert.match(settingsTemplate, /<section[^>]*data-withholding-settings/);
+    assert.match(
+      settingsTemplate,
+      /id="withholdingEnabled"[^>]*data-withholding-enabled/,
+    );
+    assert.match(settingsTemplate, /data-withholding-rate-fields/);
+    assert.match(
+      settingsTemplate,
+      /id="defaultWithholdingRateType"[^>]*data-withholding-rate-type/,
+    );
+    assert.match(settingsTemplate, /<div data-withholding-custom-rate>/);
+    assert.match(
+      settingsTemplate,
+      /id="defaultWithholdingRate"[^>]*data-withholding-rate-input/,
+    );
+  });
+
   test("uses countryCode as the only editable organization country field", () => {
     assert.match(
       settingsTemplate,

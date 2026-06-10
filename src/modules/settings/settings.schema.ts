@@ -124,32 +124,52 @@ const sourceText = (
   fallback = '',
 ) => (value === null || value === undefined ? fallback : value.toString());
 
+const withholdingRateTypes = ['15', '7', 'custom'] as const;
+
+const resolveWithholdingRateType = (
+  organization: OrganizationSettingsSource,
+) => {
+  // Form submissions carry an explicit rate type; the organization row does
+  // not, so fall back to deriving it from the stored rate.
+  const explicit = sourceText(organization.defaultWithholdingRateType);
+
+  if ((withholdingRateTypes as readonly string[]).includes(explicit)) {
+    return explicit;
+  }
+
+  const rate = rateToNumber(organization.defaultWithholdingRate);
+
+  if (rate === 15 || rate === 7) {
+    return String(rate);
+  }
+
+  return organization.defaultWithholdingRate ? 'custom' : '15';
+};
+
 export const createOrganizationSettingsValues = (
   organization: OrganizationSettingsSource = {},
-): OrganizationSettingsValues => ({
-  legalName: sourceText(organization.legalName),
-  billingEmail: sourceText(organization.billingEmail),
-  taxId: sourceText(organization.taxId),
-  addressLine1: sourceText(organization.addressLine1),
-  city: sourceText(organization.city),
-  countryCode: sourceText(organization.countryCode),
-  legalForm: sourceText(organization.legalForm, 'other'),
-  currency: sourceText(organization.currency, 'EUR'),
-  withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
-  defaultWithholdingType: sourceText(organization.defaultWithholdingType),
-  defaultWithholdingRateType: (() => {
-    const rate = rateToNumber(organization.defaultWithholdingRate);
+): OrganizationSettingsValues => {
+  const defaultWithholdingRateType = resolveWithholdingRateType(organization);
 
-    if (rate === 15 || rate === 7) {
-      return String(rate);
-    }
-
-    return organization.defaultWithholdingRate ? 'custom' : '15';
-  })(),
-  defaultWithholdingRate:
-    rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
-  paymentInstructions: sourceText(organization.paymentInstructions),
-});
+  return {
+    legalName: sourceText(organization.legalName),
+    billingEmail: sourceText(organization.billingEmail),
+    taxId: sourceText(organization.taxId),
+    addressLine1: sourceText(organization.addressLine1),
+    city: sourceText(organization.city),
+    countryCode: sourceText(organization.countryCode),
+    legalForm: sourceText(organization.legalForm, 'other'),
+    currency: sourceText(organization.currency, 'EUR'),
+    withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
+    defaultWithholdingType: sourceText(organization.defaultWithholdingType),
+    defaultWithholdingRateType,
+    defaultWithholdingRate:
+      defaultWithholdingRateType === 'custom'
+        ? sourceText(organization.defaultWithholdingRate)
+        : rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
+    paymentInstructions: sourceText(organization.paymentInstructions),
+  };
+};
 
 export const localizationSettingsSchema = z.object({
   locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
