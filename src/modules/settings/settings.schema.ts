@@ -29,7 +29,6 @@ export const organizationSettingsSchema = z.object({
   currency: z.enum(supportedCurrencies, {
     error: 'Choose a supported currency.',
   }),
-  locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
   withholdingEnabled: z.preprocess(
     (value) => value === 'on' || value === 'true' || value === true,
     z.boolean(),
@@ -125,30 +124,76 @@ const sourceText = (
   fallback = '',
 ) => (value === null || value === undefined ? fallback : value.toString());
 
+const withholdingRateTypes = ['15', '7', 'custom'] as const;
+
+const resolveWithholdingRateType = (
+  organization: OrganizationSettingsSource,
+) => {
+  // Form submissions carry an explicit rate type; the organization row does
+  // not, so fall back to deriving it from the stored rate.
+  const explicit = sourceText(organization.defaultWithholdingRateType);
+
+  if ((withholdingRateTypes as readonly string[]).includes(explicit)) {
+    return explicit;
+  }
+
+  const rate = rateToNumber(organization.defaultWithholdingRate);
+
+  if (rate === 15 || rate === 7) {
+    return String(rate);
+  }
+
+  return organization.defaultWithholdingRate ? 'custom' : '15';
+};
+
 export const createOrganizationSettingsValues = (
   organization: OrganizationSettingsSource = {},
-): OrganizationSettingsValues => ({
-  legalName: sourceText(organization.legalName),
-  billingEmail: sourceText(organization.billingEmail),
-  taxId: sourceText(organization.taxId),
-  addressLine1: sourceText(organization.addressLine1),
-  city: sourceText(organization.city),
-  countryCode: sourceText(organization.countryCode),
-  legalForm: sourceText(organization.legalForm, 'other'),
-  currency: sourceText(organization.currency, 'EUR'),
+): OrganizationSettingsValues => {
+  const defaultWithholdingRateType = resolveWithholdingRateType(organization);
+
+  return {
+    legalName: sourceText(organization.legalName),
+    billingEmail: sourceText(organization.billingEmail),
+    taxId: sourceText(organization.taxId),
+    addressLine1: sourceText(organization.addressLine1),
+    city: sourceText(organization.city),
+    countryCode: sourceText(organization.countryCode),
+    legalForm: sourceText(organization.legalForm, 'other'),
+    currency: sourceText(organization.currency, 'EUR'),
+    withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
+    defaultWithholdingType: sourceText(organization.defaultWithholdingType),
+    defaultWithholdingRateType,
+    defaultWithholdingRate:
+      defaultWithholdingRateType === 'custom'
+        ? sourceText(organization.defaultWithholdingRate)
+        : rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
+    paymentInstructions: sourceText(organization.paymentInstructions),
+  };
+};
+
+export const localizationSettingsSchema = z.object({
+  locale: z.enum(supportedLocales, { error: 'Choose a supported locale.' }),
+});
+
+export type LocalizationSettingsForm = z.infer<
+  typeof localizationSettingsSchema
+>;
+
+export type LocalizationSettingsValues = Record<
+  keyof LocalizationSettingsForm,
+  string
+>;
+
+export type LocalizationSettingsErrors = Partial<
+  Record<keyof LocalizationSettingsForm, string[]>
+>;
+
+type LocalizationSettingsSource = Partial<{
+  locale: string | { toString: () => string } | null | undefined;
+}>;
+
+export const createLocalizationSettingsValues = (
+  organization: LocalizationSettingsSource = {},
+): LocalizationSettingsValues => ({
   locale: sourceText(organization.locale, 'en-GB'),
-  withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
-  defaultWithholdingType: sourceText(organization.defaultWithholdingType),
-  defaultWithholdingRateType: (() => {
-    const rate = rateToNumber(organization.defaultWithholdingRate);
-
-    if (rate === 15 || rate === 7) {
-      return String(rate);
-    }
-
-    return organization.defaultWithholdingRate ? 'custom' : '15';
-  })(),
-  defaultWithholdingRate:
-    rateToNumber(organization.defaultWithholdingRate)?.toString() ?? '15',
-  paymentInstructions: sourceText(organization.paymentInstructions),
 });

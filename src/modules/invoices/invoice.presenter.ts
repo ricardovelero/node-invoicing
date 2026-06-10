@@ -63,6 +63,24 @@ const dateToInputValue = (date: Date) => date.toISOString().slice(0, 10);
 const formatTaxRateLabel = (taxRateBps: number) =>
   `${(taxRateBps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
 
+const invoiceWithholdingRateFormValues = (
+  withholdingRate: InvoiceDetails['withholdingRate'],
+) => {
+  const rate = formatRateLabel(withholdingRate);
+
+  if (!rate) {
+    return {
+      withholdingRateType: '15',
+      withholdingRate: '15',
+    } satisfies Pick<InvoiceFormValues, 'withholdingRateType' | 'withholdingRate'>;
+  }
+
+  return {
+    withholdingRateType: rate === '15' || rate === '7' ? rate : 'custom',
+    withholdingRate: rate,
+  } satisfies Pick<InvoiceFormValues, 'withholdingRateType' | 'withholdingRate'>;
+};
+
 const invoiceStatusBadges: Record<
   InvoiceStatus,
   { label: string; labelKey: string; variant: BadgeVariant }
@@ -330,12 +348,7 @@ export const invoiceToFormValues = (invoice: InvoiceDetails): InvoiceFormValues 
   invoiceDiscountValue: centsToAmountInput(invoice.discountCents),
   applyWithholding: invoice.withholdingType === 'IRPF',
   withholdingType: invoice.withholdingType === 'IRPF' ? 'IRPF' : '',
-  withholdingRateType: (() => {
-    const rate = formatRateLabel(invoice.withholdingRate);
-
-    return rate === '15' || rate === '7' ? rate : 'custom';
-  })(),
-  withholdingRate: formatRateLabel(invoice.withholdingRate) || '15',
+  ...invoiceWithholdingRateFormValues(invoice.withholdingRate),
   lines: invoice.lines.map((line) => ({
     description: line.description,
     quantity: String(line.quantity),

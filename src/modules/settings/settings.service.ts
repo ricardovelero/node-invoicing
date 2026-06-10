@@ -1,6 +1,9 @@
 import { prisma } from "../../db/prisma";
 import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding";
-import type { OrganizationSettingsForm } from "./settings.schema";
+import type {
+  LocalizationSettingsForm,
+  OrganizationSettingsForm,
+} from "./settings.schema";
 
 const emptyToNull = (value: string) => value || null;
 
@@ -27,7 +30,6 @@ export const updateOrganizationSettings = (
       countryCode: withholdingSettings.countryCode,
       legalForm: withholdingSettings.legalForm,
       currency: data.currency,
-      locale: data.locale,
       withholdingEnabled: withholdingSettings.withholdingEnabled,
       defaultWithholdingType: withholdingSettings.defaultWithholdingType,
       defaultWithholdingRate: withholdingSettings.defaultWithholdingRate,
@@ -35,3 +37,14 @@ export const updateOrganizationSettings = (
     },
   });
 };
+
+export const updateLocalizationSettings = (
+  organizationId: string,
+  data: LocalizationSettingsForm,
+) =>
+  prisma.organization.update({
+    where: { id: organizationId },
+    data: {
+      locale: data.locale,
+    },
+  });

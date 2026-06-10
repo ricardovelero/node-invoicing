@@ -1,0 +1,12 @@
+{% extends "pages/settings/_layout.njk" %}
+
+{% block settingsContent %}
+  <div class="grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for key in ['general', 'organization', 'localization', 'security', 'organizations'] %}
+      <a class="card card-body block transition hover:border-action" href="/settings/{{ key }}">
+        <h2 class="text-base font-semibold">{{ t('settings.nav.' + key) }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ t('settings.sections.' + key + '.description') }}</p>
+      </a>
+    {% endfor %}
+  </div>
+{% endblock %}

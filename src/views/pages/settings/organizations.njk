@@ -1,0 +1,11 @@
+{% extends "pages/settings/_layout.njk" %}
+
+{% block settingsContent %}
+  <section class="card max-w-3xl">
+    <div class="card-body">
+      <h2 class="text-xl font-semibold">{{ t('settings.sections.organizations.title') }}</h2>
+      <p class="mt-1 text-sm text-muted">{{ t('settings.sections.organizations.description') }}</p>
+      <p class="mt-4 text-sm text-muted">{{ t('settings.sections.organizations.placeholder') }}</p>
+    </div>
+  </section>
+{% endblock %}

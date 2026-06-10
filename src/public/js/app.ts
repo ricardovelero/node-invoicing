@@ -2,6 +2,7 @@ import { setupPasswordToggles, setupRegisterForms } from "./auth";
 import { setupConfirmDialogs } from "./confirm-dialogs";
 import { setupInlineEditors } from "./inline-editors";
 import { setupInvoiceForms } from "./invoices";
+import { setupWithholdingRateControls } from "./settings";
 import { setupUnsavedChangesGuards } from "./unsaved-changes";
 
 const setupFlashMessages = () => {
@@ -31,3 +32,4 @@ setupFlashMessages();
 setupPrintButtons();
 setupRegisterForms();
 setupPasswordToggles();
+setupWithholdingRateControls();

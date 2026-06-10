@@ -1,0 +1,20 @@
+{% set settingsTabs = [
+  { label: t('settings.nav.general'), href: "/settings/general", key: "general" },
+  { label: t('settings.nav.organization'), href: "/settings/organization", key: "organization" },
+  { label: t('settings.nav.localization'), href: "/settings/localization", key: "localization" },
+  { label: t('settings.nav.security'), href: "/settings/security", key: "security" },
+  { label: t('settings.nav.organizations'), href: "/settings/organizations", key: "organizations" }
+] %}
+<nav aria-label="{{ t('settings.nav.label') }}" class="mb-6 border-b border-line">
+  <ul class="-mb-px flex flex-wrap gap-1 text-sm">
+    {% for tab in settingsTabs %}
+      <li>
+        <a
+          href="{{ tab.href }}"
+          class="inline-block border-b-2 px-3 py-2 font-medium {{ 'border-action text-ink' if activeSettingsPage == tab.key else 'border-transparent text-muted hover:border-line hover:text-ink' }}"
+          {% if activeSettingsPage == tab.key %}aria-current="page"{% endif %}
+        >{{ tab.label }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>

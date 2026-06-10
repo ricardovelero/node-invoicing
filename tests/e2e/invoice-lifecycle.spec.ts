@@ -118,10 +118,14 @@ const createCustomer = async (page: Page, suffix: string) => {
 
 const setOrganizationBillingEmail = async (page: Page, suffix: string) => {
   await page.getByRole('link', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('link', { name: 'Organisation', exact: true })
+    .click();
   await page.getByLabel('Billing email').fill(`billing-${suffix}@example.test`);
   await page.getByRole('button', { name: 'Save settings' }).click();
 
-  await expect(page).toHaveURL('/settings');
+  await expect(page).toHaveURL('/settings/organization');
 };
 
 const fillInvoiceLine = async (

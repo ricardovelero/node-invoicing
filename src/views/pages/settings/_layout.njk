@@ -1,0 +1,12 @@
+{% extends "layouts/app.njk" %}
+
+{% block content %}
+  <div class="mb-6">
+    <h1 class="text-3xl font-semibold">{{ t('settings.title') }}</h1>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.intro') }}</p>
+  </div>
+
+  {% include "pages/settings/_settings-nav.njk" %}
+
+  {% block settingsContent %}{% endblock %}
+{% endblock %}

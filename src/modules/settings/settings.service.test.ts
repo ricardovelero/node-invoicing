@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { prisma } from "../../db/prisma";
-import { updateOrganizationSettings } from "./settings.service";
+import {
+  updateLocalizationSettings,
+  updateOrganizationSettings,
+} from "./settings.service";
 
 const prismaMock = prisma as unknown as {
   organization: {
@@ -32,7 +35,6 @@ test("updateOrganizationSettings updates the current organization and stores emp
     countryCode: "GB",
     legalForm: "company",
     currency: "GBP",
-    locale: "es-ES",
     withholdingEnabled: true,
     defaultWithholdingType: "IRPF",
     defaultWithholdingRateType: "15",
@@ -52,7 +54,6 @@ test("updateOrganizationSettings updates the current organization and stores emp
       countryCode: "GB",
       legalForm: "company",
       currency: "GBP",
-      locale: "es-ES",
       withholdingEnabled: false,
       defaultWithholdingType: null,
       defaultWithholdingRate: null,
@@ -78,7 +79,6 @@ test("updateOrganizationSettings allows Spanish sole traders to enable IRPF with
     countryCode: "ES",
     legalForm: "sole_trader",
     currency: "EUR",
-    locale: "es-ES",
     withholdingEnabled: true,
     defaultWithholdingType: "IRPF",
     defaultWithholdingRateType: "15",
@@ -95,7 +95,6 @@ test("updateOrganizationSettings allows Spanish sole traders to enable IRPF with
     countryCode: "ES",
     legalForm: "sole_trader",
     currency: "EUR",
-    locale: "es-ES",
     withholdingEnabled: true,
     defaultWithholdingType: "IRPF",
     defaultWithholdingRate: 15,
@@ -126,7 +125,6 @@ test("updateOrganizationSettings forces IRPF off for Spanish companies and non-S
       countryCode: testCase.countryCode,
       legalForm: testCase.legalForm,
       currency: "EUR",
-      locale: "en-GB",
       withholdingEnabled: true,
       defaultWithholdingType: "IRPF",
       defaultWithholdingRateType: "15",
@@ -138,4 +136,24 @@ test("updateOrganizationSettings forces IRPF off for Spanish companies and non-S
     assert.equal((updateArgs as { data: { defaultWithholdingType: string | null } }).data.defaultWithholdingType, null);
     assert.equal((updateArgs as { data: { defaultWithholdingRate: number | null } }).data.defaultWithholdingRate, null);
   }
+});
+
+test("updateLocalizationSettings updates only the organization locale", async () => {
+  let updateArgs: unknown;
+
+  prismaMock.organization.update = async (args: unknown) => {
+    updateArgs = args;
+    return { id: "org_1" };
+  };
+
+  const organization = await updateLocalizationSettings(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    { locale: "en-US" },
+  );
+
+  assert.deepEqual(organization, { id: "org_1" });
+  assert.deepEqual(updateArgs, {
+    where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    data: { locale: "en-US" },
+  });
 });

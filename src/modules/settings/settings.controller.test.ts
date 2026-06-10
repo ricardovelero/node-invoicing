@@ -4,7 +4,13 @@ import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
+  renderGeneralSettings,
+  renderLocalizationSettings,
   renderOrganizationSettings,
+  renderOrganizationsSettings,
+  renderSecuritySettings,
+  renderSettingsOverview,
+  updateLocalizationSettingsController,
   updateOrganizationSettingsController,
 } from "./settings.controller";
 
@@ -100,15 +106,62 @@ const createResponse = () => {
   return res as unknown as MockResponse;
 };
 
+test("renderSettingsOverview renders the settings overview", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  renderSettingsOverview(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/index.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Settings",
+    activeSettingsPage: "overview",
+  });
+});
+
+test("placeholder sections render their pages with the active tab", () => {
+  const cases = [
+    {
+      handler: renderGeneralSettings,
+      view: "pages/settings/general.njk",
+      activeSettingsPage: "general",
+    },
+    {
+      handler: renderSecuritySettings,
+      view: "pages/settings/security.njk",
+      activeSettingsPage: "security",
+    },
+    {
+      handler: renderOrganizationsSettings,
+      view: "pages/settings/organizations.njk",
+      activeSettingsPage: "organizations",
+    },
+  ];
+
+  for (const testCase of cases) {
+    const req = createRequest();
+    const res = createResponse();
+
+    testCase.handler(req, res, () => undefined);
+
+    assert.equal(res.renderedView, testCase.view);
+    assert.equal(
+      (res.renderedData as { activeSettingsPage: string }).activeSettingsPage,
+      testCase.activeSettingsPage,
+    );
+  }
+});
+
 test("renderOrganizationSettings renders current organization values", () => {
   const req = createRequest();
   const res = createResponse();
 
   renderOrganizationSettings(req, res, () => undefined);
 
-  assert.equal(res.renderedView, "pages/settings/form.njk");
+  assert.equal(res.renderedView, "pages/settings/organization.njk");
   assert.deepEqual(res.renderedData, {
     title: "Organisation settings",
+    activeSettingsPage: "organization",
     values: {
       legalName: "Analytical Engines Ltd",
       billingEmail: "billing@example.com",
@@ -118,7 +171,6 @@ test("renderOrganizationSettings renders current organization values", () => {
       countryCode: "GB",
       legalForm: "company",
       currency: "GBP",
-      locale: "es-ES",
       withholdingEnabled: "",
       defaultWithholdingType: "",
       defaultWithholdingRateType: "15",
@@ -130,6 +182,34 @@ test("renderOrganizationSettings renders current organization values", () => {
   });
 });
 
+test("renderOrganizationSettings preserves stored custom withholding rate values", () => {
+  const req = createRequest();
+  req.auth.organization.countryCode = "ES";
+  req.auth.organization.legalForm = "sole_trader";
+  req.auth.organization.withholdingEnabled = true;
+  req.auth.organization.defaultWithholdingType = "IRPF";
+  req.auth.organization.defaultWithholdingRate = { toString: () => "12.5" } as never;
+  const res = createResponse();
+
+  renderOrganizationSettings(req, res, () => undefined);
+
+  const data = res.renderedData as {
+    values: {
+      withholdingEnabled: string;
+      defaultWithholdingType: string;
+      defaultWithholdingRateType: string;
+      defaultWithholdingRate: string;
+    };
+    withholdingEligible: boolean;
+  };
+
+  assert.equal(data.withholdingEligible, true);
+  assert.equal(data.values.withholdingEnabled, "on");
+  assert.equal(data.values.defaultWithholdingType, "IRPF");
+  assert.equal(data.values.defaultWithholdingRateType, "custom");
+  assert.equal(data.values.defaultWithholdingRate, "12.5");
+});
+
 test("updateOrganizationSettingsController returns field errors for invalid submissions", async () => {
   let updateCalls = 0;
   prismaMock.organization.update = async () => {
@@ -138,7 +218,6 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
   const req = createRequest({
     currency: "JPY",
     countryCode: "GB",
-    locale: "fr-FR",
     billingEmail: "not-an-email",
     paymentInstructions: "x".repeat(2001),
   });
@@ -148,11 +227,10 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
 
   assert.equal(updateCalls, 0);
   assert.equal(res.statusCode, 422);
-  assert.equal(res.renderedView, "pages/settings/form.njk");
+  assert.equal(res.renderedView, "pages/settings/organization.njk");
   assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
     billingEmail: ["Enter a valid billing email."],
     currency: ["Choose a supported currency."],
-    locale: ["Choose a supported locale."],
     paymentInstructions: ["Payment instructions must be 2,000 characters or fewer."],
   });
 });
@@ -171,7 +249,6 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
     city: "  London  ",
     countryCode: "  gb  ",
     currency: "GBP",
-    locale: "es-ES",
     paymentInstructions: "  Pay by bank transfer.  ",
   });
   const res = createResponse();
@@ -189,7 +266,6 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
       countryCode: "GB",
       legalForm: "other",
       currency: "GBP",
-      locale: "es-ES",
       withholdingEnabled: false,
       defaultWithholdingType: null,
       defaultWithholdingRate: null,
@@ -197,5 +273,88 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
     },
   });
   assert.deepEqual(req.flashMessages.success, ["Organisation settings updated."]);
-  assert.equal(res.redirectedTo, "/settings");
+  assert.equal(res.redirectedTo, "/settings/organization");
+});
+
+test("updateOrganizationSettingsController keeps the custom rate type selected when the rate is missing", async () => {
+  let updateCalls = 0;
+  prismaMock.organization.update = async () => {
+    updateCalls += 1;
+  };
+  const req = createRequest({
+    countryCode: "ES",
+    legalForm: "sole_trader",
+    currency: "EUR",
+    withholdingEnabled: "on",
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRateType: "custom",
+    defaultWithholdingRate: "",
+  });
+  const res = createResponse();
+
+  await updateOrganizationSettingsController(req, res, () => undefined);
+
+  assert.equal(updateCalls, 0);
+  assert.equal(res.statusCode, 422);
+
+  const data = res.renderedData as {
+    values: { defaultWithholdingRateType: string; defaultWithholdingRate: string };
+    errors: Record<string, string[]>;
+  };
+
+  assert.equal(data.values.defaultWithholdingRateType, "custom");
+  assert.equal(data.values.defaultWithholdingRate, "");
+  assert.deepEqual(data.errors.defaultWithholdingRate, ["Enter a withholding rate."]);
+});
+
+test("renderLocalizationSettings renders the current locale", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  renderLocalizationSettings(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/localization.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Localisation settings",
+    activeSettingsPage: "localization",
+    values: { locale: "es-ES" },
+    errors: {},
+  });
+});
+
+test("updateLocalizationSettingsController returns field errors for invalid submissions", async () => {
+  let updateCalls = 0;
+  prismaMock.organization.update = async () => {
+    updateCalls += 1;
+  };
+  const req = createRequest({ locale: "fr-FR" });
+  const res = createResponse();
+
+  await updateLocalizationSettingsController(req, res, () => undefined);
+
+  assert.equal(updateCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/localization.njk");
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
+    locale: ["Choose a supported locale."],
+  });
+});
+
+test("updateLocalizationSettingsController updates the locale and redirects", async () => {
+  let updateArgs: unknown;
+  prismaMock.organization.update = async (args: unknown) => {
+    updateArgs = args;
+    return { id: "org_1" };
+  };
+  const req = createRequest({ locale: "en-US" });
+  const res = createResponse();
+
+  await updateLocalizationSettingsController(req, res, () => undefined);
+
+  assert.deepEqual(updateArgs, {
+    where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    data: { locale: "en-US" },
+  });
+  assert.deepEqual(req.flashMessages.success, ["Localisation settings updated."]);
+  assert.equal(res.redirectedTo, "/settings/localization");
 });
