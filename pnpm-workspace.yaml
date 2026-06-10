@@ -13,3 +13,6 @@ overrides:
   # (HTTP response header manipulation). compression/express-session already use
   # 1.1.0; this dedupes morgan's copy onto the patched line.
   'on-headers': ^1.1.0
+  # Patch transitive shell-quote (via concurrently, dev-only) for GHSA-w7jw-789q-3m8p
+  # (quote() does not escape newlines in object .op values).
+  'shell-quote': ^1.8.4
