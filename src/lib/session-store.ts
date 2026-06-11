@@ -1,16 +1,35 @@
 import session, { type SessionData } from "express-session";
 import { Prisma } from "@prisma/client";
+import {
+  daysToMs,
+  defaultSessionIdleTimeoutMinutes,
+  minutesToMs,
+} from "./session-policy";
 
 type StoredSession = {
   data: Prisma.JsonValue;
   expiresAt: Date;
+  lastSeenAt: Date;
   revokedAt: Date | null;
+  organization: {
+    sessionIdleTimeoutMinutes: number;
+  } | null;
 };
 
 type SessionDelegate = {
   findUnique: (args: {
     where: { id: string };
-    select: { data: true; expiresAt: true; revokedAt: true };
+    select: {
+      data: true;
+      expiresAt: true;
+      lastSeenAt: true;
+      revokedAt: true;
+      organization: {
+        select: {
+          sessionIdleTimeoutMinutes: true;
+        };
+      };
+    };
   }) => Promise<StoredSession | null>;
   upsert: (args: {
     where: { id: string };
@@ -50,6 +69,11 @@ export type PrismaSessionStoreOptions = {
 
 const toNullableString = (value: unknown) =>
   typeof value === "string" && value ? value : null;
+
+const toPositiveNumber = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
 
 const serializeSession = (sessionData: SessionData) =>
   JSON.parse(JSON.stringify(sessionData)) as Prisma.InputJsonValue;
@@ -101,11 +125,28 @@ export class PrismaSessionStore extends session.Store {
       select: {
         data: true,
         expiresAt: true,
+        lastSeenAt: true,
         revokedAt: true,
+        organization: {
+          select: {
+            sessionIdleTimeoutMinutes: true,
+          },
+        },
       },
     });
 
     if (!storedSession || storedSession.revokedAt || storedSession.expiresAt <= this.now()) {
+      return null;
+    }
+
+    const idleTimeoutMinutes =
+      storedSession.organization?.sessionIdleTimeoutMinutes ??
+      defaultSessionIdleTimeoutMinutes;
+    const idleExpiresAt = new Date(
+      storedSession.lastSeenAt.getTime() + minutesToMs(idleTimeoutMinutes),
+    );
+
+    if (idleExpiresAt <= this.now()) {
       return null;
     }
 
@@ -114,7 +155,13 @@ export class PrismaSessionStore extends session.Store {
 
   private async setSession(sid: string, sessionData: SessionData) {
     const now = this.now();
-    const expiresAt = new Date(now.getTime() + this.maxAgeMs);
+    const absoluteLifetimeDays = toPositiveNumber(
+      sessionData.sessionAbsoluteLifetimeDays,
+    );
+    const expiresAt = new Date(
+      now.getTime() +
+        (absoluteLifetimeDays ? daysToMs(absoluteLifetimeDays) : this.maxAgeMs),
+    );
     const data = serializeSession(sessionData);
     const userId = toNullableString(sessionData.userId);
     const organizationId = toNullableString(sessionData.organizationId);

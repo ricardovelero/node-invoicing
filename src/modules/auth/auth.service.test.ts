@@ -99,7 +99,13 @@ test("registerUser normalizes email, hashes password, and creates the owner memb
     organizationName: "Analytical Engines",
   });
 
-  assert.deepEqual(result, { ok: true, userId: "user_1", organizationId: "org_1" });
+  assert.deepEqual(result, {
+    ok: true,
+    userId: "user_1",
+    organizationId: "org_1",
+    sessionIdleTimeoutMinutes: 30,
+    sessionAbsoluteLifetimeDays: 14,
+  });
   assert.equal(createdUserData?.name, "Ada Lovelace");
   assert.equal(createdUserData?.email, "ada@example.com");
   assert.equal(
@@ -142,7 +148,15 @@ test("authenticateUser normalizes email, verifies credentials, and returns the o
     return {
       id: "user_1",
       passwordHash,
-      memberships: [{ organizationId: "org_1" }],
+      memberships: [
+        {
+          organizationId: "org_1",
+          organization: {
+            sessionIdleTimeoutMinutes: 45,
+            sessionAbsoluteLifetimeDays: 21,
+          },
+        },
+      ],
     };
   };
 
@@ -157,10 +171,24 @@ test("authenticateUser normalizes email, verifies credentials, and returns the o
       memberships: {
         orderBy: { createdAt: "asc" },
         take: 1,
+        include: {
+          organization: {
+            select: {
+              sessionIdleTimeoutMinutes: true,
+              sessionAbsoluteLifetimeDays: true,
+            },
+          },
+        },
       },
     },
   });
-  assert.deepEqual(result, { ok: true, userId: "user_1", organizationId: "org_1" });
+  assert.deepEqual(result, {
+    ok: true,
+    userId: "user_1",
+    organizationId: "org_1",
+    sessionIdleTimeoutMinutes: 45,
+    sessionAbsoluteLifetimeDays: 21,
+  });
 });
 
 test("authenticateUser returns invalidCredentials for missing users and incorrect passwords", async () => {
@@ -176,7 +204,15 @@ test("authenticateUser returns invalidCredentials for missing users and incorrec
   prismaMock.user.findUnique = async () => ({
     id: "user_1",
     passwordHash,
-    memberships: [{ organizationId: "org_1" }],
+    memberships: [
+      {
+        organizationId: "org_1",
+        organization: {
+          sessionIdleTimeoutMinutes: 30,
+          sessionAbsoluteLifetimeDays: 14,
+        },
+      },
+    ],
   });
 
   assert.deepEqual(

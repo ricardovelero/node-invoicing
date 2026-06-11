@@ -5,6 +5,8 @@ declare module "express-session" {
     csrfToken?: string;
     ip?: string;
     organizationId?: string;
+    sessionAbsoluteLifetimeDays?: number;
+    sessionIdleTimeoutMinutes?: number;
     userAgent?: string;
     userId?: string;
   }

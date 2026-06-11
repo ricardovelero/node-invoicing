@@ -7,6 +7,9 @@ import { PrismaSessionStore } from "./session-store";
 type StoredSession = {
   data: Prisma.JsonValue;
   expiresAt: Date;
+  organization: {
+    sessionIdleTimeoutMinutes: number;
+  } | null;
   revokedAt: Date | null;
   lastSeenAt: Date;
   userId: string | null;
@@ -32,6 +35,8 @@ const createMemoryDelegate = (rows: Record<string, StoredSession> = {}) => ({
         ? {
             data: row.data,
             expiresAt: row.expiresAt,
+            lastSeenAt: row.lastSeenAt,
+            organization: row.organization,
             revokedAt: row.revokedAt,
           }
         : null;
@@ -66,6 +71,7 @@ const createMemoryDelegate = (rows: Record<string, StoredSession> = {}) => ({
       rows[args.where.id] = {
         data: args.create.data as Prisma.JsonValue,
         expiresAt: args.create.expiresAt,
+        organization: null,
         revokedAt: null,
         lastSeenAt: args.create.lastSeenAt,
         userId: args.create.userId,
@@ -160,6 +166,9 @@ test("PrismaSessionStore returns stored session data", async () => {
       data: { userId: "user_1", csrfToken: "token" },
       expiresAt: new Date("2026-06-25T10:00:00.000Z"),
       revokedAt: null,
+      organization: {
+        sessionIdleTimeoutMinutes: 30,
+      },
       lastSeenAt: new Date("2026-06-11T10:00:00.000Z"),
       userId: "user_1",
       organizationId: "org_1",
@@ -178,6 +187,9 @@ test("PrismaSessionStore rejects expired and revoked sessions", async () => {
   const baseRow = {
     data: { userId: "user_1" },
     lastSeenAt: new Date("2026-06-11T10:00:00.000Z"),
+    organization: {
+      sessionIdleTimeoutMinutes: 30,
+    },
     userId: "user_1",
     organizationId: "org_1",
     userAgent: "Browser",
@@ -200,6 +212,26 @@ test("PrismaSessionStore rejects expired and revoked sessions", async () => {
   assert.equal(await getSession(store, "revoked"), null);
 });
 
+test("PrismaSessionStore rejects sessions past the organization idle timeout", async () => {
+  const { store } = createStore({
+    idle_expired: {
+      data: { userId: "user_1" },
+      expiresAt: new Date("2026-06-25T10:00:00.000Z"),
+      revokedAt: null,
+      organization: {
+        sessionIdleTimeoutMinutes: 30,
+      },
+      lastSeenAt: new Date("2026-06-11T09:29:59.000Z"),
+      userId: "user_1",
+      organizationId: "org_1",
+      userAgent: "Browser",
+      ip: "203.0.113.10",
+    },
+  });
+
+  assert.equal(await getSession(store, "idle_expired"), null);
+});
+
 test("PrismaSessionStore creates rows with metadata and a fixed lifetime", async () => {
   const now = new Date("2026-06-11T10:00:00.000Z");
   const { store, rows } = createStore({}, now);
@@ -207,6 +239,7 @@ test("PrismaSessionStore creates rows with metadata and a fixed lifetime", async
   await setSession(store, "sid_1", {
     userId: "user_1",
     organizationId: "11111111-1111-1111-1111-111111111111",
+    sessionAbsoluteLifetimeDays: 21,
     userAgent: "Browser",
     ip: "203.0.113.10",
   } as SessionData);
@@ -214,6 +247,7 @@ test("PrismaSessionStore creates rows with metadata and a fixed lifetime", async
   assert.deepEqual(rows.sid_1.data, {
     userId: "user_1",
     organizationId: "11111111-1111-1111-1111-111111111111",
+    sessionAbsoluteLifetimeDays: 21,
     userAgent: "Browser",
     ip: "203.0.113.10",
   });
@@ -222,7 +256,7 @@ test("PrismaSessionStore creates rows with metadata and a fixed lifetime", async
   assert.equal(rows.sid_1.userAgent, "Browser");
   assert.equal(rows.sid_1.ip, "203.0.113.10");
   assert.equal(rows.sid_1.lastSeenAt.getTime(), now.getTime());
-  assert.equal(rows.sid_1.expiresAt.getTime(), now.getTime() + sessionMaxAgeMs);
+  assert.equal(rows.sid_1.expiresAt.getTime(), now.getTime() + 21 * dayMs);
 });
 
 test("PrismaSessionStore updates metadata without extending the original expiry", async () => {
@@ -258,6 +292,9 @@ test("PrismaSessionStore touches lastSeenAt and preserves session data", async (
     sid_1: {
       data: { userId: "user_1" },
       expiresAt: new Date("2026-06-25T10:00:00.000Z"),
+      organization: {
+        sessionIdleTimeoutMinutes: 30,
+      },
       revokedAt: null,
       lastSeenAt: new Date("2026-06-10T10:00:00.000Z"),
       userId: "user_1",
@@ -281,6 +318,9 @@ test("PrismaSessionStore marks sessions revoked on destroy", async () => {
     sid_1: {
       data: { userId: "user_1" },
       expiresAt: new Date("2026-06-25T10:00:00.000Z"),
+      organization: {
+        sessionIdleTimeoutMinutes: 30,
+      },
       revokedAt: null,
       lastSeenAt: new Date("2026-06-10T10:00:00.000Z"),
       userId: "user_1",

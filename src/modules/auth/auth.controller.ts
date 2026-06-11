@@ -13,6 +13,7 @@ import {
 } from './auth.schema';
 import * as authService from './auth.service';
 import { applySessionMetadata } from '../../middleware/session-metadata';
+import { daysToMs } from '../../lib/session-policy';
 
 const renderRegisterForm = (
   res: Parameters<RequestHandler>[1],
@@ -80,6 +81,18 @@ const destroySession = (req: Request) =>
       resolve();
     });
   });
+
+const assignAuthenticatedSession = (
+  req: Request,
+  sessionUser: authService.AuthSessionContext,
+) => {
+  applySessionMetadata(req);
+  req.session.userId = sessionUser.userId;
+  req.session.organizationId = sessionUser.organizationId;
+  req.session.sessionIdleTimeoutMinutes = sessionUser.sessionIdleTimeoutMinutes;
+  req.session.sessionAbsoluteLifetimeDays = sessionUser.sessionAbsoluteLifetimeDays;
+  req.session.cookie.maxAge = daysToMs(sessionUser.sessionAbsoluteLifetimeDays);
+};
 
 export const renderRegister: RequestHandler = (req, res) => {
   if (req.auth) {
@@ -238,9 +251,7 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
 
     await regenerateSession(req);
 
-    applySessionMetadata(req);
-    req.session.userId = sessionUser.userId;
-    req.session.organizationId = sessionUser.organizationId;
+    assignAuthenticatedSession(req, sessionUser);
 
     req.flash('success', 'Account created successfully.');
 
@@ -277,9 +288,7 @@ export const loginUser: RequestHandler = async (req, res, next) => {
 
     await regenerateSession(req);
 
-    applySessionMetadata(req);
-    req.session.userId = sessionUser.userId;
-    req.session.organizationId = sessionUser.organizationId;
+    assignAuthenticatedSession(req, sessionUser);
 
     return res.redirect('/');
   } catch (error) {

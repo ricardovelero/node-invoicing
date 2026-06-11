@@ -2,8 +2,10 @@ import type { RequestHandler } from "express";
 import {
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
+  createSecuritySettingsValues,
   localizationSettingsSchema,
   organizationSettingsSchema,
+  securitySettingsSchema,
 } from "./settings.schema";
 import {
   getWithholdingRateOptions,
@@ -12,6 +14,7 @@ import {
 import {
   updateLocalizationSettings,
   updateOrganizationSettings,
+  updateSecuritySettings,
 } from "./settings.service";
 
 const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSettingsValues>) =>
@@ -98,7 +101,26 @@ export const renderSecuritySettings: RequestHandler = (req, res) => {
   res.render("pages/settings/security.njk", {
     title: req.t("settings.sections.security.title"),
     activeSettingsPage: "security",
+    values: createSecuritySettingsValues(req.auth!.organization),
+    errors: {},
   });
+};
+
+export const updateSecuritySettingsController: RequestHandler = async (req, res) => {
+  const result = securitySettingsSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(422).render("pages/settings/security.njk", {
+      title: req.t("settings.sections.security.title"),
+      activeSettingsPage: "security",
+      values: createSecuritySettingsValues(req.body),
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
+  await updateSecuritySettings(req.auth!.organization.id, result.data);
+  req.flash("success", req.t("settings.flash.securityUpdated"));
+  res.redirect("/settings/security");
 };
 
 export const renderOrganizationsSettings: RequestHandler = (req, res) => {

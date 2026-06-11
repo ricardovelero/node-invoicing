@@ -3,6 +3,7 @@ import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding"
 import type {
   LocalizationSettingsForm,
   OrganizationSettingsForm,
+  SecuritySettingsForm,
 } from "./settings.schema";
 
 const emptyToNull = (value: string) => value || null;
@@ -46,5 +47,17 @@ export const updateLocalizationSettings = (
     where: { id: organizationId },
     data: {
       locale: data.locale,
+    },
+  });
+
+export const updateSecuritySettings = (
+  organizationId: string,
+  data: SecuritySettingsForm,
+) =>
+  prisma.organization.update({
+    where: { id: organizationId },
+    data: {
+      sessionIdleTimeoutMinutes: data.sessionIdleTimeoutMinutes,
+      sessionAbsoluteLifetimeDays: data.sessionAbsoluteLifetimeDays,
     },
   });

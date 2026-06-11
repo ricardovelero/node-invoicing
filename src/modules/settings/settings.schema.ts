@@ -2,6 +2,14 @@ import { z } from 'zod';
 import { supportedOrganizationCountryCodes } from '../../lib/countries';
 import { supportedLocales } from '../../lib/i18n';
 import {
+  defaultSessionAbsoluteLifetimeDays,
+  defaultSessionIdleTimeoutMinutes,
+  maxSessionAbsoluteLifetimeDays,
+  maxSessionIdleTimeoutMinutes,
+  minSessionAbsoluteLifetimeDays,
+  minSessionIdleTimeoutMinutes,
+} from '../../lib/session-policy';
+import {
   customRateType,
   legalForms,
   rateToNumber,
@@ -212,4 +220,82 @@ export const createLocalizationSettingsValues = (
   organization: LocalizationSettingsSource = {},
 ): LocalizationSettingsValues => ({
   locale: sourceText(organization.locale, 'en-GB'),
+});
+
+const integerInput = (messages: {
+  required: string;
+  invalid: string;
+  min: string;
+  max: string;
+  minValue: number;
+  maxValue: number;
+}) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value ?? ''),
+    z
+      .string()
+      .min(1, messages.required)
+      .transform((value, ctx) => {
+        const numericValue = Number(value);
+
+        if (!Number.isInteger(numericValue)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: messages.invalid,
+          });
+          return z.NEVER;
+        }
+
+        return numericValue;
+      })
+      .refine((value) => value >= messages.minValue, messages.min)
+      .refine((value) => value <= messages.maxValue, messages.max),
+  );
+
+export const securitySettingsSchema = z.object({
+  sessionIdleTimeoutMinutes: integerInput({
+    required: 'Enter an idle timeout.',
+    invalid: 'Idle timeout must be a whole number of minutes.',
+    min: `Idle timeout must be at least ${minSessionIdleTimeoutMinutes} minutes.`,
+    max: `Idle timeout must be ${maxSessionIdleTimeoutMinutes} minutes or fewer.`,
+    minValue: minSessionIdleTimeoutMinutes,
+    maxValue: maxSessionIdleTimeoutMinutes,
+  }),
+  sessionAbsoluteLifetimeDays: integerInput({
+    required: 'Enter an absolute session lifetime.',
+    invalid: 'Absolute session lifetime must be a whole number of days.',
+    min: `Absolute session lifetime must be at least ${minSessionAbsoluteLifetimeDays} day.`,
+    max: `Absolute session lifetime must be ${maxSessionAbsoluteLifetimeDays} days or fewer.`,
+    minValue: minSessionAbsoluteLifetimeDays,
+    maxValue: maxSessionAbsoluteLifetimeDays,
+  }),
+});
+
+export type SecuritySettingsForm = z.infer<typeof securitySettingsSchema>;
+
+export type SecuritySettingsValues = Record<
+  keyof SecuritySettingsForm,
+  string
+>;
+
+export type SecuritySettingsErrors = Partial<
+  Record<keyof SecuritySettingsForm, string[]>
+>;
+
+type SecuritySettingsSource = Partial<{
+  sessionIdleTimeoutMinutes: string | number | { toString: () => string } | null | undefined;
+  sessionAbsoluteLifetimeDays: string | number | { toString: () => string } | null | undefined;
+}>;
+
+export const createSecuritySettingsValues = (
+  organization: SecuritySettingsSource = {},
+): SecuritySettingsValues => ({
+  sessionIdleTimeoutMinutes: sourceText(
+    organization.sessionIdleTimeoutMinutes,
+    defaultSessionIdleTimeoutMinutes.toString(),
+  ),
+  sessionAbsoluteLifetimeDays: sourceText(
+    organization.sessionAbsoluteLifetimeDays,
+    defaultSessionAbsoluteLifetimeDays.toString(),
+  ),
 });

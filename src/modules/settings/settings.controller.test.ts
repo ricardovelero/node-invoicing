@@ -12,6 +12,7 @@ import {
   renderSettingsOverview,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
+  updateSecuritySettingsController,
 } from "./settings.controller";
 
 type MockRequest = Request & {
@@ -66,6 +67,8 @@ const createRequest = (body: Record<string, unknown> = {}) =>
         currency: "GBP",
         locale: "es-ES",
         paymentInstructions: "Pay by bank transfer.",
+        sessionIdleTimeoutMinutes: 45,
+        sessionAbsoluteLifetimeDays: 21,
       },
       role: "OWNER",
     },
@@ -321,6 +324,73 @@ test("renderLocalizationSettings renders the current locale", () => {
     values: { locale: "es-ES" },
     errors: {},
   });
+});
+
+test("renderSecuritySettings renders current session timeout values", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  renderSecuritySettings(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Security settings",
+    activeSettingsPage: "security",
+    values: {
+      sessionIdleTimeoutMinutes: "45",
+      sessionAbsoluteLifetimeDays: "21",
+    },
+    errors: {},
+  });
+});
+
+test("updateSecuritySettingsController returns field errors for invalid submissions", async () => {
+  let updateCalls = 0;
+  prismaMock.organization.update = async () => {
+    updateCalls += 1;
+  };
+  const req = createRequest({
+    sessionIdleTimeoutMinutes: "4",
+    sessionAbsoluteLifetimeDays: "91",
+  });
+  const res = createResponse();
+
+  await updateSecuritySettingsController(req, res, () => undefined);
+
+  assert.equal(updateCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
+    sessionIdleTimeoutMinutes: ["Idle timeout must be at least 5 minutes."],
+    sessionAbsoluteLifetimeDays: [
+      "Absolute session lifetime must be 90 days or fewer.",
+    ],
+  });
+});
+
+test("updateSecuritySettingsController updates timeout settings and redirects", async () => {
+  let updateArgs: unknown;
+  prismaMock.organization.update = async (args: unknown) => {
+    updateArgs = args;
+    return { id: "org_1" };
+  };
+  const req = createRequest({
+    sessionIdleTimeoutMinutes: "30",
+    sessionAbsoluteLifetimeDays: "14",
+  });
+  const res = createResponse();
+
+  await updateSecuritySettingsController(req, res, () => undefined);
+
+  assert.deepEqual(updateArgs, {
+    where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    data: {
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    },
+  });
+  assert.deepEqual(req.flashMessages.success, ["Security settings updated."]);
+  assert.equal(res.redirectedTo, "/settings/security");
 });
 
 test("updateLocalizationSettingsController returns field errors for invalid submissions", async () => {

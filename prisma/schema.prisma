@@ -99,6 +99,8 @@ model Organization {
   withholdingEnabled Boolean @default(false)
   defaultWithholdingType String?
   defaultWithholdingRate Decimal? @db.Decimal(5, 2)
+  sessionIdleTimeoutMinutes Int @default(30)
+  sessionAbsoluteLifetimeDays Int @default(14)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

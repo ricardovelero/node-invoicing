@@ -25,8 +25,7 @@
     },
     "security": {
       "title": "Ajustes de seguridad",
-      "description": "Contraseña y seguridad de la cuenta.",
-      "placeholder": "El restablecimiento de contraseña y otras opciones de seguridad estarán disponibles pronto."
+      "description": "Contraseña y seguridad de la cuenta."
     },
     "organizations": {
       "title": "Organizaciones",
@@ -46,7 +45,9 @@
     "city": "Ciudad",
     "defaultWithholdingRate": "Tipo de IRPF predeterminado",
     "customWithholdingRate": "Tipo",
-    "paymentInstructions": "Instrucciones de pago"
+    "paymentInstructions": "Instrucciones de pago",
+    "sessionIdleTimeoutMinutes": "Tiempo de inactividad (minutos)",
+    "sessionAbsoluteLifetimeDays": "Duración absoluta (días)"
   },
   "legalForms": {
     "soleTrader": "Autónomo",
@@ -60,7 +61,9 @@
   },
   "help": {
     "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección.",
-    "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas."
+    "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas.",
+    "sessionIdleTimeoutMinutes": "Los usuarios tendrán que iniciar sesión de nuevo tras estos minutos sin actividad.",
+    "sessionAbsoluteLifetimeDays": "Los usuarios tendrán que iniciar sesión de nuevo tras estos días aunque sigan activos."
   },
   "placeholders": {
     "billingEmail": "facturacion@example.com",
@@ -71,6 +74,11 @@
   },
   "flash": {
     "updated": "Ajustes de la organización actualizados.",
-    "localizationUpdated": "Ajustes de localización actualizados."
+    "localizationUpdated": "Ajustes de localización actualizados.",
+    "securityUpdated": "Ajustes de seguridad actualizados."
+  },
+  "security": {
+    "sessionTimeouts": "Tiempos de sesión",
+    "sessionTimeoutsDescription": "Controla durante cuánto tiempo siguen siendo válidas las sesiones de la organización."
   }
 }

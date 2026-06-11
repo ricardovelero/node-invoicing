@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import {
   localizationSettingsSchema,
   organizationSettingsSchema,
+  securitySettingsSchema,
 } from "./settings.schema";
 
 describe("organizationSettingsSchema", () => {
@@ -90,5 +91,35 @@ describe("localizationSettingsSchema", () => {
     assert.deepEqual(result.error.flatten().fieldErrors.locale, [
       "Choose a supported locale.",
     ]);
+  });
+});
+
+describe("securitySettingsSchema", () => {
+  test("accepts whole-number session timeout settings", () => {
+    const result = securitySettingsSchema.safeParse({
+      sessionIdleTimeoutMinutes: "30",
+      sessionAbsoluteLifetimeDays: "14",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    });
+  });
+
+  test("rejects timeout values outside supported ranges", () => {
+    const result = securitySettingsSchema.safeParse({
+      sessionIdleTimeoutMinutes: "4",
+      sessionAbsoluteLifetimeDays: "91",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors, {
+      sessionIdleTimeoutMinutes: ["Idle timeout must be at least 5 minutes."],
+      sessionAbsoluteLifetimeDays: [
+        "Absolute session lifetime must be 90 days or fewer.",
+      ],
+    });
   });
 });

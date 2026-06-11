@@ -15,6 +15,13 @@ import * as authService from "./auth.service";
 type MockSession = {
   userId?: string;
   organizationId?: string;
+  sessionIdleTimeoutMinutes?: number;
+  sessionAbsoluteLifetimeDays?: number;
+  userAgent?: string;
+  ip?: string;
+  cookie: {
+    maxAge?: number;
+  };
   regenerateCalls: number;
   destroyCalls: number;
   regenerate: (callback: (error?: Error) => void) => void;
@@ -63,6 +70,7 @@ const createRequest = (
   params: Record<string, string> = {},
 ) => {
   const session: MockSession = {
+    cookie: {},
     regenerateCalls: 0,
     destroyCalls: 0,
     regenerate(callback) {
@@ -149,7 +157,13 @@ test("handleRegister stores the service result in session after creating an acco
   let serviceData: unknown;
   authServiceMock.registerUser = async (data) => {
     serviceData = data;
-    return { ok: true, userId: "user_1", organizationId: "org_1" };
+    return {
+      ok: true,
+      userId: "user_1",
+      organizationId: "org_1",
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    };
   };
 
   const req = createRequest({
@@ -173,6 +187,9 @@ test("handleRegister stores the service result in session after creating an acco
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
   assert.equal(req.session.organizationId, "org_1");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 30);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 14);
+  assert.equal(req.session.cookie.maxAge, 14 * 24 * 60 * 60 * 1000);
   assert.equal(req.session.userAgent, "Test Browser");
   assert.equal(req.session.ip, "203.0.113.10");
   assert.deepEqual(req.flashMessages.success, ["Account created successfully."]);
@@ -184,7 +201,13 @@ test("handleRegister rejects weak passwords and missing organization before crea
 
   authServiceMock.registerUser = async () => {
     serviceCalls += 1;
-    return { ok: true, userId: "user_1", organizationId: "org_1" };
+    return {
+      ok: true,
+      userId: "user_1",
+      organizationId: "org_1",
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    };
   };
 
   const req = createRequest({
@@ -458,7 +481,13 @@ test("loginUser stores the authenticated service result in session", async () =>
 
   authServiceMock.authenticateUser = async (data) => {
     serviceData = data;
-    return { ok: true, userId: "user_1", organizationId: "org_1" };
+    return {
+      ok: true,
+      userId: "user_1",
+      organizationId: "org_1",
+      sessionIdleTimeoutMinutes: 45,
+      sessionAbsoluteLifetimeDays: 21,
+    };
   };
 
   const req = createRequest({
@@ -478,6 +507,9 @@ test("loginUser stores the authenticated service result in session", async () =>
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
   assert.equal(req.session.organizationId, "org_1");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 45);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 21);
+  assert.equal(req.session.cookie.maxAge, 21 * 24 * 60 * 60 * 1000);
   assert.equal(req.session.userAgent, "Test Browser");
   assert.equal(req.session.ip, "203.0.113.10");
   assert.equal(res.redirectedTo, "/");

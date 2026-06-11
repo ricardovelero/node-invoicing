@@ -21,6 +21,8 @@ type CurrentOrganization = Pick<
   | "withholdingEnabled"
   | "defaultWithholdingType"
   | "defaultWithholdingRate"
+  | "sessionIdleTimeoutMinutes"
+  | "sessionAbsoluteLifetimeDays"
 >;
 
 export type AuthContext = {
@@ -79,6 +81,8 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
             withholdingEnabled: true,
             defaultWithholdingType: true,
             defaultWithholdingRate: true,
+            sessionIdleTimeoutMinutes: true,
+            sessionAbsoluteLifetimeDays: true,
           },
         },
       },

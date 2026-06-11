@@ -9,6 +9,7 @@ import {
   renderSettingsOverview,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
+  updateSecuritySettingsController,
 } from "./settings.controller";
 
 export const settingsRouter = Router();
@@ -21,4 +22,5 @@ settingsRouter.post("/organization", updateOrganizationSettingsController);
 settingsRouter.get("/localization", renderLocalizationSettings);
 settingsRouter.post("/localization", updateLocalizationSettingsController);
 settingsRouter.get("/security", renderSecuritySettings);
+settingsRouter.post("/security", updateSecuritySettingsController);
 settingsRouter.get("/organizations", renderOrganizationsSettings);

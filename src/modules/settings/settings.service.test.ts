@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma";
 import {
   updateLocalizationSettings,
   updateOrganizationSettings,
+  updateSecuritySettings,
 } from "./settings.service";
 
 const prismaMock = prisma as unknown as {
@@ -155,5 +156,31 @@ test("updateLocalizationSettings updates only the organization locale", async ()
   assert.deepEqual(updateArgs, {
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     data: { locale: "en-US" },
+  });
+});
+
+test("updateSecuritySettings updates only session timeout fields", async () => {
+  let updateArgs: unknown;
+
+  prismaMock.organization.update = async (args: unknown) => {
+    updateArgs = args;
+    return { id: "org_1" };
+  };
+
+  const organization = await updateSecuritySettings(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    {
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    },
+  );
+
+  assert.deepEqual(organization, { id: "org_1" });
+  assert.deepEqual(updateArgs, {
+    where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    data: {
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    },
   });
 });

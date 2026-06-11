@@ -5,11 +5,17 @@ import bcrypt from 'bcryptjs';
 import nunjucks from 'nunjucks';
 import { env } from '../../config/env';
 import { prisma } from '../../db/prisma';
+import {
+  defaultSessionAbsoluteLifetimeDays,
+  defaultSessionIdleTimeoutMinutes,
+} from '../../lib/session-policy';
 import type { RegisterForm } from './auth.schema';
 
 export type AuthSessionContext = {
   userId: string;
   organizationId: string;
+  sessionIdleTimeoutMinutes: number;
+  sessionAbsoluteLifetimeDays: number;
 };
 
 export type RegisterUserResult =
@@ -240,6 +246,8 @@ export const registerUser = async (
         ok: true as const,
         userId: createdUser.id,
         organizationId: organization.id,
+        sessionIdleTimeoutMinutes: defaultSessionIdleTimeoutMinutes,
+        sessionAbsoluteLifetimeDays: defaultSessionAbsoluteLifetimeDays,
       };
     });
   } catch (error) {
@@ -269,6 +277,14 @@ export const authenticateUser = async (data: {
         memberships: {
           orderBy: { createdAt: 'asc' },
           take: 1,
+          include: {
+            organization: {
+              select: {
+                sessionIdleTimeoutMinutes: true,
+                sessionAbsoluteLifetimeDays: true,
+              },
+            },
+          },
         },
       },
     });
@@ -296,6 +312,8 @@ export const authenticateUser = async (data: {
       ok: true,
       userId: user.id,
       organizationId: membership.organizationId,
+      sessionIdleTimeoutMinutes: membership.organization.sessionIdleTimeoutMinutes,
+      sessionAbsoluteLifetimeDays: membership.organization.sessionAbsoluteLifetimeDays,
     };
   } catch (error) {
     if (isPrismaDatabaseError(error)) {

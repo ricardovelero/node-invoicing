@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { defaultSessionAbsoluteLifetimeDays } from "../lib/session-policy";
 
 const booleanEnv = z.preprocess((value) => {
   if (value === "true" || value === "1") {
@@ -18,7 +19,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
   SESSION_SECRET: z.string().min(16).default("dev-session-secret-change-me"),
-  SESSION_MAX_AGE_DAYS: z.coerce.number().int().positive().default(14),
+  SESSION_MAX_AGE_DAYS: z.coerce.number().int().positive().default(defaultSessionAbsoluteLifetimeDays),
   TRUST_PROXY: booleanEnv.default(false),
   APP_URL: z.string().url().optional(),
   POSTMARK_SERVER_TOKEN: z.string().optional(),
