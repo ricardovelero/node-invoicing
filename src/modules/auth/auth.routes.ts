@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authRateLimiter } from "../../middleware/rate-limit";
+import { createAuthRateLimiter } from "../../middleware/rate-limit";
 import {
   handleForgotPassword,
   handleRegister,
@@ -7,23 +7,43 @@ import {
   loginUser,
   logoutUser,
   renderForgotPassword,
+  renderForgotPasswordRateLimited,
   renderLogin,
+  renderLoginRateLimited,
   renderRegister,
+  renderRegisterRateLimited,
   renderResetPassword,
+  renderResetPasswordRateLimited,
 } from "./auth.controller";
 
 export const authRouter = Router();
 
 authRouter.get("/register", renderRegister);
-authRouter.post("/register", authRateLimiter, handleRegister);
+authRouter.post(
+  "/register",
+  createAuthRateLimiter(renderRegisterRateLimited),
+  handleRegister,
+);
 
 authRouter.get("/login", renderLogin);
-authRouter.post("/login", authRateLimiter, loginUser);
+authRouter.post(
+  "/login",
+  createAuthRateLimiter(renderLoginRateLimited),
+  loginUser,
+);
 
 authRouter.get("/forgot", renderForgotPassword);
-authRouter.post("/forgot", authRateLimiter, handleForgotPassword);
+authRouter.post(
+  "/forgot",
+  createAuthRateLimiter(renderForgotPasswordRateLimited),
+  handleForgotPassword,
+);
 
 authRouter.get("/reset/:token", renderResetPassword);
-authRouter.post("/reset/:token", authRateLimiter, handleResetPassword);
+authRouter.post(
+  "/reset/:token",
+  createAuthRateLimiter(renderResetPasswordRateLimited),
+  handleResetPassword,
+);
 
 authRouter.post("/logout", logoutUser);

@@ -58,6 +58,36 @@ const renderResetPasswordForm = (
 const getResetTokenParam = (req: Request) =>
   typeof req.params.token === 'string' ? req.params.token : '';
 
+const RATE_LIMIT_MESSAGE =
+  'Too many attempts. Please wait a moment and try again.';
+
+const pushRateLimitFlash = (res: Parameters<RequestHandler>[1]) => {
+  const flash = (res.locals.flash ??= { success: [], error: [] });
+  flash.error.push(RATE_LIMIT_MESSAGE);
+};
+
+export const renderLoginRateLimited: RequestHandler = (req, res) => {
+  pushRateLimitFlash(res);
+  return res
+    .status(429)
+    .render('pages/auth/login.njk', { title: 'Log in', values: {} });
+};
+
+export const renderRegisterRateLimited: RequestHandler = (req, res) => {
+  pushRateLimitFlash(res);
+  return renderRegisterForm(res, {}, {}, 429);
+};
+
+export const renderForgotPasswordRateLimited: RequestHandler = (req, res) => {
+  pushRateLimitFlash(res);
+  return renderForgotPasswordForm(res, {}, {}, 429);
+};
+
+export const renderResetPasswordRateLimited: RequestHandler = (req, res) => {
+  pushRateLimitFlash(res);
+  return renderResetPasswordForm(res, getResetTokenParam(req), {}, 429);
+};
+
 const getAuditContext = (req: Request) => ({
   ip: req.ip ?? null,
   userAgent: req.get('user-agent') ?? null,

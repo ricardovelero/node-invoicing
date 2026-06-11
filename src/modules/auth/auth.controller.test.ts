@@ -8,6 +8,7 @@ import {
   loginUser,
   logoutUser,
   renderForgotPassword,
+  renderLoginRateLimited,
   renderResetPassword,
 } from "./auth.controller";
 import * as authService from "./auth.service";
@@ -303,6 +304,23 @@ test("renderForgotPassword renders the forgot password form", () => {
     errors: {},
     success: false,
   });
+});
+
+test("renderLoginRateLimited re-renders the login page with a 429 and a flash error", () => {
+  const req = createRequest();
+  const res = createResponse();
+  res.locals = { flash: { success: [], error: [] } };
+  const next = createNext();
+
+  renderLoginRateLimited(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.renderedView, "pages/auth/login.njk");
+  assert.deepEqual(res.renderedData, { title: "Log in", values: {} });
+  assert.deepEqual(res.locals.flash.error, [
+    "Too many attempts. Please wait a moment and try again.",
+  ]);
 });
 
 test("handleForgotPassword validates email before requesting a reset", async () => {

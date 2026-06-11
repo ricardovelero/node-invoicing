@@ -93,3 +93,28 @@ test("createRateLimiter rejects requests after the limit is exceeded", () => {
     "Too many authentication attempts. Please try again later.",
   );
 });
+
+test("createRateLimiter delegates to onLimitExceeded when provided", () => {
+  let limitExceededCalls = 0;
+  let retryAfterSeconds: number | undefined;
+  const rateLimiter = createRateLimiter({
+    windowMs: 1_000,
+    maxRequests: 1,
+    now: () => 1_000,
+    onLimitExceeded: (_req, _res, _next, info) => {
+      limitExceededCalls += 1;
+      retryAfterSeconds = info.retryAfterSeconds;
+    },
+  });
+  const blockedResponse = createResponse();
+
+  rateLimiter(createRequest(), createResponse(), () => {});
+  rateLimiter(createRequest(), blockedResponse, () => {});
+
+  assert.equal(limitExceededCalls, 1);
+  assert.equal(retryAfterSeconds, 1);
+  assert.equal(blockedResponse.headers["Retry-After"], "1");
+  // Default plain-text fallback must not run when a handler is provided.
+  assert.equal(blockedResponse.statusCode, undefined);
+  assert.equal(blockedResponse.body, undefined);
+});

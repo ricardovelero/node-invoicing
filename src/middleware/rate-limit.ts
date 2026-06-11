@@ -1,4 +1,9 @@
-import type { Request, RequestHandler } from 'express';
+import type {
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+} from 'express';
 import { env } from '../config/env';
 
 type RateLimitEntry = {
@@ -12,6 +17,12 @@ type RateLimiterOptions = {
   keyPrefix?: string;
   keyGenerator?: (req: Request) => string;
   now?: () => number;
+  onLimitExceeded?: (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+    info: { retryAfterSeconds: number },
+  ) => void;
 };
 
 const defaultKeyGenerator = (req: Request) =>
@@ -23,6 +34,7 @@ export const createRateLimiter = ({
   keyPrefix = 'rate-limit',
   keyGenerator = defaultKeyGenerator,
   now = () => Date.now(),
+  onLimitExceeded,
 }: RateLimiterOptions): RequestHandler => {
   const buckets = new Map<string, RateLimitEntry>();
 
@@ -48,6 +60,11 @@ export const createRateLimiter = ({
       );
 
       res.set('Retry-After', String(retryAfterSeconds));
+
+      if (onLimitExceeded) {
+        return onLimitExceeded(req, res, next, { retryAfterSeconds });
+      }
+
       return res
         .status(429)
         .send('Too many authentication attempts. Please try again later.');
@@ -57,8 +74,12 @@ export const createRateLimiter = ({
   };
 };
 
-export const authRateLimiter = createRateLimiter({
-  windowMs: env.AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
-  maxRequests: env.AUTH_RATE_LIMIT_MAX_REQUESTS,
-  keyPrefix: 'auth',
-});
+export const createAuthRateLimiter = (
+  onLimitExceeded: RateLimiterOptions['onLimitExceeded'],
+): RequestHandler =>
+  createRateLimiter({
+    windowMs: env.AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    maxRequests: env.AUTH_RATE_LIMIT_MAX_REQUESTS,
+    keyPrefix: 'auth',
+    onLimitExceeded,
+  });
