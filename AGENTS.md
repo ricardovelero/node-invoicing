@@ -90,3 +90,13 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
 - Keep comments sparse and useful.
 - Do not commit generated `dist/` or `public/assets/` files.
 - Preserve unrelated user changes. Do not revert files outside the current task.
+
+## Code Formatting Rules
+
+- Use single quotes for strings: `'example'`
+- Indent with 2 spaces
+- Always use semicolons
+- Add trailing commas in multiline arrays and objects
+- Avoid unnecessary parentheses in `return` statements unless they improve clarity
+- Keep line length under 100 characters
+- Match nearby import and formatting style.
