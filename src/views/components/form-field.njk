@@ -1,0 +1,35 @@
+{# Shared form-field macros. Rely on the global @layer base input styling and add
+   only the enhanced pattern: styled label + required asterisk, conditional
+   border-red-500 on error, aria-describedby, an error <p> with a hidden toggle,
+   optional help text, and a data-validate opt-in for client-side live validation. #}
+
+{% macro field(name, label, type='text', value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', attrs='') %}
+  <div>
+    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
+    <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %} aria-describedby="{{ name }}-error"{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-2 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
+    <p id="{{ name }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+    {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro passwordField(name, label, autocomplete='current-password', error=None, required=true, validate='', validateLabel='') %}
+  <div>
+    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
+    <div class="relative mt-2">
+      <input id="{{ name }}" name="{{ name }}" type="password"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if required %} required{% endif %}{% if validate == 'password' %} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" title="Use at least 8 characters with uppercase, lowercase and a number."{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %} aria-describedby="{{ name }}-error" data-password-input class="w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 pr-11 text-sm outline-none focus:border-action">
+      <button class="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-muted hover:text-ink" type="button" aria-label="Show password" data-password-toggle>
+        <svg data-eye-open class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg data-eye-closed class="hidden h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3l18 18"></path>
+          <path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"></path>
+          <path d="M9.9 5.2A9.9 9.9 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-2.3 3.2"></path>
+          <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 4.4-1"></path>
+        </svg>
+      </button>
+    </div>
+    <p id="{{ name }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+  </div>
+{% endmacro %}

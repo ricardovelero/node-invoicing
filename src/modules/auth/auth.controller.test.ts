@@ -125,12 +125,14 @@ const createResponse = () => {
     renderedView?: string;
     renderedData?: unknown;
     clearedCookies: string[];
+    locals: Record<string, unknown>;
     status?: (statusCode: number) => MockResponse;
     redirect?: (path: string) => MockResponse;
     render?: (view: string, data: unknown) => MockResponse;
     clearCookie?: (name: string) => MockResponse;
   } = {
     clearedCookies: [],
+    locals: {},
   };
   res.status = (statusCode: number) => {
     res.statusCode = statusCode;
@@ -309,7 +311,6 @@ test("renderForgotPassword renders the forgot password form", () => {
 test("renderLoginRateLimited re-renders the login page with a 429 and a flash error", () => {
   const req = createRequest();
   const res = createResponse();
-  res.locals = { flash: { success: [], error: [] } };
   const next = createNext();
 
   renderLoginRateLimited(req, res, next.next);
@@ -317,8 +318,8 @@ test("renderLoginRateLimited re-renders the login page with a 429 and a flash er
   assert.equal(next.error, undefined);
   assert.equal(res.statusCode, 429);
   assert.equal(res.renderedView, "pages/auth/login.njk");
-  assert.deepEqual(res.renderedData, { title: "Log in", values: {} });
-  assert.deepEqual(res.locals.flash.error, [
+  assert.deepEqual(res.renderedData, { title: "Log in", values: {}, errors: {} });
+  assert.deepEqual((res.locals.flash as { error: string[] }).error, [
     "Too many attempts. Please wait a moment and try again.",
   ]);
 });
@@ -554,7 +555,7 @@ test("loginUser stores the authenticated service result in session", async () =>
 
   assert.equal(next.error, undefined);
   assert.deepEqual(serviceData, {
-    email: " ADA@example.COM ",
+    email: "ada@example.com",
     password: "correct-password",
   });
   assert.equal(req.session.regenerateCalls, 1);
@@ -598,8 +599,17 @@ test("loginUser rejects invalid credentials without creating a session", async (
   assert.equal(req.session.regenerateCalls, 0);
   assert.equal(req.session.userId, undefined);
   assert.equal(req.session.organizationId, undefined);
-  assert.deepEqual(req.flashMessages.error, ["Incorrect credentials."]);
-  assert.equal(res.redirectedTo, "/auth/login");
+  assert.equal(res.redirectedTo, undefined);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.renderedView, "pages/auth/login.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Log in",
+    values: { email: "ada@example.com" },
+    errors: {},
+  });
+  assert.deepEqual((res.locals.flash as { error: string[] }).error, [
+    "Incorrect credentials.",
+  ]);
   assert.deepEqual(auditEvents, [
     {
       type: "LOGIN_FAILURE",
@@ -633,10 +643,17 @@ test("loginUser rejects accounts without an organization membership", async () =
   assert.equal(req.session.regenerateCalls, 0);
   assert.equal(req.session.userId, undefined);
   assert.equal(req.session.organizationId, undefined);
-  assert.deepEqual(req.flashMessages.error, [
+  assert.equal(res.redirectedTo, undefined);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.renderedView, "pages/auth/login.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Log in",
+    values: { email: "ada@example.com" },
+    errors: {},
+  });
+  assert.deepEqual((res.locals.flash as { error: string[] }).error, [
     "This account is not connected to an organization.",
   ]);
-  assert.equal(res.redirectedTo, "/auth/login");
   assert.deepEqual(auditEvents, [
     {
       type: "LOGIN_FAILURE",
@@ -646,6 +663,53 @@ test("loginUser rejects accounts without an organization membership", async () =
       sessionId: "sid_current",
       metadata: {
         reason: "noOrganizationMembership",
+      },
+    },
+  ]);
+});
+
+test("loginUser renders inline field errors for missing credentials without echoing the password", async () => {
+  let serviceCalls = 0;
+
+  authServiceMock.authenticateUser = async () => {
+    serviceCalls += 1;
+    return {
+      ok: true,
+      userId: "user_1",
+      organizationId: "org_1",
+      sessionIdleTimeoutMinutes: 30,
+      sessionAbsoluteLifetimeDays: 14,
+    };
+  };
+
+  const req = createRequest({ email: "", password: "" });
+  const res = createResponse();
+  const next = createNext();
+
+  await loginUser(req, res, next.next);
+
+  assert.equal(next.error, undefined);
+  assert.equal(serviceCalls, 0);
+  assert.equal(req.session.regenerateCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/auth/login.njk");
+
+  const data = res.renderedData as {
+    values: Record<string, unknown>;
+    errors: Record<string, string[]>;
+  };
+  assert.deepEqual(data.values, { email: "" });
+  assert.ok(data.errors.email);
+  assert.ok(data.errors.password);
+  assert.deepEqual(auditEvents, [
+    {
+      type: "LOGIN_FAILURE",
+      email: null,
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        reason: "missingCredentials",
       },
     },
   ]);

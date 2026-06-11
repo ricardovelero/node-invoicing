@@ -76,6 +76,20 @@ export const resetPasswordSchema = z.object({
   password: passwordInput,
 });
 
+export const loginSchema = z.object({
+  email: emailInput,
+  password: stringInput(z.string().min(1, 'Enter your password.')),
+});
+
+export const loginValuesSchema = z.object({
+  email: stringInput(
+    z
+      .string()
+      .trim()
+      .transform((email) => email.toLowerCase()),
+  ),
+});
+
 export type RegisterValues = z.infer<typeof registerValuesSchema>;
 export type RegisterForm = z.infer<typeof registerSchema>;
 export type RegisterErrors = Partial<Record<keyof RegisterForm, string[]>>;
@@ -84,3 +98,6 @@ export type ForgotPasswordValues = z.infer<typeof forgotPasswordValuesSchema>;
 export type ForgotPasswordErrors = Partial<Record<keyof ForgotPasswordForm, string[]>>;
 export type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 export type ResetPasswordErrors = Partial<Record<keyof ResetPasswordForm, string[]>>;
+export type LoginForm = z.infer<typeof loginSchema>;
+export type LoginValues = z.infer<typeof loginValuesSchema>;
+export type LoginErrors = Partial<Record<keyof LoginForm, string[]>>;

@@ -43,94 +43,80 @@ const getRequiredValidationMessage = (
   return '';
 };
 
-export const setupRegisterForms = () => {
+const getErrorElement = (input: HTMLInputElement) => {
+  const id = input.getAttribute('aria-describedby');
+
+  return id ? document.getElementById(id) : null;
+};
+
+const getValidationLabel = (input: HTMLInputElement) => {
+  if (input.dataset.validateLabel) {
+    return input.dataset.validateLabel;
+  }
+
+  const label = input.id
+    ? document.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)
+    : null;
+
+  return (label?.textContent ?? '').replace('*', '').trim().toLowerCase() || 'value';
+};
+
+const getValidationMessage = (input: HTMLInputElement) => {
+  switch (input.dataset.validate) {
+    case 'email':
+      return getEmailValidationMessage(input);
+    case 'password':
+      return getPasswordValidationMessage(input);
+    case 'required':
+      return getRequiredValidationMessage(input, getValidationLabel(input));
+    default:
+      return '';
+  }
+};
+
+export const setupValidatedForms = () => {
   document
-    .querySelectorAll<HTMLFormElement>('[data-register-form]')
+    .querySelectorAll<HTMLFormElement>('[data-validate-form]')
     .forEach((form) => {
-      form.noValidate = true;
+      const fields = Array.from(
+        form.querySelectorAll<HTMLInputElement>('[data-validate]'),
+      ).filter((input) => getErrorElement(input));
 
-      const email = form.querySelector<HTMLInputElement>(
-        '[data-register-email]',
-      );
-      const emailError = form.querySelector<HTMLElement>(
-        '[data-register-email-error]',
-      );
-      const password = form.querySelector<HTMLInputElement>(
-        '[data-register-password]',
-      );
-      const passwordError = form.querySelector<HTMLElement>(
-        '[data-register-password-error]',
-      );
-      const organization = form.querySelector<HTMLInputElement>(
-        '[data-register-organization]',
-      );
-      const organizationError = form.querySelector<HTMLElement>(
-        '[data-register-organization-error]',
-      );
-
-      if (
-        !email ||
-        !emailError ||
-        !password ||
-        !passwordError ||
-        !organization ||
-        !organizationError
-      ) {
+      if (!fields.length) {
         return;
       }
 
-      const validateEmail = () => {
-        const message = getEmailValidationMessage(email);
+      form.noValidate = true;
 
-        setFieldError(email, emailError, message);
+      const validateField = (input: HTMLInputElement) => {
+        const errorElement = getErrorElement(input);
+
+        if (!errorElement) {
+          return true;
+        }
+
+        const message = getValidationMessage(input);
+
+        setFieldError(input, errorElement, message);
 
         return !message;
       };
 
-      const validatePassword = () => {
-        const message = getPasswordValidationMessage(password);
+      fields.forEach((input) => {
+        const errorElement = getErrorElement(input);
 
-        setFieldError(password, passwordError, message);
-
-        return !message;
-      };
-
-      const validateOrganization = () => {
-        const message = getRequiredValidationMessage(
-          organization,
-          'organization name',
-        );
-
-        setFieldError(organization, organizationError, message);
-
-        return !message;
-      };
-
-      email.addEventListener('blur', validateEmail);
-      email.addEventListener('input', () => {
-        if (!emailError.classList.contains('hidden')) {
-          validateEmail();
-        }
-      });
-      password.addEventListener('blur', validatePassword);
-      password.addEventListener('input', () => {
-        if (!passwordError.classList.contains('hidden')) {
-          validatePassword();
-        }
-      });
-      organization.addEventListener('blur', validateOrganization);
-      organization.addEventListener('input', () => {
-        if (!organizationError.classList.contains('hidden')) {
-          validateOrganization();
-        }
+        input.addEventListener('blur', () => validateField(input));
+        input.addEventListener('input', () => {
+          if (errorElement && !errorElement.classList.contains('hidden')) {
+            validateField(input);
+          }
+        });
       });
 
       form.addEventListener('submit', (event) => {
-        const isValid = [
-          validateEmail(),
-          validatePassword(),
-          validateOrganization(),
-        ].every(Boolean);
+        const isValid = fields
+          .map((input) => validateField(input))
+          .every(Boolean);
 
         if (!isValid) {
           event.preventDefault();

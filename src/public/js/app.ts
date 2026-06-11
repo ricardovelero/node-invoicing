@@ -1,4 +1,4 @@
-import { setupPasswordToggles, setupRegisterForms } from "./auth";
+import { setupPasswordToggles, setupValidatedForms } from "./auth";
 import { setupConfirmDialogs } from "./confirm-dialogs";
 import { setupInlineEditors } from "./inline-editors";
 import { setupInvoiceForms } from "./invoices";
@@ -30,6 +30,6 @@ setupInlineEditors();
 setupUnsavedChangesGuards();
 setupFlashMessages();
 setupPrintButtons();
-setupRegisterForms();
+setupValidatedForms();
 setupPasswordToggles();
 setupWithholdingRateControls();
