@@ -1,8 +1,12 @@
 import type { RequestHandler } from "express";
+import * as authService from "../auth/auth.service";
 import {
+  changePasswordSchema,
+  type ChangePasswordErrors,
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
   createSecuritySettingsValues,
+  type SecuritySettingsErrors,
   localizationSettingsSchema,
   organizationSettingsSchema,
   securitySettingsSchema,
@@ -21,6 +25,27 @@ const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSetti
   isSpanishIrpfEligible({
     countryCode: values.countryCode,
     legalForm: values.legalForm,
+  });
+
+const renderSecuritySettingsForm = (
+  req: Parameters<RequestHandler>[0],
+  res: Parameters<RequestHandler>[1],
+  {
+    status = 200,
+    timeoutErrors = {},
+    passwordErrors = {},
+  }: {
+    status?: number;
+    timeoutErrors?: SecuritySettingsErrors;
+    passwordErrors?: ChangePasswordErrors;
+  } = {},
+) =>
+  res.status(status).render("pages/settings/security.njk", {
+    title: req.t("settings.sections.security.title"),
+    activeSettingsPage: "security",
+    values: createSecuritySettingsValues(req.auth!.organization),
+    errors: timeoutErrors,
+    passwordErrors,
   });
 
 export const renderSettingsOverview: RequestHandler = (req, res) => {
@@ -98,12 +123,7 @@ export const updateLocalizationSettingsController: RequestHandler = async (req, 
 };
 
 export const renderSecuritySettings: RequestHandler = (req, res) => {
-  res.render("pages/settings/security.njk", {
-    title: req.t("settings.sections.security.title"),
-    activeSettingsPage: "security",
-    values: createSecuritySettingsValues(req.auth!.organization),
-    errors: {},
-  });
+  return renderSecuritySettingsForm(req, res);
 };
 
 export const updateSecuritySettingsController: RequestHandler = async (req, res) => {
@@ -115,12 +135,56 @@ export const updateSecuritySettingsController: RequestHandler = async (req, res)
       activeSettingsPage: "security",
       values: createSecuritySettingsValues(req.body),
       errors: result.error.flatten().fieldErrors,
+      passwordErrors: {},
     });
   }
 
   await updateSecuritySettings(req.auth!.organization.id, result.data);
   req.flash("success", req.t("settings.flash.securityUpdated"));
   res.redirect("/settings/security");
+};
+
+export const updatePasswordController: RequestHandler = async (req, res, next) => {
+  const result = changePasswordSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return renderSecuritySettingsForm(req, res, {
+      status: 422,
+      passwordErrors: result.error.flatten().fieldErrors,
+    });
+  }
+
+  const passwordResult = await authService.changePassword({
+    userId: req.auth!.user.id,
+    currentPassword: result.data.currentPassword,
+    newPassword: result.data.newPassword,
+    currentSessionId: req.sessionID,
+  });
+
+  if (!passwordResult.ok && passwordResult.reason === "invalidCurrentPassword") {
+    return renderSecuritySettingsForm(req, res, {
+      status: 422,
+      passwordErrors: {
+        currentPassword: ["Current password is incorrect."],
+      },
+    });
+  }
+
+  if (!passwordResult.ok && passwordResult.reason === "userNotFound") {
+    return renderSecuritySettingsForm(req, res, {
+      status: 404,
+      passwordErrors: {
+        currentPassword: ["Unable to find your account."],
+      },
+    });
+  }
+
+  if (!passwordResult.ok) {
+    return next(new Error("Unable to change password."));
+  }
+
+  req.flash("success", req.t("settings.flash.passwordUpdated"));
+  return res.redirect("/settings/security");
 };
 
 export const renderOrganizationsSettings: RequestHandler = (req, res) => {

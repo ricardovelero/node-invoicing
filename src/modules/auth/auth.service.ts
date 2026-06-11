@@ -76,6 +76,10 @@ export type ResetPasswordResult =
   | { ok: true }
   | { ok: false; reason: 'invalidOrExpired' | 'databaseError' };
 
+export type ChangePasswordResult =
+  | { ok: true }
+  | { ok: false; reason: 'invalidCurrentPassword' | 'userNotFound' | 'databaseError' };
+
 const passwordResetEmailViewsPath = path.join(process.cwd(), 'src', 'views');
 const passwordResetEmailNunjucksEnv = nunjucks.configure(
   passwordResetEmailViewsPath,
@@ -505,6 +509,77 @@ export const resetPasswordWithToken = async (
 
       return { ok: true as const };
     });
+  } catch (error) {
+    if (isPrismaDatabaseError(error)) {
+      return { ok: false, reason: 'databaseError' };
+    }
+
+    throw error;
+  }
+};
+
+export const changePassword = async (data: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+  currentSessionId?: string;
+}): Promise<ChangePasswordResult> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      return { ok: false, reason: 'userNotFound' };
+    }
+
+    const isPasswordValid = await verifyPassword(
+      data.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isPasswordValid) {
+      return { ok: false, reason: 'invalidCurrentPassword' };
+    }
+
+    const passwordHash = await hashPassword(data.newPassword);
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      });
+
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: { usedAt: now },
+      });
+
+      await tx.session.updateMany({
+        where: {
+          userId: user.id,
+          revokedAt: null,
+          ...(data.currentSessionId
+            ? {
+                id: {
+                  not: data.currentSessionId,
+                },
+              }
+            : {}),
+        },
+        data: { revokedAt: now },
+      });
+    });
+
+    return { ok: true };
   } catch (error) {
     if (isPrismaDatabaseError(error)) {
       return { ok: false, reason: 'databaseError' };

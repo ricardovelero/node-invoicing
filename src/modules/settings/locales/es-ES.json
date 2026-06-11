@@ -47,7 +47,10 @@
     "customWithholdingRate": "Tipo",
     "paymentInstructions": "Instrucciones de pago",
     "sessionIdleTimeoutMinutes": "Tiempo de inactividad (minutos)",
-    "sessionAbsoluteLifetimeDays": "Duración absoluta (días)"
+    "sessionAbsoluteLifetimeDays": "Duración absoluta (días)",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar nueva contraseña"
   },
   "legalForms": {
     "soleTrader": "Autónomo",
@@ -70,15 +73,19 @@
     "paymentInstructions": "Datos de transferencia, condiciones de pago o instrucciones para clientes"
   },
   "actions": {
-    "save": "Guardar ajustes"
+    "save": "Guardar ajustes",
+    "changePassword": "Cambiar contraseña"
   },
   "flash": {
     "updated": "Ajustes de la organización actualizados.",
     "localizationUpdated": "Ajustes de localización actualizados.",
-    "securityUpdated": "Ajustes de seguridad actualizados."
+    "securityUpdated": "Ajustes de seguridad actualizados.",
+    "passwordUpdated": "Contraseña cambiada correctamente."
   },
   "security": {
     "sessionTimeouts": "Tiempos de sesión",
-    "sessionTimeoutsDescription": "Controla durante cuánto tiempo siguen siendo válidas las sesiones de la organización."
+    "sessionTimeoutsDescription": "Controla durante cuánto tiempo siguen siendo válidas las sesiones de la organización.",
+    "changePassword": "Cambiar contraseña",
+    "changePasswordDescription": "Actualiza tu contraseña. Se cerrarán las demás sesiones activas de tu cuenta."
   }
 }

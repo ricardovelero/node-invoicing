@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
+import * as authService from "../auth/auth.service";
 import {
   renderGeneralSettings,
   renderLocalizationSettings,
@@ -12,6 +13,7 @@ import {
   renderSettingsOverview,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
+  updatePasswordController,
   updateSecuritySettingsController,
 } from "./settings.controller";
 
@@ -34,14 +36,19 @@ const prismaMock = prisma as unknown as {
     update: unknown;
   };
 };
+const authServiceMock = authService as unknown as {
+  changePassword: typeof authService.changePassword;
+};
 
 const originalUpdate = prismaMock.organization.update;
+const originalChangePassword = authServiceMock.changePassword;
 const t = createTranslator("en-GB", loadTranslations(), {
   environment: "test",
 });
 
 afterEach(() => {
   prismaMock.organization.update = originalUpdate;
+  authServiceMock.changePassword = originalChangePassword;
 });
 
 const createRequest = (body: Record<string, unknown> = {}) =>
@@ -78,6 +85,7 @@ const createRequest = (body: Record<string, unknown> = {}) =>
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    sessionID: "sid_current",
     t,
   }) as MockRequest;
 
@@ -341,6 +349,7 @@ test("renderSecuritySettings renders current session timeout values", () => {
       sessionAbsoluteLifetimeDays: "21",
     },
     errors: {},
+    passwordErrors: {},
   });
 });
 
@@ -390,6 +399,77 @@ test("updateSecuritySettingsController updates timeout settings and redirects", 
     },
   });
   assert.deepEqual(req.flashMessages.success, ["Security settings updated."]);
+  assert.equal(res.redirectedTo, "/settings/security");
+});
+
+test("updatePasswordController validates without rendering password values back", async () => {
+  let serviceCalls = 0;
+  authServiceMock.changePassword = async () => {
+    serviceCalls += 1;
+    return { ok: true };
+  };
+  const req = createRequest({
+    currentPassword: "CorrectPassword1",
+    newPassword: "NewPassword1",
+    confirmPassword: "DifferentPassword1",
+  });
+  const res = createResponse();
+
+  await updatePasswordController(req, res, () => undefined);
+
+  assert.equal(serviceCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.deepEqual((res.renderedData as { passwordErrors: unknown }).passwordErrors, {
+    confirmPassword: ["New password and confirmation must match."],
+  });
+  assert.equal(JSON.stringify(res.renderedData).includes("CorrectPassword1"), false);
+  assert.equal(JSON.stringify(res.renderedData).includes("NewPassword1"), false);
+});
+
+test("updatePasswordController renders current password errors", async () => {
+  authServiceMock.changePassword = async () => ({
+    ok: false,
+    reason: "invalidCurrentPassword",
+  });
+  const req = createRequest({
+    currentPassword: "WrongPassword1",
+    newPassword: "NewPassword1",
+    confirmPassword: "NewPassword1",
+  });
+  const res = createResponse();
+
+  await updatePasswordController(req, res, () => undefined);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.deepEqual((res.renderedData as { passwordErrors: unknown }).passwordErrors, {
+    currentPassword: ["Current password is incorrect."],
+  });
+});
+
+test("updatePasswordController changes the password and redirects", async () => {
+  let serviceData: unknown;
+  authServiceMock.changePassword = async (data) => {
+    serviceData = data;
+    return { ok: true };
+  };
+  const req = createRequest({
+    currentPassword: "CorrectPassword1",
+    newPassword: "NewPassword1",
+    confirmPassword: "NewPassword1",
+  });
+  const res = createResponse();
+
+  await updatePasswordController(req, res, () => undefined);
+
+  assert.deepEqual(serviceData, {
+    userId: "user_1",
+    currentPassword: "CorrectPassword1",
+    newPassword: "NewPassword1",
+    currentSessionId: "sid_current",
+  });
+  assert.deepEqual(req.flashMessages.success, ["Password changed successfully."]);
   assert.equal(res.redirectedTo, "/settings/security");
 });
 

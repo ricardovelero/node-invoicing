@@ -18,6 +18,7 @@ const securityTemplate = readFileSync(
 describe('security settings form', () => {
   test('includes csrf and unsaved changes guard', () => {
     assert.match(securityTemplate, /method="post" action="\/settings\/security"/);
+    assert.match(securityTemplate, /method="post" action="\/settings\/security\/password"/);
     assert.match(securityTemplate, /name="_csrf" value="{{ csrfToken }}"/);
     assert.match(securityTemplate, /data-unsaved-changes-guard/);
   });
@@ -29,5 +30,20 @@ describe('security settings form', () => {
     assert.match(securityTemplate, /min="1" max="90"/);
     assert.match(securityTemplate, /errors\.sessionIdleTimeoutMinutes/);
     assert.match(securityTemplate, /errors\.sessionAbsoluteLifetimeDays/);
+  });
+
+  test('renders password change fields with show hide toggles', () => {
+    assert.match(securityTemplate, /passwordField\('currentPassword', 'currentPassword'/);
+    assert.match(securityTemplate, /passwordField\('newPassword', 'newPassword'/);
+    assert.match(securityTemplate, /passwordField\('confirmPassword', 'confirmPassword'/);
+    assert.match(securityTemplate, /name="{{ name }}" type="password"/);
+    assert.match(securityTemplate, /'current-password'/);
+    assert.match(securityTemplate, /'new-password'/);
+    assert.match(securityTemplate, /passwordErrors\.currentPassword/);
+    assert.match(securityTemplate, /passwordErrors\.newPassword/);
+    assert.match(securityTemplate, /passwordErrors\.confirmPassword/);
+    assert.equal(securityTemplate.match(/data-password-toggle/g)?.length, 1);
+    assert.match(securityTemplate, /data-eye-open/);
+    assert.match(securityTemplate, /data-eye-closed/);
   });
 });

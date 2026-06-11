@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
+  changePasswordSchema,
   localizationSettingsSchema,
   organizationSettingsSchema,
   securitySettingsSchema,
@@ -120,6 +121,39 @@ describe("securitySettingsSchema", () => {
       sessionAbsoluteLifetimeDays: [
         "Absolute session lifetime must be 90 days or fewer.",
       ],
+    });
+  });
+});
+
+describe("changePasswordSchema", () => {
+  test("accepts a current password and matching new password confirmation", () => {
+    const result = changePasswordSchema.safeParse({
+      currentPassword: "CorrectPassword1",
+      newPassword: "NewPassword1",
+      confirmPassword: "NewPassword1",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      currentPassword: "CorrectPassword1",
+      newPassword: "NewPassword1",
+      confirmPassword: "NewPassword1",
+    });
+  });
+
+  test("rejects weak new passwords and mismatched confirmation", () => {
+    const result = changePasswordSchema.safeParse({
+      currentPassword: "CorrectPassword1",
+      newPassword: "weak",
+      confirmPassword: "different",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors, {
+      newPassword: [
+        "Use at least 8 characters with uppercase, lowercase and a number.",
+      ],
+      confirmPassword: ["New password and confirmation must match."],
     });
   });
 });

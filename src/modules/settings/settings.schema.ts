@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordRequirementsMessage } from '../auth/auth.schema';
 import { supportedOrganizationCountryCodes } from '../../lib/countries';
 import { supportedLocales } from '../../lib/i18n';
 import {
@@ -20,6 +21,9 @@ export const supportedCurrencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] as const;
 
 const optionalText = (maxLength: number, message: string) =>
   z.string().trim().max(maxLength, message).optional().default('');
+
+const stringInput = (schema: z.ZodType<string>) =>
+  z.preprocess((value) => (typeof value === 'string' ? value : ''), schema);
 
 export const organizationSettingsSchema = z.object({
   legalName: optionalText(200, 'Legal name must be 200 characters or fewer.'),
@@ -299,3 +303,64 @@ export const createSecuritySettingsValues = (
     defaultSessionAbsoluteLifetimeDays.toString(),
   ),
 });
+
+const passwordInput = z.preprocess(
+  (value) => (typeof value === 'string' ? value : ''),
+  z
+    .string()
+    .min(1, 'Enter your password.')
+    .superRefine((password, ctx) => {
+      if (!password) {
+        return;
+      }
+
+      const isStrong =
+        password.length >= 8 &&
+        /[a-z]/.test(password) &&
+        /[A-Z]/.test(password) &&
+        /\d/.test(password);
+
+      if (!isStrong) {
+        ctx.addIssue({
+          code: 'custom',
+          message: passwordRequirementsMessage,
+        });
+      }
+    }),
+);
+
+export const changePasswordSchema = z.object({
+  currentPassword: stringInput(z.string().min(1, 'Enter your current password.')),
+  newPassword: passwordInput,
+  confirmPassword: stringInput(z.string().min(1, 'Confirm your new password.')),
+}).superRefine((passwords, ctx) => {
+  if (
+    passwords.newPassword &&
+    passwords.confirmPassword &&
+    passwords.newPassword !== passwords.confirmPassword
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['confirmPassword'],
+      message: 'New password and confirmation must match.',
+    });
+  }
+
+  if (
+    passwords.currentPassword &&
+    passwords.newPassword &&
+    passwords.currentPassword === passwords.newPassword
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['newPassword'],
+      message: 'Choose a new password that is different from your current password.',
+    });
+  }
+});
+
+export type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
+
+export type ChangePasswordErrors = Partial<
+  Record<keyof ChangePasswordForm, string[]>
+>;

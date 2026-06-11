@@ -1,5 +1,27 @@
 {% extends "pages/settings/_layout.njk" %}
 
+{% macro passwordField(id, name, label, autocomplete, error) %}
+  <div>
+    <label for="{{ id }}">{{ label }} <span aria-hidden="true">*</span></label>
+    <div class="relative mt-2">
+      <input id="{{ id }}" name="{{ name }}" type="password" autocomplete="{{ autocomplete }}" required data-password-input aria-describedby="{{ id }}-error" class="w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 pr-11 text-sm outline-none focus:border-action">
+      <button class="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-muted hover:text-ink" type="button" aria-label="Show password" data-password-toggle>
+        <svg data-eye-open class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg data-eye-closed class="hidden h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3l18 18"></path>
+          <path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"></path>
+          <path d="M9.9 5.2A9.9 9.9 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-2.3 3.2"></path>
+          <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 4.4-1"></path>
+        </svg>
+      </button>
+    </div>
+    <p id="{{ id }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+  </div>
+{% endmacro %}
+
 {% block settingsContent %}
   <div class="mb-6 max-w-3xl">
     <h2 class="text-xl font-semibold">{{ t('settings.sections.security.title') }}</h2>
@@ -33,6 +55,25 @@
     <div class="flex items-center justify-end gap-3 pt-2">
       <a class="btn btn-secondary" href="/settings">{{ t('common.actions.cancel') }}</a>
       <button class="btn btn-primary" type="submit">{{ t('settings.actions.save') }}</button>
+    </div>
+  </form>
+
+  <form method="post" action="/settings/security/password" class="mt-6 max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <section>
+      <h3 class="text-base font-semibold text-ink">{{ t('settings.security.changePassword') }}</h3>
+      <p class="mt-1 text-sm text-muted">{{ t('settings.security.changePasswordDescription') }}</p>
+
+      <div class="mt-5 space-y-5">
+        {{ passwordField('currentPassword', 'currentPassword', t('settings.fields.currentPassword'), 'current-password', passwordErrors.currentPassword) }}
+        {{ passwordField('newPassword', 'newPassword', t('settings.fields.newPassword'), 'new-password', passwordErrors.newPassword) }}
+        {{ passwordField('confirmPassword', 'confirmPassword', t('settings.fields.confirmPassword'), 'new-password', passwordErrors.confirmPassword) }}
+      </div>
+    </section>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <button class="btn btn-primary" type="submit">{{ t('settings.actions.changePassword') }}</button>
     </div>
   </form>
 {% endblock %}

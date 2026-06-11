@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../../db/prisma";
 import {
   authenticateUser,
+  changePassword,
   getInitialOrganizationForUser,
   getValidPasswordResetToken,
   requestPasswordReset,
@@ -27,6 +28,9 @@ type PrismaMock = {
     update: unknown;
     updateMany: unknown;
   };
+  session: {
+    updateMany: unknown;
+  };
 };
 
 const prismaMock = prisma as unknown as PrismaMock;
@@ -38,6 +42,7 @@ const originalPasswordResetTokenCreate = prismaMock.passwordResetToken.create;
 const originalPasswordResetTokenFindFirst = prismaMock.passwordResetToken.findFirst;
 const originalPasswordResetTokenUpdate = prismaMock.passwordResetToken.update;
 const originalPasswordResetTokenUpdateMany = prismaMock.passwordResetToken.updateMany;
+const originalSessionUpdateMany = prismaMock.session.updateMany;
 const originalEnv = {
   APP_URL: env.APP_URL,
   POSTMARK_FROM: env.POSTMARK_FROM,
@@ -52,6 +57,7 @@ afterEach(() => {
   prismaMock.passwordResetToken.findFirst = originalPasswordResetTokenFindFirst;
   prismaMock.passwordResetToken.update = originalPasswordResetTokenUpdate;
   prismaMock.passwordResetToken.updateMany = originalPasswordResetTokenUpdateMany;
+  prismaMock.session.updateMany = originalSessionUpdateMany;
   env.APP_URL = originalEnv.APP_URL;
   env.POSTMARK_FROM = originalEnv.POSTMARK_FROM;
   env.POSTMARK_MESSAGE_STREAM = originalEnv.POSTMARK_MESSAGE_STREAM;
@@ -542,4 +548,130 @@ test("resetPasswordWithToken rejects invalid tokens without updating the user", 
 
   assert.deepEqual(result, { ok: false, reason: "invalidOrExpired" });
   assert.equal(userUpdateCalls, 0);
+});
+
+test("changePassword rejects missing users and invalid current passwords", async () => {
+  prismaMock.user.findUnique = async () => null;
+
+  assert.deepEqual(
+    await changePassword({
+      userId: "missing_user",
+      currentPassword: "CorrectPassword1",
+      newPassword: "NewPassword1",
+      currentSessionId: "sid_current",
+    }),
+    { ok: false, reason: "userNotFound" },
+  );
+
+  const passwordHash = await bcrypt.hash("CorrectPassword1", 4);
+  let transactionCalls = 0;
+  prismaMock.user.findUnique = async () => ({
+    id: "user_1",
+    passwordHash,
+  });
+  prismaMock.$transaction = async () => {
+    transactionCalls += 1;
+  };
+
+  assert.deepEqual(
+    await changePassword({
+      userId: "user_1",
+      currentPassword: "WrongPassword1",
+      newPassword: "NewPassword1",
+      currentSessionId: "sid_current",
+    }),
+    { ok: false, reason: "invalidCurrentPassword" },
+  );
+  assert.equal(transactionCalls, 0);
+});
+
+test("changePassword updates the password, consumes reset tokens, and revokes other sessions", async () => {
+  const passwordHash = await bcrypt.hash("CorrectPassword1", 4);
+  let userUpdateArgs: { data: { passwordHash: string } } | undefined;
+  let resetTokenUpdateManyArgs: unknown;
+  let sessionUpdateManyArgs: unknown;
+
+  prismaMock.user.findUnique = async (args: unknown) => {
+    assert.deepEqual(args, {
+      where: { id: "user_1" },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+
+    return {
+      id: "user_1",
+      passwordHash,
+    };
+  };
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      user: {
+        update: (args: { data: { passwordHash: string } }) => Promise<unknown>;
+      };
+      passwordResetToken: {
+        updateMany: (args: unknown) => Promise<unknown>;
+      };
+      session: {
+        updateMany: (args: unknown) => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      user: {
+        async update(args) {
+          userUpdateArgs = args;
+          return {};
+        },
+      },
+      passwordResetToken: {
+        async updateMany(args) {
+          resetTokenUpdateManyArgs = args;
+          return {};
+        },
+      },
+      session: {
+        async updateMany(args) {
+          sessionUpdateManyArgs = args;
+          return {};
+        },
+      },
+    });
+
+  const result = await changePassword({
+    userId: "user_1",
+    currentPassword: "CorrectPassword1",
+    newPassword: "NewPassword1",
+    currentSessionId: "sid_current",
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.ok(userUpdateArgs);
+  assert.equal(await bcrypt.compare("NewPassword1", userUpdateArgs.data.passwordHash), true);
+  assert.deepEqual(resetTokenUpdateManyArgs, {
+    where: {
+      userId: "user_1",
+      usedAt: null,
+    },
+    data: {
+      usedAt:
+        resetTokenUpdateManyArgs &&
+        (resetTokenUpdateManyArgs as { data: { usedAt: Date } }).data.usedAt,
+    },
+  });
+  assert.deepEqual(sessionUpdateManyArgs, {
+    where: {
+      userId: "user_1",
+      revokedAt: null,
+      id: {
+        not: "sid_current",
+      },
+    },
+    data: {
+      revokedAt:
+        sessionUpdateManyArgs &&
+        (sessionUpdateManyArgs as { data: { revokedAt: Date } }).data.revokedAt,
+    },
+  });
 });

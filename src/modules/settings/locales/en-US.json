@@ -47,7 +47,10 @@
     "customWithholdingRate": "Rate",
     "paymentInstructions": "Payment instructions",
     "sessionIdleTimeoutMinutes": "Idle timeout (minutes)",
-    "sessionAbsoluteLifetimeDays": "Absolute lifetime (days)"
+    "sessionAbsoluteLifetimeDays": "Absolute lifetime (days)",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password"
   },
   "legalForms": {
     "soleTrader": "Sole proprietor",
@@ -70,15 +73,19 @@
     "paymentInstructions": "Bank transfer details, payment terms, or customer-facing instructions"
   },
   "actions": {
-    "save": "Save settings"
+    "save": "Save settings",
+    "changePassword": "Change password"
   },
   "flash": {
     "updated": "Organization settings updated.",
     "localizationUpdated": "Localization settings updated.",
-    "securityUpdated": "Security settings updated."
+    "securityUpdated": "Security settings updated.",
+    "passwordUpdated": "Password changed successfully."
   },
   "security": {
     "sessionTimeouts": "Session timeouts",
-    "sessionTimeoutsDescription": "Control how long organization sessions remain valid."
+    "sessionTimeoutsDescription": "Control how long organization sessions remain valid.",
+    "changePassword": "Change password",
+    "changePasswordDescription": "Update your password. Other active sessions for your account will be signed out."
   }
 }

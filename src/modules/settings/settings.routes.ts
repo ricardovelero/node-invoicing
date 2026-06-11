@@ -9,6 +9,7 @@ import {
   renderSettingsOverview,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
+  updatePasswordController,
   updateSecuritySettingsController,
 } from "./settings.controller";
 
@@ -23,4 +24,5 @@ settingsRouter.get("/localization", renderLocalizationSettings);
 settingsRouter.post("/localization", updateLocalizationSettingsController);
 settingsRouter.get("/security", renderSecuritySettings);
 settingsRouter.post("/security", updateSecuritySettingsController);
+settingsRouter.post("/security/password", updatePasswordController);
 settingsRouter.get("/organizations", renderOrganizationsSettings);
