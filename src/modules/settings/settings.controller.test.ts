@@ -60,18 +60,23 @@ let auditEvents: Array<Parameters<typeof authService.recordAuthAuditEvent>[0]> =
 
 beforeEach(() => {
   auditEvents = [];
-  prismaMock.session.findMany = async () => [
-    {
-      id: "sid_current",
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-      ip: "203.0.113.10",
-      createdAt: new Date("2026-06-11T09:00:00.000Z"),
-      lastSeenAt: new Date("2026-06-11T11:50:00.000Z"),
-      expiresAt: new Date("2026-06-25T09:00:00.000Z"),
-      organization: { sessionIdleTimeoutMinutes: 45 },
-    },
-  ];
+  prismaMock.session.findMany = async (
+    args: { where?: { userId?: string } } = {},
+  ) =>
+    args.where?.userId === "user_empty"
+      ? []
+      : [
+          {
+            id: "sid_current",
+            userAgent:
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            ip: "203.0.113.10",
+            createdAt: new Date("2026-06-11T09:00:00.000Z"),
+            lastSeenAt: new Date("2026-06-11T11:50:00.000Z"),
+            expiresAt: new Date("2026-06-25T09:00:00.000Z"),
+            organization: { sessionIdleTimeoutMinutes: 24 * 60 },
+          },
+        ];
   authServiceMock.recordAuthAuditEvent = async (event) => {
     auditEvents.push(event);
     return { ok: true };
@@ -230,6 +235,24 @@ test("renderOrganizationSettings renders current organization values", () => {
     },
     withholdingEligible: false,
     withholdingRateOptions: [],
+    withholdingRateTypeOptions: [{ value: "custom", label: "Custom" }],
+    countryOptions: [
+      { value: "ES", label: "Spain" },
+      { value: "GB", label: "United Kingdom" },
+      { value: "US", label: "United States of America" },
+    ],
+    currencyOptions: [
+      { value: "EUR", label: "EUR" },
+      { value: "USD", label: "USD" },
+      { value: "GBP", label: "GBP" },
+      { value: "CAD", label: "CAD" },
+      { value: "AUD", label: "AUD" },
+    ],
+    legalFormOptions: [
+      { value: "sole_trader", label: "Sole trader" },
+      { value: "company", label: "Company" },
+      { value: "other", label: "Other" },
+    ],
     errors: {},
   });
 });
@@ -253,6 +276,8 @@ test("renderOrganizationSettings preserves stored custom withholding rate values
       defaultWithholdingRate: string;
     };
     withholdingEligible: boolean;
+    withholdingRateOptions: unknown;
+    withholdingRateTypeOptions: unknown;
   };
 
   assert.equal(data.withholdingEligible, true);
@@ -260,6 +285,15 @@ test("renderOrganizationSettings preserves stored custom withholding rate values
   assert.equal(data.values.defaultWithholdingType, "IRPF");
   assert.equal(data.values.defaultWithholdingRateType, "custom");
   assert.equal(data.values.defaultWithholdingRate, "12.5");
+  assert.deepEqual(data.withholdingRateOptions, [
+    { value: "15", label: "15%" },
+    { value: "7", label: "7%" },
+  ]);
+  assert.deepEqual(data.withholdingRateTypeOptions, [
+    { value: "15", label: "15%" },
+    { value: "7", label: "7%" },
+    { value: "custom", label: "Custom" },
+  ]);
 });
 
 test("updateOrganizationSettingsController returns field errors for invalid submissions", async () => {
@@ -429,8 +463,8 @@ test("renderSecuritySettings renders current session timeout values and active s
 });
 
 test("renderSecuritySettings passes an empty active sessions list", async () => {
-  prismaMock.session.findMany = async () => [];
   const req = createRequest();
+  req.auth.user.id = "user_empty";
   const res = createResponse();
 
   await renderSecuritySettings(req, res, () => undefined);

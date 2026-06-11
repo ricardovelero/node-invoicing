@@ -6,14 +6,20 @@ import {
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
   createSecuritySettingsValues,
+  type OrganizationSettingsErrors,
+  type OrganizationSettingsValues,
   type SecuritySettingsErrors,
   localizationSettingsSchema,
   organizationSettingsSchema,
   securitySettingsSchema,
+  supportedCurrencies,
 } from "./settings.schema";
+import { supportedOrganizationCountryCodes } from "../../lib/countries";
 import {
+  customRateType,
   getWithholdingRateOptions,
   isSpanishIrpfEligible,
+  legalForms,
 } from "../../lib/withholding";
 import {
   getActiveSessionsForUser,
@@ -25,13 +31,78 @@ import {
   type ActiveSession,
 } from "./settings.service";
 
+type Request = Parameters<RequestHandler>[0];
+type Response = Parameters<RequestHandler>[1];
+type SelectOption = { value: string; label: string };
+
+const countryLabels: Record<
+  (typeof supportedOrganizationCountryCodes)[number],
+  string
+> = {
+  ES: "Spain",
+  GB: "United Kingdom",
+  US: "United States of America",
+};
+
+const legalFormTranslationKeys: Record<(typeof legalForms)[number], string> = {
+  sole_trader: "settings.legalForms.soleTrader",
+  company: "settings.legalForms.company",
+  other: "settings.legalForms.other",
+};
+
 const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSettingsValues>) =>
   isSpanishIrpfEligible({
     countryCode: values.countryCode,
     legalForm: values.legalForm,
   });
 
-const getAuditContext = (req: Parameters<RequestHandler>[0]) => ({
+const getCountryOptions = (_req: Request): SelectOption[] =>
+  supportedOrganizationCountryCodes.map((countryCode) => ({
+    value: countryCode,
+    label: countryLabels[countryCode],
+  }));
+
+const getCurrencyOptions = (): SelectOption[] =>
+  supportedCurrencies.map((currency) => ({
+    value: currency,
+    label: currency,
+  }));
+
+const getLegalFormOptions = (req: Request): SelectOption[] =>
+  legalForms.map((legalForm) => ({
+    value: legalForm,
+    label: req.t(legalFormTranslationKeys[legalForm]),
+  }));
+
+const getWithholdingRateTypeOptions = (
+  countryCode: string,
+  req: Request,
+): SelectOption[] => [
+  ...getWithholdingRateOptions(countryCode),
+  { value: customRateType, label: req.t("settings.withholding.customRate") },
+];
+
+const createOrganizationSettingsViewModel = (
+  req: Request,
+  values: OrganizationSettingsValues,
+  errors: OrganizationSettingsErrors = {},
+) => ({
+  title: req.t("settings.sections.organization.title"),
+  activeSettingsPage: "organization",
+  values,
+  withholdingEligible: valuesAreIrpfEligible(values),
+  withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
+  withholdingRateTypeOptions: getWithholdingRateTypeOptions(
+    values.countryCode,
+    req,
+  ),
+  countryOptions: getCountryOptions(req),
+  currencyOptions: getCurrencyOptions(),
+  legalFormOptions: getLegalFormOptions(req),
+  errors,
+});
+
+const getAuditContext = (req: Request) => ({
   ip: req.ip ?? null,
   userAgent: req.get("user-agent") ?? null,
   sessionId: req.sessionID ?? null,
@@ -67,8 +138,8 @@ const createSecuritySessionViews = (
   }));
 
 const renderSecuritySettingsForm = async (
-  req: Parameters<RequestHandler>[0],
-  res: Parameters<RequestHandler>[1],
+  req: Request,
+  res: Response,
   {
     status = 200,
     values = createSecuritySettingsValues(req.auth!.organization),
@@ -116,14 +187,10 @@ export const renderGeneralSettings: RequestHandler = (req, res) => {
 export const renderOrganizationSettings: RequestHandler = (req, res) => {
   const values = createOrganizationSettingsValues(req.auth!.organization);
 
-  res.render("pages/settings/organization.njk", {
-    title: req.t("settings.sections.organization.title"),
-    activeSettingsPage: "organization",
-    values,
-    withholdingEligible: valuesAreIrpfEligible(values),
-    withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
-    errors: {},
-  });
+  res.render(
+    "pages/settings/organization.njk",
+    createOrganizationSettingsViewModel(req, values),
+  );
 };
 
 export const updateOrganizationSettingsController: RequestHandler = async (req, res) => {
@@ -132,14 +199,14 @@ export const updateOrganizationSettingsController: RequestHandler = async (req, 
   if (!result.success) {
     const values = createOrganizationSettingsValues(req.body);
 
-    return res.status(422).render("pages/settings/organization.njk", {
-      title: req.t("settings.sections.organization.title"),
-      activeSettingsPage: "organization",
-      values,
-      withholdingEligible: valuesAreIrpfEligible(values),
-      withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
-      errors: result.error.flatten().fieldErrors,
-    });
+    return res.status(422).render(
+      "pages/settings/organization.njk",
+      createOrganizationSettingsViewModel(
+        req,
+        values,
+        result.error.flatten().fieldErrors,
+      ),
+    );
   }
 
   await updateOrganizationSettings(req.auth!.organization.id, result.data);

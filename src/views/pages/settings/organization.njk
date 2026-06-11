@@ -1,5 +1,5 @@
 {% extends "pages/settings/_layout.njk" %}
-{% from "components/country-select.njk" import countrySelect %}
+{% from "components/form-field.njk" import field, textareaField, selectField %}
 
 {% block settingsContent %}
   <div class="mb-6 max-w-3xl">
@@ -10,65 +10,24 @@
   <form method="post" action="/settings/organization" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
-    <div>
-      <label for="legalName">{{ t('settings.fields.legalName') }}</label>
-      <input id="legalName" name="legalName" value="{{ values.legalName or '' }}" autocomplete="organization">
-      {% if errors.legalName %}<p class="mt-1 text-sm text-red-700">{{ errors.legalName[0] }}</p>{% endif %}
-    </div>
+    {{ field('legalName', t('settings.fields.legalName'), value=values.legalName or '', error=errors.legalName, required=true, autocomplete='organization', validate='required', validateLabel=errors.legalName[0]) }}
 
-    <div>
-      <label for="billingEmail">{{ t('settings.fields.billingEmail') }}</label>
-      <input id="billingEmail" name="billingEmail" type="email" value="{{ values.billingEmail or '' }}" autocomplete="email" placeholder="{{ t('settings.placeholders.billingEmail') }}">
-      {% if errors.billingEmail %}<p class="mt-1 text-sm text-red-700">{{ errors.billingEmail[0] }}</p>{% endif %}
-      <p class="mt-1 text-sm text-muted">{{ t('settings.help.billingEmail') }}</p>
+    {{ field('billingEmail', t('settings.fields.billingEmail'), type='email', value=values.billingEmail or '', error=errors.billingEmail[0], required=false, autocomplete='email', validate='email', placeholder=t('settings.placeholders.billingEmail'), help=t('settings.help.billingEmail')) }}
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      {{ field('taxId', t('settings.fields.taxId'), value=values.taxId or '', error=errors.taxId) }}
+      {{ selectField('currency', t('settings.fields.defaultCurrency'), currencyOptions, value=values.currency, error=errors.currency, required=true) }}
     </div>
 
     <div class="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label for="taxId">{{ t('settings.fields.taxId') }}</label>
-        <input id="taxId" name="taxId" value="{{ values.taxId or '' }}">
-        {% if errors.taxId %}<p class="mt-1 text-sm text-red-700">{{ errors.taxId[0] }}</p>{% endif %}
-      </div>
-      <div>
-        <label for="currency">{{ t('settings.fields.defaultCurrency') }} <span aria-hidden="true">*</span></label>
-        <select id="currency" name="currency" required>
-          {% for currency in ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] %}
-            <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
-      </div>
+      {{ selectField('countryCode', t('settings.fields.countryCode'), countryOptions, value=values.countryCode, error=errors.countryCode, required=true) }}
+      {{ field('city', t('settings.fields.city'), value=values.city or '', error=errors.city, autocomplete='address-level2') }}
     </div>
+
+    {{ field('addressLine1', t('settings.fields.address'), value=values.addressLine1 or '', error=errors.addressLine1, autocomplete='street-address') }}
 
     <div class="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label for="countryCode">{{ t('settings.fields.countryCode') }} <span aria-hidden="true">*</span></label>
-        {{ countrySelect('countryCode', 'countryCode', values.countryCode, true) }}
-        {% if errors.countryCode %}<p class="mt-1 text-sm text-red-700">{{ errors.countryCode[0] }}</p>{% endif %}
-      </div>
-      <div>
-        <label for="city">{{ t('settings.fields.city') }}</label>
-        <input id="city" name="city" value="{{ values.city or '' }}" autocomplete="address-level2">
-        {% if errors.city %}<p class="mt-1 text-sm text-red-700">{{ errors.city[0] }}</p>{% endif %}
-      </div>
-    </div>
-
-    <div>
-      <label for="addressLine1">{{ t('settings.fields.address') }}</label>
-      <input id="addressLine1" name="addressLine1" value="{{ values.addressLine1 or '' }}" autocomplete="street-address">
-      {% if errors.addressLine1 %}<p class="mt-1 text-sm text-red-700">{{ errors.addressLine1[0] }}</p>{% endif %}
-    </div>
-
-    <div class="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label for="legalForm">{{ t('settings.fields.legalForm') }} <span aria-hidden="true">*</span></label>
-        <select id="legalForm" name="legalForm" required data-withholding-legal-form>
-          <option value="sole_trader" {{ 'selected' if values.legalForm == 'sole_trader' else '' }}>{{ t('settings.legalForms.soleTrader') }}</option>
-          <option value="company" {{ 'selected' if values.legalForm == 'company' else '' }}>{{ t('settings.legalForms.company') }}</option>
-          <option value="other" {{ 'selected' if values.legalForm == 'other' else '' }}>{{ t('settings.legalForms.other') }}</option>
-        </select>
-        {% if errors.legalForm %}<p class="mt-1 text-sm text-red-700">{{ errors.legalForm[0] }}</p>{% endif %}
-      </div>
+      {{ selectField('legalForm', t('settings.fields.legalForm'), legalFormOptions, value=values.legalForm, error=errors.legalForm, required=true, attrs='data-withholding-legal-form') }}
     </div>
 
     <section class="rounded-md border border-line bg-panel p-4"{% if values.countryCode != 'ES' or values.legalForm == 'company' %} hidden{% endif %} data-withholding-settings>
@@ -82,29 +41,15 @@
       </div>
       <input type="hidden" name="defaultWithholdingType" value="IRPF">
       <div class="mt-4 grid gap-5 sm:grid-cols-[180px_1fr]"{% if not values.withholdingEnabled %} hidden{% endif %} data-withholding-rate-fields>
-        <div>
-          <label for="defaultWithholdingRateType">{{ t('settings.fields.defaultWithholdingRate') }}</label>
-          <select id="defaultWithholdingRateType" name="defaultWithholdingRateType" data-withholding-rate-type>
-            {% for option in withholdingRateOptions %}
-              <option value="{{ option.value }}" {{ 'selected' if values.defaultWithholdingRateType == option.value else '' }}>{{ option.label }}</option>
-            {% endfor %}
-            <option value="custom" {{ 'selected' if values.defaultWithholdingRateType == 'custom' else '' }}>{{ t('settings.withholding.customRate') }}</option>
-          </select>
-        </div>
+        {{ selectField('defaultWithholdingRateType', t('settings.fields.defaultWithholdingRate'), withholdingRateTypeOptions, value=values.defaultWithholdingRateType, attrs='data-withholding-rate-type') }}
         <div{% if values.defaultWithholdingRateType != 'custom' or not values.withholdingEnabled %} hidden{% endif %} data-withholding-custom-rate>
-          <label for="defaultWithholdingRate">{{ t('settings.fields.customWithholdingRate') }}</label>
-          <input id="defaultWithholdingRate" name="defaultWithholdingRate" type="number" min="0.01" max="100" step="0.01" value="{{ values.defaultWithholdingRate }}" data-withholding-rate-input>
+          {{ field('defaultWithholdingRate', t('settings.fields.customWithholdingRate'), type='number', value=values.defaultWithholdingRate, error=errors.defaultWithholdingRate, attrs='min="0.01" max="100" step="0.01" data-withholding-rate-input') }}
           {% if errors.defaultWithholdingType %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingType[0] }}</p>{% endif %}
-          {% if errors.defaultWithholdingRate %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingRate[0] }}</p>{% endif %}
         </div>
       </div>
     </section>
 
-    <div>
-      <label for="paymentInstructions">{{ t('settings.fields.paymentInstructions') }}</label>
-      <textarea id="paymentInstructions" name="paymentInstructions" rows="5" maxlength="2000" placeholder="{{ t('settings.placeholders.paymentInstructions') }}">{{ values.paymentInstructions or '' }}</textarea>
-      {% if errors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ errors.paymentInstructions[0] }}</p>{% endif %}
-    </div>
+    {{ textareaField('paymentInstructions', t('settings.fields.paymentInstructions'), value=values.paymentInstructions or '', error=errors.paymentInstructions, rows=5, maxlength=2000, placeholder=t('settings.placeholders.paymentInstructions')) }}
 
     <div class="flex items-center justify-end gap-3 pt-2">
       <a class="btn btn-secondary" href="/settings">{{ t('common.actions.cancel') }}</a>

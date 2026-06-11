@@ -15,11 +15,6 @@ const settingsTemplate = readFileSync(
   'utf8',
 );
 
-const countrySelectTemplate = readFileSync(
-  path.join(process.cwd(), 'src', 'views', 'components', 'country-select.njk'),
-  'utf8',
-);
-
 describe('organization settings form', () => {
   test('includes csrf and unsaved changes guard', () => {
     assert.match(settingsTemplate, /action="\/settings\/organization"/);
@@ -40,7 +35,7 @@ describe('organization settings form', () => {
     assert.match(settingsTemplate, /<section[^>]*data-withholding-settings/);
     assert.match(
       settingsTemplate,
-      /id="legalForm"[^>]*data-withholding-legal-form/,
+      /selectField\('legalForm'[^\n]*data-withholding-legal-form/,
     );
     assert.match(settingsTemplate, /data-withholding-enable-row/);
     assert.match(
@@ -50,21 +45,21 @@ describe('organization settings form', () => {
     assert.match(settingsTemplate, /data-withholding-rate-fields/);
     assert.match(
       settingsTemplate,
-      /id="defaultWithholdingRateType"[^>]*data-withholding-rate-type/,
+      /selectField\('defaultWithholdingRateType'[^\n]*data-withholding-rate-type/,
     );
     assert.match(settingsTemplate, /<div[^>]*data-withholding-custom-rate>/);
     assert.match(
       settingsTemplate,
-      /id="defaultWithholdingRate"[^>]*data-withholding-rate-input/,
+      /field\('defaultWithholdingRate'[^\n]*data-withholding-rate-input/,
     );
   });
 
   test('builds the withholding rate options from config', () => {
-    assert.match(settingsTemplate, /{% for option in withholdingRateOptions %}/);
     assert.match(
       settingsTemplate,
-      /value="{{ option\.value }}" {{ 'selected' if values\.defaultWithholdingRateType == option\.value/,
+      /selectField\('defaultWithholdingRateType', t\('settings\.fields\.defaultWithholdingRate'\), withholdingRateTypeOptions/,
     );
+    assert.doesNotMatch(settingsTemplate, /withholdingRateOptions\.concat/);
   });
 
   test('renders withholding controls with server-side initial visibility that matches the JS rules', () => {
@@ -100,30 +95,26 @@ describe('organization settings form', () => {
   });
 
   test('uses countryCode as the only editable organization country field', () => {
+    assert.doesNotMatch(settingsTemplate, /components\/country-select\.njk/);
     assert.match(
       settingsTemplate,
-      /from "components\/country-select\.njk" import countrySelect/,
-    );
-    assert.match(
-      settingsTemplate,
-      /countrySelect\('countryCode', 'countryCode', values\.countryCode, true\)/,
+      /selectField\('countryCode', t\('settings\.fields\.countryCode'\), countryOptions, value=values\.countryCode, error=errors\.countryCode, required=true\)/,
     );
     assert.doesNotMatch(settingsTemplate, /name="country"/);
     assert.doesNotMatch(settingsTemplate, /id="country"/);
   });
 
-  test('country select maps supported labels to persisted country codes', () => {
+  test('receives select options from the controller', () => {
+    assert.doesNotMatch(settingsTemplate, /{% set currencyOptions/);
+    assert.doesNotMatch(settingsTemplate, /{% set legalFormOptions/);
+    assert.doesNotMatch(settingsTemplate, /{% set withholdingRateTypeOptions/);
     assert.match(
-      countrySelectTemplate,
-      /<option value="ES"[^>]*>Spain<\/option>/,
+      settingsTemplate,
+      /selectField\('currency', t\('settings\.fields\.defaultCurrency'\), currencyOptions/,
     );
     assert.match(
-      countrySelectTemplate,
-      /<option value="GB"[^>]*>United Kingdom<\/option>/,
-    );
-    assert.match(
-      countrySelectTemplate,
-      /<option value="US"[^>]*>United States of America<\/option>/,
+      settingsTemplate,
+      /selectField\('legalForm', t\('settings\.fields\.legalForm'\), legalFormOptions/,
     );
   });
 });
