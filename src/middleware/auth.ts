@@ -29,13 +29,6 @@ export type AuthContext = {
   role: OrganizationRole;
 };
 
-declare module "express-session" {
-  interface SessionData {
-    userId?: string;
-    organizationId?: string;
-  }
-}
-
 declare global {
   namespace Express {
     interface Request {

@@ -12,6 +12,7 @@ import {
   resetPasswordSchema,
 } from './auth.schema';
 import * as authService from './auth.service';
+import { applySessionMetadata } from '../../middleware/session-metadata';
 
 const renderRegisterForm = (
   res: Parameters<RequestHandler>[1],
@@ -237,6 +238,7 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
 
     await regenerateSession(req);
 
+    applySessionMetadata(req);
     req.session.userId = sessionUser.userId;
     req.session.organizationId = sessionUser.organizationId;
 
@@ -275,6 +277,7 @@ export const loginUser: RequestHandler = async (req, res, next) => {
 
     await regenerateSession(req);
 
+    applySessionMetadata(req);
     req.session.userId = sessionUser.userId;
     req.session.organizationId = sessionUser.organizationId;
 

@@ -82,6 +82,10 @@ const createRequest = (
     params,
     session,
     flashMessages: {},
+    ip: "203.0.113.10",
+    get(name: string) {
+      return name.toLowerCase() === "user-agent" ? "Test Browser" : undefined;
+    },
     flash(type: string, message: string) {
       this.flashMessages[type] ??= [];
       this.flashMessages[type].push(message);
@@ -169,6 +173,8 @@ test("handleRegister stores the service result in session after creating an acco
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
   assert.equal(req.session.organizationId, "org_1");
+  assert.equal(req.session.userAgent, "Test Browser");
+  assert.equal(req.session.ip, "203.0.113.10");
   assert.deepEqual(req.flashMessages.success, ["Account created successfully."]);
   assert.equal(res.redirectedTo, "/");
 });
@@ -472,6 +478,8 @@ test("loginUser stores the authenticated service result in session", async () =>
   assert.equal(req.session.regenerateCalls, 1);
   assert.equal(req.session.userId, "user_1");
   assert.equal(req.session.organizationId, "org_1");
+  assert.equal(req.session.userAgent, "Test Browser");
+  assert.equal(req.session.ip, "203.0.113.10");
   assert.equal(res.redirectedTo, "/");
 });
 
