@@ -30,6 +30,16 @@ enum InvoiceEmailDeliveryStatus {
   SPAM_COMPLAINT
 }
 
+enum AuthAuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED
+  SESSION_REVOKED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -41,6 +51,7 @@ model User {
   memberships  OrganizationMembership[]
   sessions      Session[]
   passwordResetTokens PasswordResetToken[]
+  authAuditEvents AuthAuditEvent[]
 }
 
 model PasswordResetToken {
@@ -113,8 +124,32 @@ model Organization {
   invoicePublicAccessTokens InvoicePublicAccessToken[]
   invoiceEmailDeliveries    InvoiceEmailDelivery[]
   catalogItems              CatalogItem[]
+  authAuditEvents           AuthAuditEvent[]
 
   @@index([name])
+}
+
+model AuthAuditEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  type           AuthAuditEventType
+  userId         String?
+  organizationId String?            @db.Uuid
+  sessionId      String?
+  email          String?
+  ip             String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([sessionId])
+  @@index([email])
+  @@index([createdAt])
 }
 
 model CatalogItem {

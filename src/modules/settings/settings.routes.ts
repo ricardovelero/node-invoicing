@@ -7,6 +7,8 @@ import {
   renderOrganizationsSettings,
   renderSecuritySettings,
   renderSettingsOverview,
+  revokeOtherSessionsController,
+  revokeSessionController,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
@@ -25,4 +27,6 @@ settingsRouter.post("/localization", updateLocalizationSettingsController);
 settingsRouter.get("/security", renderSecuritySettings);
 settingsRouter.post("/security", updateSecuritySettingsController);
 settingsRouter.post("/security/password", updatePasswordController);
+settingsRouter.post("/security/sessions/revoke-others", revokeOtherSessionsController);
+settingsRouter.post("/security/sessions/:sessionId/revoke", revokeSessionController);
 settingsRouter.get("/organizations", renderOrganizationsSettings);

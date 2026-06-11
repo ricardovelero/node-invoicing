@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authRateLimiter } from "../../middleware/rate-limit";
 import {
   handleForgotPassword,
   handleRegister,
@@ -14,15 +15,15 @@ import {
 export const authRouter = Router();
 
 authRouter.get("/register", renderRegister);
-authRouter.post("/register", handleRegister);
+authRouter.post("/register", authRateLimiter, handleRegister);
 
 authRouter.get("/login", renderLogin);
-authRouter.post("/login", loginUser);
+authRouter.post("/login", authRateLimiter, loginUser);
 
 authRouter.get("/forgot", renderForgotPassword);
-authRouter.post("/forgot", handleForgotPassword);
+authRouter.post("/forgot", authRateLimiter, handleForgotPassword);
 
 authRouter.get("/reset/:token", renderResetPassword);
-authRouter.post("/reset/:token", handleResetPassword);
+authRouter.post("/reset/:token", authRateLimiter, handleResetPassword);
 
 authRouter.post("/logout", logoutUser);

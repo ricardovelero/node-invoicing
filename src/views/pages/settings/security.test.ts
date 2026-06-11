@@ -19,6 +19,8 @@ describe('security settings form', () => {
   test('includes csrf and unsaved changes guard', () => {
     assert.match(securityTemplate, /method="post" action="\/settings\/security"/);
     assert.match(securityTemplate, /method="post" action="\/settings\/security\/password"/);
+    assert.match(securityTemplate, /method="post" action="\/settings\/security\/sessions\/revoke-others"/);
+    assert.match(securityTemplate, /method="post" action="\/settings\/security\/sessions\/{{ session\.id }}\/revoke"/);
     assert.match(securityTemplate, /name="_csrf" value="{{ csrfToken }}"/);
     assert.match(securityTemplate, /data-unsaved-changes-guard/);
   });
@@ -45,5 +47,18 @@ describe('security settings form', () => {
     assert.equal(securityTemplate.match(/data-password-toggle/g)?.length, 1);
     assert.match(securityTemplate, /data-eye-open/);
     assert.match(securityTemplate, /data-eye-closed/);
+  });
+
+  test('renders active session management details and actions', () => {
+    assert.match(securityTemplate, /settings\.security\.activeSessions/);
+    assert.match(securityTemplate, /settings\.security\.activeSessionsDescription/);
+    assert.match(securityTemplate, /settings\.security\.currentSession/);
+    assert.match(securityTemplate, /settings\.security\.lastSeen/);
+    assert.match(securityTemplate, /settings\.security\.ipAddress/);
+    assert.match(securityTemplate, /settings\.security\.expires/);
+    assert.match(securityTemplate, /settings\.actions\.revokeOtherSessions/);
+    assert.match(securityTemplate, /settings\.actions\.revokeSession/);
+    assert.match(securityTemplate, /session\.browserDevice/);
+    assert.match(securityTemplate, /session\.lastSeenAtDisplay/);
   });
 });

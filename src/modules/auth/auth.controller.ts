@@ -58,6 +58,20 @@ const renderResetPasswordForm = (
 const getResetTokenParam = (req: Request) =>
   typeof req.params.token === 'string' ? req.params.token : '';
 
+const getAuditContext = (req: Request) => ({
+  ip: req.ip ?? null,
+  userAgent: req.get('user-agent') ?? null,
+  sessionId: req.sessionID ?? null,
+});
+
+const getEmailForAudit = (value: unknown) =>
+  typeof value === 'string' && value.trim()
+    ? value.toLowerCase().trim()
+    : null;
+
+const recordAuditEvent = (data: Parameters<typeof authService.recordAuthAuditEvent>[0]) =>
+  authService.recordAuthAuditEvent(data);
+
 const regenerateSession = (req: Request) =>
   new Promise<void>((resolve, reject) => {
     req.session.regenerate((error) => {
@@ -147,6 +161,16 @@ export const handleForgotPassword: RequestHandler = async (req, res, next) => {
       return next(new Error('Unable to request password reset.'));
     }
 
+    await recordAuditEvent({
+      type: 'PASSWORD_RESET_REQUEST',
+      email: result.data.email,
+      ...getAuditContext(req),
+      metadata: {
+        emailSent: resetResult.emailSent,
+        tokenCreated: resetResult.tokenCreated,
+      },
+    });
+
     return renderForgotPasswordForm(res, values, {}, 200, true);
   } catch (error) {
     return next(error);
@@ -217,6 +241,12 @@ export const handleResetPassword: RequestHandler = async (req, res, next) => {
       return next(new Error('Unable to reset password.'));
     }
 
+    await recordAuditEvent({
+      type: 'PASSWORD_RESET_COMPLETED',
+      userId: resetResult.userId,
+      ...getAuditContext(req),
+    });
+
     req.flash('success', 'Password reset successfully. Please log in.');
 
     return res.redirect('/auth/login');
@@ -264,8 +294,15 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
 export const loginUser: RequestHandler = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const auditEmail = getEmailForAudit(email);
 
     if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+      await recordAuditEvent({
+        type: 'LOGIN_FAILURE',
+        email: auditEmail,
+        ...getAuditContext(req),
+        metadata: { reason: 'missingCredentials' },
+      });
       req.flash('error', 'Email and password are required.');
       return res.redirect('/auth/login');
     }
@@ -273,11 +310,23 @@ export const loginUser: RequestHandler = async (req, res, next) => {
     const sessionUser = await authService.authenticateUser({ email, password });
 
     if (!sessionUser.ok && sessionUser.reason === 'invalidCredentials') {
+      await recordAuditEvent({
+        type: 'LOGIN_FAILURE',
+        email: auditEmail,
+        ...getAuditContext(req),
+        metadata: { reason: 'invalidCredentials' },
+      });
       req.flash('error', 'Incorrect credentials.');
       return res.redirect('/auth/login');
     }
 
     if (!sessionUser.ok && sessionUser.reason === 'noOrganizationMembership') {
+      await recordAuditEvent({
+        type: 'LOGIN_FAILURE',
+        email: auditEmail,
+        ...getAuditContext(req),
+        metadata: { reason: 'noOrganizationMembership' },
+      });
       req.flash('error', 'This account is not connected to an organization.');
       return res.redirect('/auth/login');
     }
@@ -290,6 +339,14 @@ export const loginUser: RequestHandler = async (req, res, next) => {
 
     assignAuthenticatedSession(req, sessionUser);
 
+    await recordAuditEvent({
+      type: 'LOGIN_SUCCESS',
+      userId: sessionUser.userId,
+      organizationId: sessionUser.organizationId,
+      email: auditEmail,
+      ...getAuditContext(req),
+    });
+
     return res.redirect('/');
   } catch (error) {
     return next(error);
@@ -298,6 +355,13 @@ export const loginUser: RequestHandler = async (req, res, next) => {
 
 export const logoutUser: RequestHandler = async (req, res, next) => {
   try {
+    await recordAuditEvent({
+      type: 'LOGOUT',
+      userId: req.session.userId ?? null,
+      organizationId: req.session.organizationId ?? null,
+      ...getAuditContext(req),
+    });
+
     await destroySession(req);
     res.clearCookie('invoice.sid');
 

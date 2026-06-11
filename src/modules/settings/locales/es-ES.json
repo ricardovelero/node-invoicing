@@ -74,18 +74,32 @@
   },
   "actions": {
     "save": "Guardar ajustes",
-    "changePassword": "Cambiar contraseña"
+    "changePassword": "Cambiar contraseña",
+    "revokeSession": "Revocar sesión",
+    "revokeOtherSessions": "Revocar otras sesiones"
   },
   "flash": {
     "updated": "Ajustes de la organización actualizados.",
     "localizationUpdated": "Ajustes de localización actualizados.",
     "securityUpdated": "Ajustes de seguridad actualizados.",
-    "passwordUpdated": "Contraseña cambiada correctamente."
+    "passwordUpdated": "Contraseña cambiada correctamente.",
+    "sessionRevoked": "Sesión revocada.",
+    "sessionNotRevoked": "No se pudo revocar la sesión.",
+    "otherSessionsRevoked": "{count} otras sesiones revocadas."
   },
   "security": {
     "sessionTimeouts": "Tiempos de sesión",
     "sessionTimeoutsDescription": "Controla durante cuánto tiempo siguen siendo válidas las sesiones de la organización.",
     "changePassword": "Cambiar contraseña",
-    "changePasswordDescription": "Actualiza tu contraseña. Se cerrarán las demás sesiones activas de tu cuenta."
+    "changePasswordDescription": "Actualiza tu contraseña. Se cerrarán las demás sesiones activas de tu cuenta.",
+    "activeSessions": "Sesiones activas",
+    "activeSessionsDescription": "Revisa dónde está iniciada tu cuenta y revoca las sesiones que no reconozcas.",
+    "currentSession": "Sesión actual",
+    "lastSeen": "Última actividad",
+    "ipAddress": "Dirección IP",
+    "created": "Creada",
+    "expires": "Caduca",
+    "unknownIp": "IP desconocida",
+    "noActiveSessions": "No se encontraron sesiones activas."
   }
 }

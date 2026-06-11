@@ -16,9 +16,13 @@ import {
   isSpanishIrpfEligible,
 } from "../../lib/withholding";
 import {
+  getActiveSessionsForUser,
+  revokeOtherSessionsForUser,
+  revokeSessionForUser,
   updateLocalizationSettings,
   updateOrganizationSettings,
   updateSecuritySettings,
+  type ActiveSession,
 } from "./settings.service";
 
 const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSettingsValues>) =>
@@ -27,26 +31,73 @@ const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSetti
     legalForm: values.legalForm,
   });
 
-const renderSecuritySettingsForm = (
+const getAuditContext = (req: Parameters<RequestHandler>[0]) => ({
+  ip: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+  sessionId: req.sessionID ?? null,
+});
+
+type SecuritySessionView = ActiveSession & {
+  createdAtDisplay: string;
+  createdAtIso: string;
+  expiresAtDisplay: string;
+  expiresAtIso: string;
+  lastSeenAtDisplay: string;
+  lastSeenAtIso: string;
+};
+
+const formatDateTime = (date: Date, locale = "en-GB") =>
+  new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+
+const createSecuritySessionViews = (
+  sessions: ActiveSession[],
+  locale: string,
+): SecuritySessionView[] =>
+  sessions.map((session) => ({
+    ...session,
+    createdAtDisplay: formatDateTime(session.createdAt, locale),
+    createdAtIso: session.createdAt.toISOString(),
+    expiresAtDisplay: formatDateTime(session.expiresAt, locale),
+    expiresAtIso: session.expiresAt.toISOString(),
+    lastSeenAtDisplay: formatDateTime(session.lastSeenAt, locale),
+    lastSeenAtIso: session.lastSeenAt.toISOString(),
+  }));
+
+const renderSecuritySettingsForm = async (
   req: Parameters<RequestHandler>[0],
   res: Parameters<RequestHandler>[1],
   {
     status = 200,
+    values = createSecuritySettingsValues(req.auth!.organization),
     timeoutErrors = {},
     passwordErrors = {},
   }: {
     status?: number;
+    values?: ReturnType<typeof createSecuritySettingsValues>;
     timeoutErrors?: SecuritySettingsErrors;
     passwordErrors?: ChangePasswordErrors;
   } = {},
-) =>
-  res.status(status).render("pages/settings/security.njk", {
+) => {
+  const activeSessions = await getActiveSessionsForUser(
+    req.auth!.user.id,
+    req.sessionID,
+  );
+
+  return res.status(status).render("pages/settings/security.njk", {
     title: req.t("settings.sections.security.title"),
     activeSettingsPage: "security",
-    values: createSecuritySettingsValues(req.auth!.organization),
+    values,
     errors: timeoutErrors,
     passwordErrors,
+    sessions: createSecuritySessionViews(
+      activeSessions,
+      req.auth!.organization.locale,
+    ),
   });
+};
 
 export const renderSettingsOverview: RequestHandler = (req, res) => {
   res.render("pages/settings/index.njk", {
@@ -122,7 +173,7 @@ export const updateLocalizationSettingsController: RequestHandler = async (req, 
   res.redirect("/settings/localization");
 };
 
-export const renderSecuritySettings: RequestHandler = (req, res) => {
+export const renderSecuritySettings: RequestHandler = async (req, res) => {
   return renderSecuritySettingsForm(req, res);
 };
 
@@ -130,12 +181,10 @@ export const updateSecuritySettingsController: RequestHandler = async (req, res)
   const result = securitySettingsSchema.safeParse(req.body);
 
   if (!result.success) {
-    return res.status(422).render("pages/settings/security.njk", {
-      title: req.t("settings.sections.security.title"),
-      activeSettingsPage: "security",
+    return renderSecuritySettingsForm(req, res, {
+      status: 422,
       values: createSecuritySettingsValues(req.body),
-      errors: result.error.flatten().fieldErrors,
-      passwordErrors: {},
+      timeoutErrors: result.error.flatten().fieldErrors,
     });
   }
 
@@ -183,7 +232,74 @@ export const updatePasswordController: RequestHandler = async (req, res, next) =
     return next(new Error("Unable to change password."));
   }
 
+  await authService.recordAuthAuditEvent({
+    type: "PASSWORD_CHANGED",
+    userId: req.auth!.user.id,
+    organizationId: req.auth!.organization.id,
+    ...getAuditContext(req),
+  });
+
   req.flash("success", req.t("settings.flash.passwordUpdated"));
+  return res.redirect("/settings/security");
+};
+
+export const revokeSessionController: RequestHandler = async (req, res) => {
+  const sessionId = Array.isArray(req.params.sessionId)
+    ? req.params.sessionId[0]
+    : req.params.sessionId;
+
+  if (!sessionId) {
+    req.flash("error", req.t("settings.flash.sessionNotRevoked"));
+    return res.redirect("/settings/security");
+  }
+
+  const result = await revokeSessionForUser(
+    req.auth!.user.id,
+    sessionId,
+    req.sessionID,
+  );
+
+  if (result.revoked) {
+    await authService.recordAuthAuditEvent({
+      type: "SESSION_REVOKED",
+      userId: req.auth!.user.id,
+      organizationId: req.auth!.organization.id,
+      ...getAuditContext(req),
+      metadata: {
+        targetSessionId: sessionId,
+      },
+    });
+    req.flash("success", req.t("settings.flash.sessionRevoked"));
+  } else {
+    req.flash("error", req.t("settings.flash.sessionNotRevoked"));
+  }
+
+  return res.redirect("/settings/security");
+};
+
+export const revokeOtherSessionsController: RequestHandler = async (req, res) => {
+  const result = await revokeOtherSessionsForUser(
+    req.auth!.user.id,
+    req.sessionID,
+  );
+
+  await authService.recordAuthAuditEvent({
+    type: "SESSION_REVOKED",
+    userId: req.auth!.user.id,
+    organizationId: req.auth!.organization.id,
+    ...getAuditContext(req),
+    metadata: {
+      scope: "otherSessions",
+      revokedCount: result.revokedCount,
+    },
+  });
+
+  req.flash(
+    "success",
+    req.t("settings.flash.otherSessionsRevoked", {
+      count: result.revokedCount,
+    }),
+  );
   return res.redirect("/settings/security");
 };
 

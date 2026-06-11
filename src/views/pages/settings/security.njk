@@ -76,4 +76,60 @@
       <button class="btn btn-primary" type="submit">{{ t('settings.actions.changePassword') }}</button>
     </div>
   </form>
+
+  <section class="mt-6 max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <h3 class="text-base font-semibold text-ink">{{ t('settings.security.activeSessions') }}</h3>
+        <p class="mt-1 text-sm text-muted">{{ t('settings.security.activeSessionsDescription') }}</p>
+      </div>
+      <form method="post" action="/settings/security/sessions/revoke-others">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <button class="btn btn-secondary" type="submit">{{ t('settings.actions.revokeOtherSessions') }}</button>
+      </form>
+    </div>
+
+    {% if sessions and sessions.length %}
+      <div class="divide-y divide-line rounded-md border border-line">
+        {% for session in sessions %}
+          <div class="grid gap-4 p-4 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="font-medium text-ink">{{ session.browserDevice }}</p>
+                {% if session.isCurrent %}
+                  <span class="rounded-full bg-action/10 px-2 py-0.5 text-xs font-medium text-action">{{ t('settings.security.currentSession') }}</span>
+                {% endif %}
+              </div>
+              <dl class="mt-3 grid gap-2 text-sm text-muted sm:grid-cols-2">
+                <div>
+                  <dt class="font-medium text-ink">{{ t('settings.security.lastSeen') }}</dt>
+                  <dd><time datetime="{{ session.lastSeenAtIso }}">{{ session.lastSeenAtDisplay }}</time></dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-ink">{{ t('settings.security.ipAddress') }}</dt>
+                  <dd>{{ session.ip or t('settings.security.unknownIp') }}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-ink">{{ t('settings.security.created') }}</dt>
+                  <dd><time datetime="{{ session.createdAtIso }}">{{ session.createdAtDisplay }}</time></dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-ink">{{ t('settings.security.expires') }}</dt>
+                  <dd><time datetime="{{ session.expiresAtIso }}">{{ session.expiresAtDisplay }}</time></dd>
+                </div>
+              </dl>
+            </div>
+            {% if not session.isCurrent %}
+              <form method="post" action="/settings/security/sessions/{{ session.id }}/revoke" class="md:justify-self-end">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button class="btn btn-secondary" type="submit">{{ t('settings.actions.revokeSession') }}</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="rounded-md border border-dashed border-line p-4 text-sm text-muted">{{ t('settings.security.noActiveSessions') }}</p>
+    {% endif %}
+  </section>
 {% endblock %}

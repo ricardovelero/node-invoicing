@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
@@ -11,6 +11,8 @@ import {
   renderOrganizationsSettings,
   renderSecuritySettings,
   renderSettingsOverview,
+  revokeOtherSessionsController,
+  revokeSessionController,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
@@ -19,6 +21,7 @@ import {
 
 type MockRequest = Request & {
   body: Record<string, unknown>;
+  params: Record<string, string>;
   auth: NonNullable<Request["auth"]>;
   flashMessages: Record<string, string[]>;
   t: Translate;
@@ -35,25 +38,58 @@ const prismaMock = prisma as unknown as {
   organization: {
     update: unknown;
   };
+  session: {
+    findMany: unknown;
+    updateMany: unknown;
+  };
 };
 const authServiceMock = authService as unknown as {
   changePassword: typeof authService.changePassword;
+  recordAuthAuditEvent: typeof authService.recordAuthAuditEvent;
 };
 
 const originalUpdate = prismaMock.organization.update;
+const originalSessionFindMany = prismaMock.session.findMany;
+const originalSessionUpdateMany = prismaMock.session.updateMany;
 const originalChangePassword = authServiceMock.changePassword;
+const originalRecordAuthAuditEvent = authServiceMock.recordAuthAuditEvent;
 const t = createTranslator("en-GB", loadTranslations(), {
   environment: "test",
+});
+let auditEvents: Array<Parameters<typeof authService.recordAuthAuditEvent>[0]> = [];
+
+beforeEach(() => {
+  auditEvents = [];
+  prismaMock.session.findMany = async () => [
+    {
+      id: "sid_current",
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      ip: "203.0.113.10",
+      createdAt: new Date("2026-06-11T09:00:00.000Z"),
+      lastSeenAt: new Date("2026-06-11T11:50:00.000Z"),
+      expiresAt: new Date("2026-06-25T09:00:00.000Z"),
+      organization: { sessionIdleTimeoutMinutes: 45 },
+    },
+  ];
+  authServiceMock.recordAuthAuditEvent = async (event) => {
+    auditEvents.push(event);
+    return { ok: true };
+  };
 });
 
 afterEach(() => {
   prismaMock.organization.update = originalUpdate;
+  prismaMock.session.findMany = originalSessionFindMany;
+  prismaMock.session.updateMany = originalSessionUpdateMany;
   authServiceMock.changePassword = originalChangePassword;
+  authServiceMock.recordAuthAuditEvent = originalRecordAuthAuditEvent;
 });
 
 const createRequest = (body: Record<string, unknown> = {}) =>
   ({
     body,
+    params: {},
     auth: {
       user: {
         id: "user_1",
@@ -86,6 +122,10 @@ const createRequest = (body: Record<string, unknown> = {}) =>
       return this.flashMessages[type];
     },
     sessionID: "sid_current",
+    ip: "203.0.113.10",
+    get(name: string) {
+      return name.toLowerCase() === "user-agent" ? "Test Browser" : undefined;
+    },
     t,
   }) as MockRequest;
 
@@ -130,7 +170,7 @@ test("renderSettingsOverview renders the settings overview", () => {
   });
 });
 
-test("placeholder sections render their pages with the active tab", () => {
+test("placeholder sections render their pages with the active tab", async () => {
   const cases = [
     {
       handler: renderGeneralSettings,
@@ -153,7 +193,7 @@ test("placeholder sections render their pages with the active tab", () => {
     const req = createRequest();
     const res = createResponse();
 
-    testCase.handler(req, res, () => undefined);
+    await Promise.resolve(testCase.handler(req, res, () => undefined));
 
     assert.equal(res.renderedView, testCase.view);
     assert.equal(
@@ -334,13 +374,67 @@ test("renderLocalizationSettings renders the current locale", () => {
   });
 });
 
-test("renderSecuritySettings renders current session timeout values", () => {
+test("renderSecuritySettings renders current session timeout values and active sessions", async () => {
   const req = createRequest();
   const res = createResponse();
 
-  renderSecuritySettings(req, res, () => undefined);
+  await renderSecuritySettings(req, res, () => undefined);
 
   assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.deepEqual((res.renderedData as { values: unknown }).values, {
+    sessionIdleTimeoutMinutes: "45",
+    sessionAbsoluteLifetimeDays: "21",
+  });
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {});
+  assert.deepEqual((res.renderedData as { passwordErrors: unknown }).passwordErrors, {});
+  assert.equal((res.renderedData as { title: string }).title, "Security settings");
+  assert.equal(
+    (res.renderedData as { activeSettingsPage: string }).activeSettingsPage,
+    "security",
+  );
+  assert.deepEqual(
+    (res.renderedData as { sessions: Array<{ id: string; isCurrent: boolean; browserDevice: string; ip: string }> }).sessions.map((session) => ({
+      id: session.id,
+      isCurrent: session.isCurrent,
+      browserDevice: session.browserDevice,
+      ip: session.ip,
+    })),
+    [
+      {
+        id: "sid_current",
+        isCurrent: true,
+        browserDevice: "Chrome on macOS",
+        ip: "203.0.113.10",
+      },
+    ],
+  );
+  assert.deepEqual(
+    Object.keys((res.renderedData as { sessions: Array<Record<string, unknown>> }).sessions[0]),
+    [
+      "id",
+      "isCurrent",
+      "browserDevice",
+      "ip",
+      "createdAt",
+      "lastSeenAt",
+      "expiresAt",
+      "createdAtDisplay",
+      "createdAtIso",
+      "expiresAtDisplay",
+      "expiresAtIso",
+      "lastSeenAtDisplay",
+      "lastSeenAtIso",
+    ],
+  );
+});
+
+test("renderSecuritySettings passes an empty active sessions list", async () => {
+  prismaMock.session.findMany = async () => [];
+  const req = createRequest();
+  const res = createResponse();
+
+  await renderSecuritySettings(req, res, () => undefined);
+
   assert.deepEqual(res.renderedData, {
     title: "Security settings",
     activeSettingsPage: "security",
@@ -350,6 +444,7 @@ test("renderSecuritySettings renders current session timeout values", () => {
     },
     errors: {},
     passwordErrors: {},
+    sessions: [],
   });
 });
 
@@ -375,6 +470,17 @@ test("updateSecuritySettingsController returns field errors for invalid submissi
       "Absolute session lifetime must be 90 days or fewer.",
     ],
   });
+  assert.deepEqual(
+    (res.renderedData as { values: unknown }).values,
+    {
+      sessionIdleTimeoutMinutes: "4",
+      sessionAbsoluteLifetimeDays: "91",
+    },
+  );
+  assert.equal(
+    (res.renderedData as { sessions: unknown[] }).sessions.length,
+    1,
+  );
 });
 
 test("updateSecuritySettingsController updates timeout settings and redirects", async () => {
@@ -471,6 +577,104 @@ test("updatePasswordController changes the password and redirects", async () => 
   });
   assert.deepEqual(req.flashMessages.success, ["Password changed successfully."]);
   assert.equal(res.redirectedTo, "/settings/security");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "PASSWORD_CHANGED",
+      userId: "user_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+    },
+  ]);
+});
+
+test("revokeSessionController revokes a selected session and redirects", async () => {
+  let updateArgs: unknown;
+  prismaMock.session.updateMany = async (args: unknown) => {
+    updateArgs = args;
+    return { count: 1 };
+  };
+  const req = createRequest();
+  req.params.sessionId = "sid_other";
+  const res = createResponse();
+
+  await revokeSessionController(req, res, () => undefined);
+
+  assert.deepEqual((updateArgs as { where: unknown }).where, {
+    id: "sid_other",
+    userId: "user_1",
+    revokedAt: null,
+  });
+  assert.deepEqual(req.flashMessages.success, ["Session revoked."]);
+  assert.equal(res.redirectedTo, "/settings/security");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "SESSION_REVOKED",
+      userId: "user_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        targetSessionId: "sid_other",
+      },
+    },
+  ]);
+});
+
+test("revokeSessionController refuses to revoke the current session", async () => {
+  let updateCalls = 0;
+  prismaMock.session.updateMany = async () => {
+    updateCalls += 1;
+    return { count: 1 };
+  };
+  const req = createRequest();
+  req.params.sessionId = "sid_current";
+  const res = createResponse();
+
+  await revokeSessionController(req, res, () => undefined);
+
+  assert.equal(updateCalls, 0);
+  assert.deepEqual(req.flashMessages.error, ["Session could not be revoked."]);
+  assert.equal(res.redirectedTo, "/settings/security");
+  assert.deepEqual(auditEvents, []);
+});
+
+test("revokeOtherSessionsController revokes all other sessions and redirects", async () => {
+  let updateArgs: unknown;
+  prismaMock.session.updateMany = async (args: unknown) => {
+    updateArgs = args;
+    return { count: 2 };
+  };
+  const req = createRequest();
+  const res = createResponse();
+
+  await revokeOtherSessionsController(req, res, () => undefined);
+
+  assert.deepEqual((updateArgs as { where: unknown }).where, {
+    userId: "user_1",
+    revokedAt: null,
+    id: {
+      not: "sid_current",
+    },
+  });
+  assert.deepEqual(req.flashMessages.success, ["2 other sessions revoked."]);
+  assert.equal(res.redirectedTo, "/settings/security");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "SESSION_REVOKED",
+      userId: "user_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        scope: "otherSessions",
+        revokedCount: 2,
+      },
+    },
+  ]);
 });
 
 test("updateLocalizationSettingsController returns field errors for invalid submissions", async () => {

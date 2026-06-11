@@ -10,6 +10,7 @@ import {
   getInitialOrganizationForUser,
   getValidPasswordResetToken,
   requestPasswordReset,
+  recordAuthAuditEvent,
   resetPasswordWithToken,
   registerUser,
   type PostmarkPasswordResetPayload,
@@ -31,6 +32,9 @@ type PrismaMock = {
   session: {
     updateMany: unknown;
   };
+  authAuditEvent: {
+    create: unknown;
+  };
 };
 
 const prismaMock = prisma as unknown as PrismaMock;
@@ -43,6 +47,7 @@ const originalPasswordResetTokenFindFirst = prismaMock.passwordResetToken.findFi
 const originalPasswordResetTokenUpdate = prismaMock.passwordResetToken.update;
 const originalPasswordResetTokenUpdateMany = prismaMock.passwordResetToken.updateMany;
 const originalSessionUpdateMany = prismaMock.session.updateMany;
+const originalAuthAuditEventCreate = prismaMock.authAuditEvent.create;
 const originalEnv = {
   APP_URL: env.APP_URL,
   POSTMARK_FROM: env.POSTMARK_FROM,
@@ -58,6 +63,7 @@ afterEach(() => {
   prismaMock.passwordResetToken.update = originalPasswordResetTokenUpdate;
   prismaMock.passwordResetToken.updateMany = originalPasswordResetTokenUpdateMany;
   prismaMock.session.updateMany = originalSessionUpdateMany;
+  prismaMock.authAuditEvent.create = originalAuthAuditEventCreate;
   env.APP_URL = originalEnv.APP_URL;
   env.POSTMARK_FROM = originalEnv.POSTMARK_FROM;
   env.POSTMARK_MESSAGE_STREAM = originalEnv.POSTMARK_MESSAGE_STREAM;
@@ -487,7 +493,7 @@ test("resetPasswordWithToken hashes the password, consumes the token, and invali
 
   const result = await resetPasswordWithToken("valid-token", "CorrectPassword1");
 
-  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(result, { ok: true, userId: "user_1" });
   assert.ok(userUpdateArgs);
   assert.equal(
     await bcrypt.compare("CorrectPassword1", userUpdateArgs.data.passwordHash),
@@ -672,6 +678,44 @@ test("changePassword updates the password, consumes reset tokens, and revokes ot
       revokedAt:
         sessionUpdateManyArgs &&
         (sessionUpdateManyArgs as { data: { revokedAt: Date } }).data.revokedAt,
+    },
+  });
+});
+
+test("recordAuthAuditEvent stores non-sensitive auth event metadata", async () => {
+  let createArgs: unknown;
+
+  prismaMock.authAuditEvent.create = async (args: unknown) => {
+    createArgs = args;
+    return { id: "audit_1" };
+  };
+
+  const result = await recordAuthAuditEvent({
+    type: "LOGIN_FAILURE",
+    userId: null,
+    organizationId: null,
+    sessionId: "sid_1",
+    email: "ada@example.com",
+    ip: "203.0.113.10",
+    userAgent: "Test Browser",
+    metadata: {
+      reason: "invalidCredentials",
+    },
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(createArgs, {
+    data: {
+      type: "LOGIN_FAILURE",
+      userId: null,
+      organizationId: null,
+      sessionId: "sid_1",
+      email: "ada@example.com",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      metadata: {
+        reason: "invalidCredentials",
+      },
     },
   });
 });

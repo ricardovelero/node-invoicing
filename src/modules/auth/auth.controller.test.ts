@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 import type { NextFunction, Request, Response } from "express";
 import {
   handleForgotPassword,
@@ -49,6 +49,7 @@ const authServiceMock = authService as unknown as {
   requestPasswordReset: typeof authService.requestPasswordReset;
   getValidPasswordResetToken: typeof authService.getValidPasswordResetToken;
   resetPasswordWithToken: typeof authService.resetPasswordWithToken;
+  recordAuthAuditEvent: typeof authService.recordAuthAuditEvent;
 };
 
 const originalRegisterUser = authServiceMock.registerUser;
@@ -56,6 +57,16 @@ const originalAuthenticateUser = authServiceMock.authenticateUser;
 const originalRequestPasswordReset = authServiceMock.requestPasswordReset;
 const originalGetValidPasswordResetToken = authServiceMock.getValidPasswordResetToken;
 const originalResetPasswordWithToken = authServiceMock.resetPasswordWithToken;
+const originalRecordAuthAuditEvent = authServiceMock.recordAuthAuditEvent;
+let auditEvents: Array<Parameters<typeof authService.recordAuthAuditEvent>[0]> = [];
+
+beforeEach(() => {
+  auditEvents = [];
+  authServiceMock.recordAuthAuditEvent = async (event) => {
+    auditEvents.push(event);
+    return { ok: true };
+  };
+});
 
 afterEach(() => {
   authServiceMock.registerUser = originalRegisterUser;
@@ -63,6 +74,7 @@ afterEach(() => {
   authServiceMock.requestPasswordReset = originalRequestPasswordReset;
   authServiceMock.getValidPasswordResetToken = originalGetValidPasswordResetToken;
   authServiceMock.resetPasswordWithToken = originalResetPasswordWithToken;
+  authServiceMock.recordAuthAuditEvent = originalRecordAuthAuditEvent;
 });
 
 const createRequest = (
@@ -99,6 +111,7 @@ const createRequest = (
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    sessionID: "sid_current",
   } as MockRequest;
 
   return req;
@@ -344,6 +357,19 @@ test("handleForgotPassword renders a generic success message after valid request
     errors: {},
     success: true,
   });
+  assert.deepEqual(auditEvents, [
+    {
+      type: "PASSWORD_RESET_REQUEST",
+      email: "ada@example.com",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        emailSent: false,
+        tokenCreated: false,
+      },
+    },
+  ]);
 });
 
 test("renderResetPassword renders the reset form for valid tokens", async () => {
@@ -398,7 +424,7 @@ test("handleResetPassword validates password without rendering password values b
 
   authServiceMock.resetPasswordWithToken = async () => {
     serviceCalls += 1;
-    return { ok: true };
+    return { ok: true, userId: "user_1" };
   };
 
   const req = createRequest({ password: "weak" }, { token: "valid-token" });
@@ -427,7 +453,7 @@ test("handleResetPassword consumes valid tokens and redirects to login", async (
 
   authServiceMock.resetPasswordWithToken = async (token, password) => {
     serviceData = { token, password };
-    return { ok: true };
+    return { ok: true, userId: "user_1" };
   };
 
   const req = createRequest(
@@ -448,6 +474,15 @@ test("handleResetPassword consumes valid tokens and redirects to login", async (
     "Password reset successfully. Please log in.",
   ]);
   assert.equal(res.redirectedTo, "/auth/login");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "PASSWORD_RESET_COMPLETED",
+      userId: "user_1",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+    },
+  ]);
 });
 
 test("handleResetPassword renders invalid link state when the service rejects a token", async () => {
@@ -513,6 +548,17 @@ test("loginUser stores the authenticated service result in session", async () =>
   assert.equal(req.session.userAgent, "Test Browser");
   assert.equal(req.session.ip, "203.0.113.10");
   assert.equal(res.redirectedTo, "/");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "LOGIN_SUCCESS",
+      userId: "user_1",
+      organizationId: "org_1",
+      email: "ada@example.com",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+    },
+  ]);
 });
 
 test("loginUser rejects invalid credentials without creating a session", async () => {
@@ -536,6 +582,18 @@ test("loginUser rejects invalid credentials without creating a session", async (
   assert.equal(req.session.organizationId, undefined);
   assert.deepEqual(req.flashMessages.error, ["Incorrect credentials."]);
   assert.equal(res.redirectedTo, "/auth/login");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "LOGIN_FAILURE",
+      email: "ada@example.com",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        reason: "invalidCredentials",
+      },
+    },
+  ]);
 });
 
 test("loginUser rejects accounts without an organization membership", async () => {
@@ -561,6 +619,18 @@ test("loginUser rejects accounts without an organization membership", async () =
     "This account is not connected to an organization.",
   ]);
   assert.equal(res.redirectedTo, "/auth/login");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "LOGIN_FAILURE",
+      email: "ada@example.com",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+      metadata: {
+        reason: "noOrganizationMembership",
+      },
+    },
+  ]);
 });
 
 test("logoutUser destroys the session, clears the session cookie, and redirects to login", async () => {
@@ -578,4 +648,14 @@ test("logoutUser destroys the session, clears the session cookie, and redirects 
   assert.equal(req.session.organizationId, undefined);
   assert.deepEqual(res.clearedCookies, ["invoice.sid"]);
   assert.equal(res.redirectedTo, "/auth/login");
+  assert.deepEqual(auditEvents, [
+    {
+      type: "LOGOUT",
+      userId: "user_1",
+      organizationId: "org_1",
+      ip: "203.0.113.10",
+      userAgent: "Test Browser",
+      sessionId: "sid_current",
+    },
+  ]);
 });

@@ -74,18 +74,32 @@
   },
   "actions": {
     "save": "Save settings",
-    "changePassword": "Change password"
+    "changePassword": "Change password",
+    "revokeSession": "Revoke session",
+    "revokeOtherSessions": "Revoke other sessions"
   },
   "flash": {
     "updated": "Organization settings updated.",
     "localizationUpdated": "Localization settings updated.",
     "securityUpdated": "Security settings updated.",
-    "passwordUpdated": "Password changed successfully."
+    "passwordUpdated": "Password changed successfully.",
+    "sessionRevoked": "Session revoked.",
+    "sessionNotRevoked": "Session could not be revoked.",
+    "otherSessionsRevoked": "{count} other sessions revoked."
   },
   "security": {
     "sessionTimeouts": "Session timeouts",
     "sessionTimeoutsDescription": "Control how long organization sessions remain valid.",
     "changePassword": "Change password",
-    "changePasswordDescription": "Update your password. Other active sessions for your account will be signed out."
+    "changePasswordDescription": "Update your password. Other active sessions for your account will be signed out.",
+    "activeSessions": "Active sessions",
+    "activeSessionsDescription": "Review where your account is signed in and revoke sessions you no longer recognize.",
+    "currentSession": "Current session",
+    "lastSeen": "Last seen",
+    "ipAddress": "IP address",
+    "created": "Created",
+    "expires": "Expires",
+    "unknownIp": "Unknown IP",
+    "noActiveSessions": "No active sessions were found."
   }
 }

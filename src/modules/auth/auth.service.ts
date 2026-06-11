@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import path from 'node:path';
-import { Prisma, type OrganizationRole } from '@prisma/client';
+import { Prisma, type AuthAuditEventType, type OrganizationRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import nunjucks from 'nunjucks';
 import { env } from '../../config/env';
@@ -73,12 +73,16 @@ export type PasswordResetTokenResult =
   | { ok: false; reason: 'invalidOrExpired' | 'databaseError' };
 
 export type ResetPasswordResult =
-  | { ok: true }
+  | { ok: true; userId: string }
   | { ok: false; reason: 'invalidOrExpired' | 'databaseError' };
 
 export type ChangePasswordResult =
   | { ok: true }
   | { ok: false; reason: 'invalidCurrentPassword' | 'userNotFound' | 'databaseError' };
+
+export type RecordAuthAuditEventResult =
+  | { ok: true }
+  | { ok: false; reason: 'databaseError' };
 
 const passwordResetEmailViewsPath = path.join(process.cwd(), 'src', 'views');
 const passwordResetEmailNunjucksEnv = nunjucks.configure(
@@ -109,6 +113,40 @@ const isPrismaDatabaseError = (error: unknown) =>
   error instanceof Prisma.PrismaClientUnknownRequestError ||
   error instanceof Prisma.PrismaClientRustPanicError ||
   error instanceof Prisma.PrismaClientInitializationError;
+
+export const recordAuthAuditEvent = async (data: {
+  type: AuthAuditEventType;
+  userId?: string | null;
+  organizationId?: string | null;
+  sessionId?: string | null;
+  email?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: Prisma.InputJsonValue | null;
+}): Promise<RecordAuthAuditEventResult> => {
+  try {
+    await prisma.authAuditEvent.create({
+      data: {
+        type: data.type,
+        userId: data.userId ?? null,
+        organizationId: data.organizationId ?? null,
+        sessionId: data.sessionId ?? null,
+        email: data.email ?? null,
+        ip: data.ip ?? null,
+        userAgent: data.userAgent ?? null,
+        metadata: data.metadata ?? undefined,
+      },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    if (isPrismaDatabaseError(error)) {
+      return { ok: false, reason: 'databaseError' };
+    }
+
+    throw error;
+  }
+};
 
 const passwordResetExpiresAt = () => new Date(Date.now() + 60 * 60 * 1000);
 
@@ -507,7 +545,7 @@ export const resetPasswordWithToken = async (
         data: { usedAt: now },
       });
 
-      return { ok: true as const };
+      return { ok: true as const, userId: resetToken.userId };
     });
   } catch (error) {
     if (isPrismaDatabaseError(error)) {

@@ -1,4 +1,8 @@
 import { prisma } from "../../db/prisma";
+import {
+  defaultSessionIdleTimeoutMinutes,
+  minutesToMs,
+} from "../../lib/session-policy";
 import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding";
 import type {
   LocalizationSettingsForm,
@@ -7,6 +11,88 @@ import type {
 } from "./settings.schema";
 
 const emptyToNull = (value: string) => value || null;
+
+export type ActiveSession = {
+  id: string;
+  isCurrent: boolean;
+  browserDevice: string;
+  ip: string | null;
+  createdAt: Date;
+  lastSeenAt: Date;
+  expiresAt: Date;
+};
+
+const detectBrowser = (userAgent: string | null) => {
+  if (!userAgent) {
+    return "Unknown browser";
+  }
+
+  if (/Edg\//i.test(userAgent)) {
+    return "Edge";
+  }
+
+  if (/Firefox\//i.test(userAgent)) {
+    return "Firefox";
+  }
+
+  if (/Chrome\//i.test(userAgent) && !/Edg\//i.test(userAgent)) {
+    return "Chrome";
+  }
+
+  if (/Safari\//i.test(userAgent) && !/Chrome\//i.test(userAgent)) {
+    return "Safari";
+  }
+
+  return "Unknown browser";
+};
+
+const detectDevice = (userAgent: string | null) => {
+  if (!userAgent) {
+    return "Unknown device";
+  }
+
+  if (/iPhone|iPad|iPod/i.test(userAgent)) {
+    return "iOS";
+  }
+
+  if (/Android/i.test(userAgent)) {
+    return "Android";
+  }
+
+  if (/Mac OS X|Macintosh/i.test(userAgent)) {
+    return "macOS";
+  }
+
+  if (/Windows/i.test(userAgent)) {
+    return "Windows";
+  }
+
+  if (/Linux/i.test(userAgent)) {
+    return "Linux";
+  }
+
+  return "Unknown device";
+};
+
+const describeBrowserDevice = (userAgent: string | null) => {
+  const browser = detectBrowser(userAgent);
+  const device = detectDevice(userAgent);
+
+  if (browser === "Unknown browser" && device === "Unknown device") {
+    return "Unknown browser or device";
+  }
+
+  return `${browser} on ${device}`;
+};
+
+const isIdleExpired = (
+  lastSeenAt: Date,
+  idleTimeoutMinutes: number | null | undefined,
+  now: Date,
+) => {
+  const timeoutMinutes = idleTimeoutMinutes ?? defaultSessionIdleTimeoutMinutes;
+  return lastSeenAt.getTime() + minutesToMs(timeoutMinutes) <= now.getTime();
+};
 
 export const updateOrganizationSettings = (
   organizationId: string,
@@ -61,3 +147,108 @@ export const updateSecuritySettings = (
       sessionAbsoluteLifetimeDays: data.sessionAbsoluteLifetimeDays,
     },
   });
+
+export const getActiveSessionsForUser = async (
+  userId: string,
+  currentSessionId: string,
+  now = new Date(),
+): Promise<ActiveSession[]> => {
+  const sessions = await prisma.session.findMany({
+    where: {
+      userId,
+      revokedAt: null,
+      expiresAt: {
+        gt: now,
+      },
+    },
+    select: {
+      id: true,
+      userAgent: true,
+      ip: true,
+      createdAt: true,
+      lastSeenAt: true,
+      expiresAt: true,
+      organization: {
+        select: {
+          sessionIdleTimeoutMinutes: true,
+        },
+      },
+    },
+    orderBy: {
+      lastSeenAt: "desc",
+    },
+  });
+
+  return sessions
+    .filter(
+      (session) =>
+        !isIdleExpired(
+          session.lastSeenAt,
+          session.organization?.sessionIdleTimeoutMinutes,
+          now,
+        ),
+    )
+    .map((session) => ({
+      id: session.id,
+      isCurrent: session.id === currentSessionId,
+      browserDevice: describeBrowserDevice(session.userAgent),
+      ip: session.ip,
+      createdAt: session.createdAt,
+      lastSeenAt: session.lastSeenAt,
+      expiresAt: session.expiresAt,
+    }))
+    .sort((a, b) => {
+      if (a.isCurrent) {
+        return -1;
+      }
+
+      if (b.isCurrent) {
+        return 1;
+      }
+
+      return b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
+    });
+};
+
+export const revokeSessionForUser = async (
+  userId: string,
+  sessionId: string,
+  currentSessionId: string,
+) => {
+  if (sessionId === currentSessionId) {
+    return { revoked: false };
+  }
+
+  const result = await prisma.session.updateMany({
+    where: {
+      id: sessionId,
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+
+  return { revoked: result.count > 0 };
+};
+
+export const revokeOtherSessionsForUser = async (
+  userId: string,
+  currentSessionId: string,
+) => {
+  const result = await prisma.session.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+      id: {
+        not: currentSessionId,
+      },
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+
+  return { revokedCount: result.count };
+};
