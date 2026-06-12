@@ -4,6 +4,7 @@
   "private": true,
   "main": "dist/server.js",
   "scripts": {
+    "prebuild": "node scripts/clean-dist.mjs",
     "dev": "concurrently -k -n css,js,server \"pnpm dev:css\" \"pnpm dev:js\" \"pnpm dev:server\"",
     "dev:css": "tailwindcss -i ./src/public/css/app.css -o ./public/assets/app.css --watch",
     "dev:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --sourcemap --watch",

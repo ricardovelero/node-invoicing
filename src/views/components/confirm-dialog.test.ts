@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 const template = readFileSync(
-  path.join(process.cwd(), 'src', 'views', 'macros', 'confirm-dialog.njk'),
+  path.join(process.cwd(), 'src', 'views', 'components', 'confirm-dialog.njk'),
   'utf8',
 );
 

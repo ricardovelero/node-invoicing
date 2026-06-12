@@ -96,7 +96,7 @@ test('customer detail confirms delete action in a dialog before submitting', () 
 
   assert.match(
     template,
-    /from "macros\/confirm-dialog\.njk" import confirmDialog/,
+    /from "components\/confirm-dialog\.njk" import confirmDialog/,
   );
   assert.match(
     template,

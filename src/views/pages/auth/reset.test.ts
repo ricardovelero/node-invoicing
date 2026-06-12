@@ -7,10 +7,10 @@ test("reset password form posts with CSRF and required password field", () => {
 
   assert.match(template, /method="post" action="\/auth\/reset\/{{ token }}"/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
-  assert.match(template, /New password <span class="text-red-600">\*<\/span>/);
-  assert.match(template, /name="password" type="password"/);
-  assert.match(template, /autocomplete="new-password"/);
-  assert.match(template, /data-password-toggle/);
+  assert.match(
+    template,
+    /passwordField\('password', 'New password', autocomplete='new-password', error=errors\.password, validate='password'\)/,
+  );
 });
 
 test("reset password form renders field errors and invalid token state", () => {

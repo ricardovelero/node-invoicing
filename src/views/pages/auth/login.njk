@@ -13,6 +13,10 @@
       {{ field('email', 'Email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
       {{ passwordField('password', 'Password', autocomplete='current-password', error=errors.password, validate='password') }}
 
+      <p class="text-right text-sm">
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/forgot">Forgot password?</a>
+      </p>
+
       <button class="btn btn-full btn-primary" type="submit">Log in</button>
       <p class="text-center text-sm text-muted">
         Don't have an account?

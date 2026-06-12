@@ -10,7 +10,7 @@ test("item index includes active archived toggles and item actions", () => {
   );
 
   assert.match(template, /from "components\/sort-indicator\.njk" import sortIndicator/);
-  assert.match(template, /from "macros\/confirm-dialog\.njk" import confirmDialog/);
+  assert.match(template, /from "components\/confirm-dialog\.njk" import confirmDialog/);
   assert.match(template, /href="{{ archivedItemsHref }}"/);
   assert.match(template, /href="{{ activeItemsHref }}"/);
   assert.match(template, /t\('items\.actions\.archived'\)/);

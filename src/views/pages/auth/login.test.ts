@@ -17,9 +17,10 @@ test("login password keeps the forgot link and inline validation hooks", () => {
   const template = readFileSync("src/views/pages/auth/login.njk", "utf8");
 
   assert.match(template, /href="\/auth\/forgot"/);
-  assert.match(template, /id="password" name="password" type="password"/);
-  assert.match(template, /data-validate="required"/);
-  assert.match(template, /id="password-error"/);
+  assert.match(
+    template,
+    /passwordField\('password', 'Password', autocomplete='current-password', error=errors\.password, validate='password'\)/,
+  );
 });
 
 test("login form renders server-side field errors", () => {

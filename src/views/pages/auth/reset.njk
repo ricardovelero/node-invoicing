@@ -19,7 +19,7 @@
         <form method="post" action="/auth/reset/{{ token }}" data-validate-form class="space-y-5">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
-          {{ passwordField('password', 'New Password', autocomplete='new-password', error=errors.password, validate='password') }}
+          {{ passwordField('password', 'New password', autocomplete='new-password', error=errors.password, validate='password') }}
 
           <button class="btn btn-full btn-primary" type="submit">Reset password</button>
         </form>
