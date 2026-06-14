@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import * as authService from "../auth/auth.service";
 import {
+  createOrganizationController,
   renderGeneralSettings,
   renderLocalizationSettings,
   renderOrganizationSettings,
@@ -13,6 +14,7 @@ import {
   renderSettingsOverview,
   revokeOtherSessionsController,
   revokeSessionController,
+  switchOrganizationController,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
@@ -23,6 +25,14 @@ type MockRequest = Request & {
   body: Record<string, unknown>;
   params: Record<string, string>;
   auth: NonNullable<Request["auth"]>;
+  session: {
+    organizationId?: string;
+    sessionIdleTimeoutMinutes?: number;
+    sessionAbsoluteLifetimeDays?: number;
+    cookie: {
+      maxAge?: number;
+    };
+  };
   flashMessages: Record<string, string[]>;
   t: Translate;
 };
@@ -35,8 +45,13 @@ type MockResponse = Response & {
 };
 
 const prismaMock = prisma as unknown as {
+  $transaction: unknown;
   organization: {
     update: unknown;
+  };
+  organizationMembership: {
+    findMany: unknown;
+    findFirst: unknown;
   };
   session: {
     findMany: unknown;
@@ -48,7 +63,10 @@ const authServiceMock = authService as unknown as {
   recordAuthAuditEvent: typeof authService.recordAuthAuditEvent;
 };
 
+const originalTransaction = prismaMock.$transaction;
 const originalUpdate = prismaMock.organization.update;
+const originalMembershipFindMany = prismaMock.organizationMembership.findMany;
+const originalMembershipFindFirst = prismaMock.organizationMembership.findFirst;
 const originalSessionFindMany = prismaMock.session.findMany;
 const originalSessionUpdateMany = prismaMock.session.updateMany;
 const originalChangePassword = authServiceMock.changePassword;
@@ -60,6 +78,24 @@ let auditEvents: Array<Parameters<typeof authService.recordAuthAuditEvent>[0]> =
 
 beforeEach(() => {
   auditEvents = [];
+  prismaMock.organizationMembership.findMany = async () => [
+    {
+      role: "OWNER",
+      createdAt: new Date("2026-06-01T10:00:00.000Z"),
+      organization: {
+        id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        name: "Analytical Engines",
+      },
+    },
+    {
+      role: "ADMIN",
+      createdAt: new Date("2026-06-02T10:00:00.000Z"),
+      organization: {
+        id: "6b2f4e3a-1234-4abc-8def-111111111111",
+        name: "Difference Engines",
+      },
+    },
+  ];
   prismaMock.session.findMany = async (
     args: { where?: { userId?: string } } = {},
   ) =>
@@ -84,7 +120,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  prismaMock.$transaction = originalTransaction;
   prismaMock.organization.update = originalUpdate;
+  prismaMock.organizationMembership.findMany = originalMembershipFindMany;
+  prismaMock.organizationMembership.findFirst = originalMembershipFindFirst;
   prismaMock.session.findMany = originalSessionFindMany;
   prismaMock.session.updateMany = originalSessionUpdateMany;
   authServiceMock.changePassword = originalChangePassword;
@@ -119,6 +158,12 @@ const createRequest = (body: Record<string, unknown> = {}) =>
         sessionAbsoluteLifetimeDays: 21,
       },
       role: "OWNER",
+    },
+    session: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      sessionIdleTimeoutMinutes: 45,
+      sessionAbsoluteLifetimeDays: 21,
+      cookie: {},
     },
     flashMessages: {},
     flash(type: string, message: string) {
@@ -187,11 +232,6 @@ test("placeholder sections render their pages with the active tab", async () => 
       view: "pages/settings/security.njk",
       activeSettingsPage: "security",
     },
-    {
-      handler: renderOrganizationsSettings,
-      view: "pages/settings/organizations.njk",
-      activeSettingsPage: "organizations",
-    },
   ];
 
   for (const testCase of cases) {
@@ -206,6 +246,181 @@ test("placeholder sections render their pages with the active tab", async () => 
       testCase.activeSettingsPage,
     );
   }
+});
+
+test("renderOrganizationsSettings renders memberships and marks the current organization", async () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  await renderOrganizationsSettings(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/organizations.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Organisations",
+    activeSettingsPage: "organizations",
+    currentOrganization: req.auth.organization,
+    memberships: [
+      {
+        organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        organizationName: "Analytical Engines",
+        role: "OWNER",
+        createdAt: new Date("2026-06-01T10:00:00.000Z"),
+        isCurrent: true,
+      },
+      {
+        organizationId: "6b2f4e3a-1234-4abc-8def-111111111111",
+        organizationName: "Difference Engines",
+        role: "ADMIN",
+        createdAt: new Date("2026-06-02T10:00:00.000Z"),
+        isCurrent: false,
+      },
+    ],
+    values: {},
+    errors: {},
+  });
+});
+
+test("createOrganizationController returns field errors for invalid submissions", async () => {
+  let transactionCalls = 0;
+  prismaMock.$transaction = async () => {
+    transactionCalls += 1;
+  };
+  const req = createRequest({ name: "" });
+  const res = createResponse();
+
+  await createOrganizationController(req, res, () => undefined);
+
+  assert.equal(transactionCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/organizations.njk");
+  assert.deepEqual((res.renderedData as { values: unknown }).values, {
+    name: "",
+  });
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
+    name: ["Enter an organization name."],
+  });
+});
+
+test("createOrganizationController creates, switches session, and redirects", async () => {
+  let createdOrganizationData: unknown;
+  let createdMembershipData: unknown;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      organization: {
+        create: (args: unknown) => Promise<{
+          id: string;
+          sessionIdleTimeoutMinutes: number;
+          sessionAbsoluteLifetimeDays: number;
+        }>;
+      };
+      organizationMembership: {
+        create: (args: unknown) => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      organization: {
+        async create(args) {
+          createdOrganizationData = args;
+          return {
+            id: "33333333-3333-3333-3333-333333333333",
+            sessionIdleTimeoutMinutes: 30,
+            sessionAbsoluteLifetimeDays: 14,
+          };
+        },
+      },
+      organizationMembership: {
+        async create(args) {
+          createdMembershipData = args;
+          return {};
+        },
+      },
+    });
+  const req = createRequest({ name: " New Organisation " });
+  const res = createResponse();
+
+  await createOrganizationController(req, res, () => undefined);
+
+  assert.deepEqual(createdOrganizationData, {
+    data: { name: "New Organisation" },
+    select: {
+      id: true,
+      sessionIdleTimeoutMinutes: true,
+      sessionAbsoluteLifetimeDays: true,
+    },
+  });
+  assert.deepEqual(createdMembershipData, {
+    data: {
+      userId: "user_1",
+      organizationId: "33333333-3333-3333-3333-333333333333",
+      role: "OWNER",
+    },
+  });
+  assert.equal(req.session.organizationId, "33333333-3333-3333-3333-333333333333");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 30);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 14);
+  assert.equal(req.session.cookie.maxAge, 14 * 24 * 60 * 60 * 1000);
+  assert.deepEqual(req.flashMessages.success, ["Organisation created."]);
+  assert.equal(res.redirectedTo, "/settings/organizations");
+});
+
+test("switchOrganizationController switches only to user memberships", async () => {
+  let findFirstArgs: unknown;
+  prismaMock.organizationMembership.findFirst = async (args: unknown) => {
+    findFirstArgs = args;
+    return {
+      organization: {
+        id: "6b2f4e3a-1234-4abc-8def-111111111111",
+        sessionIdleTimeoutMinutes: 45,
+        sessionAbsoluteLifetimeDays: 21,
+      },
+    };
+  };
+  const req = createRequest({
+    organizationId: "6b2f4e3a-1234-4abc-8def-111111111111",
+    returnTo: "/invoices",
+  });
+  const res = createResponse();
+
+  await switchOrganizationController(req, res, () => undefined);
+
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      userId: "user_1",
+      organizationId: "6b2f4e3a-1234-4abc-8def-111111111111",
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          sessionIdleTimeoutMinutes: true,
+          sessionAbsoluteLifetimeDays: true,
+        },
+      },
+    },
+  });
+  assert.equal(req.session.organizationId, "6b2f4e3a-1234-4abc-8def-111111111111");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 45);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 21);
+  assert.deepEqual(req.flashMessages.success, ["Organisation switched."]);
+  assert.equal(res.redirectedTo, "/invoices");
+});
+
+test("switchOrganizationController rejects unauthorized switches", async () => {
+  prismaMock.organizationMembership.findFirst = async () => null;
+  const req = createRequest({
+    organizationId: "8c3f5a4b-5678-4abc-8def-222222222222",
+    returnTo: "//evil.example",
+  });
+  const res = createResponse();
+
+  await switchOrganizationController(req, res, () => undefined);
+
+  assert.equal(req.session.organizationId, "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 45);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 21);
+  assert.deepEqual(req.flashMessages.error, ["Organisation could not be switched."]);
+  assert.equal(res.redirectedTo, "/");
 });
 
 test("renderOrganizationSettings renders current organization values", () => {

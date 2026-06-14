@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   changePasswordSchema,
+  createOrganizationSchema,
   localizationSettingsSchema,
   organizationSettingsSchema,
   securitySettingsSchema,
+  switchOrganizationSchema,
 } from "./settings.schema";
 
 describe("organizationSettingsSchema", () => {
@@ -73,6 +75,46 @@ describe("organizationSettingsSchema", () => {
     assert.equal(result.success, false);
     assert.deepEqual(result.error.flatten().fieldErrors.paymentInstructions, [
       "Payment instructions must be 2,000 characters or fewer.",
+    ]);
+  });
+});
+
+describe("organization membership schemas", () => {
+  test("createOrganizationSchema trims and validates organization names", () => {
+    const result = createOrganizationSchema.safeParse({
+      name: "  New Organisation  ",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, { name: "New Organisation" });
+
+    const invalid = createOrganizationSchema.safeParse({ name: "" });
+
+    assert.equal(invalid.success, false);
+    assert.deepEqual(invalid.error.flatten().fieldErrors.name, [
+      "Enter an organization name.",
+    ]);
+  });
+
+  test("switchOrganizationSchema accepts only uuid organization ids", () => {
+    const result = switchOrganizationSchema.safeParse({
+      organizationId: "6b2f4e3a-1234-4abc-8def-111111111111",
+      returnTo: "/invoices",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      organizationId: "6b2f4e3a-1234-4abc-8def-111111111111",
+      returnTo: "/invoices",
+    });
+
+    const invalid = switchOrganizationSchema.safeParse({
+      organizationId: "not-an-id",
+    });
+
+    assert.equal(invalid.success, false);
+    assert.deepEqual(invalid.error.flatten().fieldErrors.organizationId, [
+      "Choose an organization.",
     ]);
   });
 });

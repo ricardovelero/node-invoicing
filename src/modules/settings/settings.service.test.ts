@@ -2,17 +2,25 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { prisma } from "../../db/prisma";
 import {
+  createOrganizationForUser,
   getActiveSessionsForUser,
+  getOrganizationsForUser,
   revokeOtherSessionsForUser,
   revokeSessionForUser,
+  switchOrganizationForUser,
   updateLocalizationSettings,
   updateOrganizationSettings,
   updateSecuritySettings,
 } from "./settings.service";
 
 const prismaMock = prisma as unknown as {
+  $transaction: unknown;
   organization: {
     update: unknown;
+  };
+  organizationMembership: {
+    findMany: unknown;
+    findFirst: unknown;
   };
   session: {
     findMany: unknown;
@@ -20,12 +28,18 @@ const prismaMock = prisma as unknown as {
   };
 };
 
+const originalTransaction = prismaMock.$transaction;
 const originalUpdate = prismaMock.organization.update;
+const originalMembershipFindMany = prismaMock.organizationMembership.findMany;
+const originalMembershipFindFirst = prismaMock.organizationMembership.findFirst;
 const originalSessionFindMany = prismaMock.session.findMany;
 const originalSessionUpdateMany = prismaMock.session.updateMany;
 
 afterEach(() => {
+  prismaMock.$transaction = originalTransaction;
   prismaMock.organization.update = originalUpdate;
+  prismaMock.organizationMembership.findMany = originalMembershipFindMany;
+  prismaMock.organizationMembership.findFirst = originalMembershipFindFirst;
   prismaMock.session.findMany = originalSessionFindMany;
   prismaMock.session.updateMany = originalSessionUpdateMany;
 });
@@ -194,6 +208,176 @@ test("updateSecuritySettings updates only session timeout fields", async () => {
       sessionAbsoluteLifetimeDays: 14,
     },
   });
+});
+
+test("getOrganizationsForUser lists memberships in creation order", async () => {
+  let findManyArgs: unknown;
+  prismaMock.organizationMembership.findMany = async (args: unknown) => {
+    findManyArgs = args;
+    return [
+      {
+        role: "OWNER",
+        createdAt: new Date("2026-06-01T10:00:00.000Z"),
+        organization: {
+          id: "11111111-1111-1111-1111-111111111111",
+          name: "First Org",
+        },
+      },
+      {
+        role: "MEMBER",
+        createdAt: new Date("2026-06-02T10:00:00.000Z"),
+        organization: {
+          id: "22222222-2222-2222-2222-222222222222",
+          name: "Second Org",
+        },
+      },
+    ];
+  };
+
+  const memberships = await getOrganizationsForUser("user_1");
+
+  assert.deepEqual(findManyArgs, {
+    where: { userId: "user_1" },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  assert.deepEqual(
+    memberships.map(({ createdAt: _createdAt, ...membership }) => membership),
+    [
+      {
+        organizationId: "11111111-1111-1111-1111-111111111111",
+        organizationName: "First Org",
+        role: "OWNER",
+      },
+      {
+        organizationId: "22222222-2222-2222-2222-222222222222",
+        organizationName: "Second Org",
+        role: "MEMBER",
+      },
+    ],
+  );
+});
+
+test("createOrganizationForUser creates an organization and owner membership", async () => {
+  let createdOrganizationData: unknown;
+  let createdMembershipData: unknown;
+  prismaMock.$transaction = async (
+    callback: (tx: {
+      organization: {
+        create: (args: unknown) => Promise<{
+          id: string;
+          sessionIdleTimeoutMinutes: number;
+          sessionAbsoluteLifetimeDays: number;
+        }>;
+      };
+      organizationMembership: {
+        create: (args: unknown) => Promise<unknown>;
+      };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      organization: {
+        async create(args) {
+          createdOrganizationData = args;
+          return {
+            id: "33333333-3333-3333-3333-333333333333",
+            sessionIdleTimeoutMinutes: 30,
+            sessionAbsoluteLifetimeDays: 14,
+          };
+        },
+      },
+      organizationMembership: {
+        async create(args) {
+          createdMembershipData = args;
+          return {};
+        },
+      },
+    });
+
+  const result = await createOrganizationForUser("user_1", {
+    name: "New Org",
+  });
+
+  assert.deepEqual(createdOrganizationData, {
+    data: {
+      name: "New Org",
+    },
+    select: {
+      id: true,
+      sessionIdleTimeoutMinutes: true,
+      sessionAbsoluteLifetimeDays: true,
+    },
+  });
+  assert.deepEqual(createdMembershipData, {
+    data: {
+      userId: "user_1",
+      organizationId: "33333333-3333-3333-3333-333333333333",
+      role: "OWNER",
+    },
+  });
+  assert.deepEqual(result, {
+    organizationId: "33333333-3333-3333-3333-333333333333",
+    sessionIdleTimeoutMinutes: 30,
+    sessionAbsoluteLifetimeDays: 14,
+  });
+});
+
+test("switchOrganizationForUser only succeeds for user memberships", async () => {
+  let findFirstArgs: unknown;
+  prismaMock.organizationMembership.findFirst = async (args: unknown) => {
+    findFirstArgs = args;
+    return {
+      organization: {
+        id: "22222222-2222-2222-2222-222222222222",
+        sessionIdleTimeoutMinutes: 45,
+        sessionAbsoluteLifetimeDays: 21,
+      },
+    };
+  };
+
+  const result = await switchOrganizationForUser(
+    "user_1",
+    "22222222-2222-2222-2222-222222222222",
+  );
+
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      userId: "user_1",
+      organizationId: "22222222-2222-2222-2222-222222222222",
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          sessionIdleTimeoutMinutes: true,
+          sessionAbsoluteLifetimeDays: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    organizationId: "22222222-2222-2222-2222-222222222222",
+    sessionIdleTimeoutMinutes: 45,
+    sessionAbsoluteLifetimeDays: 21,
+  });
+
+  prismaMock.organizationMembership.findFirst = async () => null;
+
+  assert.deepEqual(
+    await switchOrganizationForUser(
+      "user_1",
+      "99999999-9999-9999-9999-999999999999",
+    ),
+    { ok: false, reason: "notFound" },
+  );
 });
 
 test("getActiveSessionsForUser returns current session first and filters idle-expired sessions", async () => {

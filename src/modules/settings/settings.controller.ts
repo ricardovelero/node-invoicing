@@ -3,18 +3,24 @@ import * as authService from "../auth/auth.service";
 import {
   changePasswordSchema,
   type ChangePasswordErrors,
+  createOrganizationSchema,
+  createOrganizationValuesSchema,
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
   createSecuritySettingsValues,
+  type CreateOrganizationErrors,
+  type CreateOrganizationValues,
   type OrganizationSettingsErrors,
   type OrganizationSettingsValues,
   type SecuritySettingsErrors,
   localizationSettingsSchema,
   organizationSettingsSchema,
   securitySettingsSchema,
+  switchOrganizationSchema,
   supportedCurrencies,
 } from "./settings.schema";
 import { supportedOrganizationCountryCodes } from "../../lib/countries";
+import { daysToMs } from "../../lib/session-policy";
 import {
   customRateType,
   getWithholdingRateOptions,
@@ -23,12 +29,16 @@ import {
 } from "../../lib/withholding";
 import {
   getActiveSessionsForUser,
+  getOrganizationsForUser,
+  createOrganizationForUser,
   revokeOtherSessionsForUser,
   revokeSessionForUser,
+  switchOrganizationForUser,
   updateLocalizationSettings,
   updateOrganizationSettings,
   updateSecuritySettings,
   type ActiveSession,
+  type OrganizationMembershipView,
 } from "./settings.service";
 
 type Request = Parameters<RequestHandler>[0];
@@ -107,6 +117,55 @@ const getAuditContext = (req: Request) => ({
   userAgent: req.get("user-agent") ?? null,
   sessionId: req.sessionID ?? null,
 });
+
+const assignActiveOrganizationSession = (
+  req: Request,
+  organization: {
+    organizationId: string;
+    sessionIdleTimeoutMinutes: number;
+    sessionAbsoluteLifetimeDays: number;
+  },
+) => {
+  req.session.organizationId = organization.organizationId;
+  req.session.sessionIdleTimeoutMinutes = organization.sessionIdleTimeoutMinutes;
+  req.session.sessionAbsoluteLifetimeDays =
+    organization.sessionAbsoluteLifetimeDays;
+  req.session.cookie.maxAge = daysToMs(
+    organization.sessionAbsoluteLifetimeDays,
+  );
+};
+
+const getSafeReturnPath = (path: string | undefined) =>
+  path && path.startsWith("/") && !path.startsWith("//") ? path : "/";
+
+const createOrganizationMembershipViews = (
+  memberships: OrganizationMembershipView[],
+  currentOrganizationId: string,
+) =>
+  memberships.map((membership) => ({
+    ...membership,
+    isCurrent: membership.organizationId === currentOrganizationId,
+  }));
+
+const createOrganizationsViewModel = async (
+  req: Request,
+  values: Partial<CreateOrganizationValues> = {},
+  errors: CreateOrganizationErrors = {},
+) => {
+  const memberships = await getOrganizationsForUser(req.auth!.user.id);
+
+  return {
+    title: req.t("settings.sections.organizations.title"),
+    activeSettingsPage: "organizations",
+    currentOrganization: req.auth!.organization,
+    memberships: createOrganizationMembershipViews(
+      memberships,
+      req.auth!.organization.id,
+    ),
+    values,
+    errors,
+  };
+};
 
 type SecuritySessionView = ActiveSession & {
   createdAtDisplay: string;
@@ -370,9 +429,68 @@ export const revokeOtherSessionsController: RequestHandler = async (req, res) =>
   return res.redirect("/settings/security");
 };
 
-export const renderOrganizationsSettings: RequestHandler = (req, res) => {
-  res.render("pages/settings/organizations.njk", {
-    title: req.t("settings.sections.organizations.title"),
-    activeSettingsPage: "organizations",
-  });
+export const renderOrganizationsSettings: RequestHandler = async (req, res) => {
+  res.render(
+    "pages/settings/organizations.njk",
+    await createOrganizationsViewModel(req),
+  );
+};
+
+export const createOrganizationController: RequestHandler = async (req, res, next) => {
+  const result = createOrganizationSchema.safeParse(req.body);
+  const values = createOrganizationValuesSchema.parse(req.body);
+
+  if (!result.success) {
+    return res.status(422).render(
+      "pages/settings/organizations.njk",
+      await createOrganizationsViewModel(
+        req,
+        values,
+        result.error.flatten().fieldErrors,
+      ),
+    );
+  }
+
+  try {
+    const organization = await createOrganizationForUser(
+      req.auth!.user.id,
+      result.data,
+    );
+
+    assignActiveOrganizationSession(req, organization);
+    req.flash("success", req.t("settings.flash.organizationCreated"));
+    return res.redirect("/settings/organizations");
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const switchOrganizationController: RequestHandler = async (req, res, next) => {
+  const result = switchOrganizationSchema.safeParse(req.body);
+  const returnPath = getSafeReturnPath(
+    typeof req.body.returnTo === "string" ? req.body.returnTo : undefined,
+  );
+
+  if (!result.success) {
+    req.flash("error", req.t("settings.flash.organizationNotSwitched"));
+    return res.redirect(returnPath);
+  }
+
+  try {
+    const organization = await switchOrganizationForUser(
+      req.auth!.user.id,
+      result.data.organizationId,
+    );
+
+    if (!organization.ok) {
+      req.flash("error", req.t("settings.flash.organizationNotSwitched"));
+      return res.redirect(returnPath);
+    }
+
+    assignActiveOrganizationSession(req, organization);
+    req.flash("success", req.t("settings.flash.organizationSwitched"));
+    return res.redirect(returnPath);
+  } catch (error) {
+    return next(error);
+  }
 };

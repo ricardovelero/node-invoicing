@@ -25,6 +25,35 @@ const optionalText = (maxLength: number, message: string) =>
 const stringInput = (schema: z.ZodType<string>) =>
   z.preprocess((value) => (typeof value === 'string' ? value : ''), schema);
 
+export const createOrganizationSchema = z.object({
+  name: stringInput(
+    z.string().trim().min(1, 'Enter an organization name.').max(
+      200,
+      'Organization name must be 200 characters or fewer.',
+    ),
+  ),
+});
+
+export const createOrganizationValuesSchema = z.object({
+  name: stringInput(z.string().trim()),
+});
+
+export const switchOrganizationSchema = z.object({
+  organizationId: stringInput(
+    z.string().trim().uuid('Choose an organization.'),
+  ),
+  returnTo: stringInput(z.string().trim()).optional().default(''),
+});
+
+export type CreateOrganizationForm = z.infer<typeof createOrganizationSchema>;
+export type CreateOrganizationValues = z.infer<
+  typeof createOrganizationValuesSchema
+>;
+export type CreateOrganizationErrors = Partial<
+  Record<keyof CreateOrganizationForm, string[]>
+>;
+export type SwitchOrganizationForm = z.infer<typeof switchOrganizationSchema>;
+
 export const organizationSettingsSchema = z.object({
   legalName: optionalText(200, 'Legal name must be 200 characters or fewer.'),
   billingEmail: optionalText(

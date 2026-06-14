@@ -50,7 +50,8 @@
     "sessionAbsoluteLifetimeDays": "Absolute lifetime (days)",
     "currentPassword": "Current password",
     "newPassword": "New password",
-    "confirmPassword": "Confirm new password"
+    "confirmPassword": "Confirm new password",
+    "organizationName": "Organisation name"
   },
   "legalForms": {
     "soleTrader": "Sole trader",
@@ -75,10 +76,15 @@
   "actions": {
     "save": "Save settings",
     "changePassword": "Change password",
+    "createOrganization": "Create organisation",
     "revokeSession": "Revoke session",
-    "revokeOtherSessions": "Revoke other sessions"
+    "revokeOtherSessions": "Revoke other sessions",
+    "switchOrganization": "Switch"
   },
   "flash": {
+    "organizationCreated": "Organisation created.",
+    "organizationSwitched": "Organisation switched.",
+    "organizationNotSwitched": "Organisation could not be switched.",
     "updated": "Organisation settings updated.",
     "localizationUpdated": "Localisation settings updated.",
     "securityUpdated": "Security settings updated.",
@@ -101,5 +107,16 @@
     "expires": "Expires",
     "unknownIp": "Unknown IP",
     "noActiveSessions": "No active sessions were found."
+  },
+  "organizations": {
+    "current": "Current organisation",
+    "currentDescription": "New customers, items, and invoices are created inside this organisation.",
+    "memberships": "Your organisations",
+    "role": "Role",
+    "status": "Status",
+    "currentBadge": "Current",
+    "create": "Create organisation",
+    "createDescription": "Create a separate organisation with its own customers, items, invoices, and numbering.",
+    "switchLabel": "Choose organisation"
   }
 }

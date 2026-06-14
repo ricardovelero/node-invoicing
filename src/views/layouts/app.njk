@@ -22,6 +22,19 @@
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">{{ t('common.navigation.customers') }}</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/items') else 'text-muted hover:text-ink' }}" href="/items">{{ t('common.navigation.items') }}</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">{{ t('common.navigation.settings') }}</a>
+              {% if availableOrganizations and availableOrganizations.length > 1 %}
+                <form class="flex items-center gap-2" method="post" action="/settings/organizations/switch">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <input type="hidden" name="returnTo" value="{{ currentPath }}">
+                  <label class="sr-only" for="organizationId">{{ t('settings.organizations.switchLabel') }}</label>
+                  <select id="organizationId" name="organizationId" class="rounded-md border border-line px-2 py-1 text-sm">
+                    {% for organization in availableOrganizations %}
+                      <option value="{{ organization.id }}" {% if organization.isCurrent %}selected{% endif %}>{{ organization.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn btn-secondary" type="submit">{{ t('settings.actions.switchOrganization') }}</button>
+                </form>
+              {% endif %}
               <form method="post" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <button class="btn btn-link" type="submit">{{ t('common.actions.logout') }}</button>

@@ -25,3 +25,19 @@ test("app layout uses the global translation helper", () => {
   assert.match(layout, /t\('common\.navigation\.invoices'\)/);
   assert.match(layout, /t\('common\.actions\.logout'\)/);
 });
+
+test("app layout includes a csrf-protected organization switcher", () => {
+  const layout = readFileSync(
+    path.join(process.cwd(), "src", "views", "layouts", "app.njk"),
+    "utf8",
+  );
+
+  assert.match(layout, /availableOrganizations\.length > 1/);
+  assert.match(layout, /method="post" action="\/settings\/organizations\/switch"/);
+  assert.match(layout, /name="_csrf" value="{{ csrfToken }}"/);
+  assert.match(layout, /name="returnTo" value="{{ currentPath }}"/);
+  assert.match(layout, /for organization in availableOrganizations/);
+  assert.match(layout, /name="organizationId"/);
+  assert.match(layout, /organization\.isCurrent/);
+  assert.match(layout, /t\('settings\.actions\.switchOrganization'\)/);
+});

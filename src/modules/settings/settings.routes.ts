@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireOrganizationRole } from "../../middleware/auth";
 import {
+  createOrganizationController,
   renderGeneralSettings,
   renderLocalizationSettings,
   renderOrganizationSettings,
@@ -9,6 +10,7 @@ import {
   renderSettingsOverview,
   revokeOtherSessionsController,
   revokeSessionController,
+  switchOrganizationController,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
@@ -16,6 +18,10 @@ import {
 } from "./settings.controller";
 
 export const settingsRouter = Router();
+
+settingsRouter.get("/organizations", renderOrganizationsSettings);
+settingsRouter.post("/organizations", createOrganizationController);
+settingsRouter.post("/organizations/switch", switchOrganizationController);
 
 settingsRouter.use(requireOrganizationRole(["OWNER", "ADMIN"]));
 settingsRouter.get("/", renderSettingsOverview);
@@ -29,4 +35,3 @@ settingsRouter.post("/security", updateSecuritySettingsController);
 settingsRouter.post("/security/password", updatePasswordController);
 settingsRouter.post("/security/sessions/revoke-others", revokeOtherSessionsController);
 settingsRouter.post("/security/sessions/:sessionId/revoke", revokeSessionController);
-settingsRouter.get("/organizations", renderOrganizationsSettings);

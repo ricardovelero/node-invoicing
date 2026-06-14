@@ -50,7 +50,8 @@
     "sessionAbsoluteLifetimeDays": "Duración absoluta (días)",
     "currentPassword": "Contraseña actual",
     "newPassword": "Nueva contraseña",
-    "confirmPassword": "Confirmar nueva contraseña"
+    "confirmPassword": "Confirmar nueva contraseña",
+    "organizationName": "Nombre de la organización"
   },
   "legalForms": {
     "soleTrader": "Autónomo",
@@ -75,10 +76,15 @@
   "actions": {
     "save": "Guardar ajustes",
     "changePassword": "Cambiar contraseña",
+    "createOrganization": "Crear organización",
     "revokeSession": "Revocar sesión",
-    "revokeOtherSessions": "Revocar otras sesiones"
+    "revokeOtherSessions": "Revocar otras sesiones",
+    "switchOrganization": "Cambiar"
   },
   "flash": {
+    "organizationCreated": "Organización creada.",
+    "organizationSwitched": "Organización cambiada.",
+    "organizationNotSwitched": "No se pudo cambiar de organización.",
     "updated": "Ajustes de la organización actualizados.",
     "localizationUpdated": "Ajustes de localización actualizados.",
     "securityUpdated": "Ajustes de seguridad actualizados.",
@@ -101,5 +107,16 @@
     "expires": "Caduca",
     "unknownIp": "IP desconocida",
     "noActiveSessions": "No se encontraron sesiones activas."
+  },
+  "organizations": {
+    "current": "Organización actual",
+    "currentDescription": "Los nuevos clientes, artículos y facturas se crean dentro de esta organización.",
+    "memberships": "Tus organizaciones",
+    "role": "Rol",
+    "status": "Estado",
+    "currentBadge": "Actual",
+    "create": "Crear organización",
+    "createDescription": "Crea una organización separada con sus propios clientes, artículos, facturas y numeración.",
+    "switchLabel": "Elegir organización"
   }
 }

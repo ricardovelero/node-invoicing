@@ -5,6 +5,7 @@ import {
 } from "../../lib/session-policy";
 import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding";
 import type {
+  CreateOrganizationForm,
   LocalizationSettingsForm,
   OrganizationSettingsForm,
   SecuritySettingsForm,
@@ -21,6 +22,22 @@ export type ActiveSession = {
   lastSeenAt: Date;
   expiresAt: Date;
 };
+
+export type OrganizationMembershipView = {
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  createdAt: Date;
+};
+
+export type SwitchOrganizationResult =
+  | {
+      ok: true;
+      organizationId: string;
+      sessionIdleTimeoutMinutes: number;
+      sessionAbsoluteLifetimeDays: number;
+    }
+  | { ok: false; reason: "notFound" };
 
 const detectBrowser = (userAgent: string | null) => {
   if (!userAgent) {
@@ -147,6 +164,93 @@ export const updateSecuritySettings = (
       sessionAbsoluteLifetimeDays: data.sessionAbsoluteLifetimeDays,
     },
   });
+
+export const getOrganizationsForUser = async (
+  userId: string,
+): Promise<OrganizationMembershipView[]> => {
+  const memberships = await prisma.organizationMembership.findMany({
+    where: { userId },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return memberships.map((membership) => ({
+    organizationId: membership.organization.id,
+    organizationName: membership.organization.name,
+    role: membership.role,
+    createdAt: membership.createdAt,
+  }));
+};
+
+export const createOrganizationForUser = async (
+  userId: string,
+  data: CreateOrganizationForm,
+) =>
+  prisma.$transaction(async (tx) => {
+    const organization = await tx.organization.create({
+      data: {
+        name: data.name,
+      },
+      select: {
+        id: true,
+        sessionIdleTimeoutMinutes: true,
+        sessionAbsoluteLifetimeDays: true,
+      },
+    });
+
+    await tx.organizationMembership.create({
+      data: {
+        userId,
+        organizationId: organization.id,
+        role: "OWNER",
+      },
+    });
+
+    return {
+      organizationId: organization.id,
+      sessionIdleTimeoutMinutes: organization.sessionIdleTimeoutMinutes,
+      sessionAbsoluteLifetimeDays: organization.sessionAbsoluteLifetimeDays,
+    };
+  });
+
+export const switchOrganizationForUser = async (
+  userId: string,
+  organizationId: string,
+): Promise<SwitchOrganizationResult> => {
+  const membership = await prisma.organizationMembership.findFirst({
+    where: {
+      userId,
+      organizationId,
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          sessionIdleTimeoutMinutes: true,
+          sessionAbsoluteLifetimeDays: true,
+        },
+      },
+    },
+  });
+
+  if (!membership) {
+    return { ok: false, reason: "notFound" };
+  }
+
+  return {
+    ok: true,
+    organizationId: membership.organization.id,
+    sessionIdleTimeoutMinutes: membership.organization.sessionIdleTimeoutMinutes,
+    sessionAbsoluteLifetimeDays: membership.organization.sessionAbsoluteLifetimeDays,
+  };
+};
 
 export const getActiveSessionsForUser = async (
   userId: string,

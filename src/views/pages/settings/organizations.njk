@@ -1,11 +1,68 @@
 {% extends "pages/settings/_layout.njk" %}
+{% from "components/form-field.njk" import field %}
 
 {% block settingsContent %}
-  <section class="card max-w-3xl">
+  <div class="mb-6 max-w-3xl">
+    <h2 class="text-xl font-semibold">{{ t('settings.sections.organizations.title') }}</h2>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.sections.organizations.description') }}</p>
+  </div>
+
+  <section class="card mb-6 max-w-3xl">
     <div class="card-body">
-      <h2 class="text-xl font-semibold">{{ t('settings.sections.organizations.title') }}</h2>
-      <p class="mt-1 text-sm text-muted">{{ t('settings.sections.organizations.description') }}</p>
-      <p class="mt-4 text-sm text-muted">{{ t('settings.sections.organizations.placeholder') }}</p>
+      <p class="text-sm font-medium text-muted">{{ t('settings.organizations.current') }}</p>
+      <h3 class="mt-1 text-lg font-semibold">{{ currentOrganization.name }}</h3>
+      <p class="mt-2 text-sm text-muted">{{ t('settings.organizations.currentDescription') }}</p>
     </div>
   </section>
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <section class="overflow-hidden rounded-lg border border-line bg-white">
+      <div class="border-b border-line px-4 py-3">
+        <h3 class="font-semibold">{{ t('settings.organizations.memberships') }}</h3>
+      </div>
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-panel text-left text-muted">
+          <tr>
+            <th class="px-4 py-3 font-medium">{{ t('common.table.name') }}</th>
+            <th class="px-4 py-3 font-medium">{{ t('settings.organizations.role') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('settings.organizations.status') }}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for membership in memberships %}
+            <tr>
+              <td class="px-4 py-3 font-medium">{{ membership.organizationName }}</td>
+              <td class="px-4 py-3 text-muted">{{ membership.role }}</td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end">
+                  {% if membership.isCurrent %}
+                    <span class="rounded-full bg-panel px-2 py-1 text-xs font-medium text-muted">{{ t('settings.organizations.currentBadge') }}</span>
+                  {% else %}
+                    <form method="post" action="/settings/organizations/switch">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <input type="hidden" name="organizationId" value="{{ membership.organizationId }}">
+                      <input type="hidden" name="returnTo" value="/settings/organizations">
+                      <button class="btn btn-secondary" type="submit">{{ t('settings.actions.switchOrganization') }}</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="card">
+      <div class="card-body">
+        <h3 class="font-semibold">{{ t('settings.organizations.create') }}</h3>
+        <p class="mt-1 text-sm text-muted">{{ t('settings.organizations.createDescription') }}</p>
+        <form class="mt-4 space-y-4" method="post" action="/settings/organizations">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          {{ field('name', t('settings.fields.organizationName'), value=values.name or '', error=errors.name, required=true, autocomplete='organization', validate='required') }}
+          <button class="btn btn-full btn-primary" type="submit">{{ t('settings.actions.createOrganization') }}</button>
+        </form>
+      </div>
+    </aside>
+  </div>
 {% endblock %}

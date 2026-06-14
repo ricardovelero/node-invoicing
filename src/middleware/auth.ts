@@ -31,6 +31,13 @@ export type AuthContext = {
   role: OrganizationRole;
 };
 
+export type AvailableOrganization = {
+  id: string;
+  name: string;
+  role: OrganizationRole;
+  isCurrent: boolean;
+};
+
 declare global {
   namespace Express {
     interface Request {
@@ -44,17 +51,15 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
 
   res.locals.currentUser = null;
   res.locals.currentOrganization = null;
+  res.locals.availableOrganizations = [];
 
   if (!userId) {
     return next();
   }
 
   try {
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        ...(organizationId ? { organizationId } : {}),
-      },
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { userId },
       include: {
         user: {
           select: {
@@ -88,14 +93,23 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
       },
       orderBy: { createdAt: "asc" },
     });
+    const membership =
+      memberships.find((item) => item.organizationId === organizationId) ??
+      memberships[0];
 
     if (!membership) {
       delete req.session.userId;
       delete req.session.organizationId;
+      delete req.session.sessionIdleTimeoutMinutes;
+      delete req.session.sessionAbsoluteLifetimeDays;
       return next();
     }
 
     req.session.organizationId = membership.organizationId;
+    req.session.sessionIdleTimeoutMinutes =
+      membership.organization.sessionIdleTimeoutMinutes;
+    req.session.sessionAbsoluteLifetimeDays =
+      membership.organization.sessionAbsoluteLifetimeDays;
     req.auth = {
       user: membership.user,
       organization: membership.organization,
@@ -104,6 +118,12 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
 
     res.locals.currentUser = req.auth.user;
     res.locals.currentOrganization = req.auth.organization;
+    res.locals.availableOrganizations = memberships.map((item) => ({
+      id: item.organization.id,
+      name: item.organization.name,
+      role: item.role,
+      isCurrent: item.organizationId === membership.organizationId,
+    })) satisfies AvailableOrganization[];
 
     return next();
   } catch (error) {
