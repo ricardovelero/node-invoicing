@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   changePasswordSchema,
+  createOrganizationSettingsValues,
   createOrganizationSchema,
   localizationSettingsSchema,
   organizationSettingsSchema,
@@ -42,6 +43,7 @@ describe("organizationSettingsSchema", () => {
 
   test("rejects invalid billing email", () => {
     const result = organizationSettingsSchema.safeParse({
+      legalName: "Analytical Engines Ltd",
       billingEmail: "not-an-email",
       countryCode: "GB",
       currency: "EUR",
@@ -55,6 +57,7 @@ describe("organizationSettingsSchema", () => {
 
   test("rejects unsupported currencies", () => {
     const result = organizationSettingsSchema.safeParse({
+      legalName: "Analytical Engines Ltd",
       currency: "JPY",
       countryCode: "GB",
     });
@@ -67,6 +70,7 @@ describe("organizationSettingsSchema", () => {
 
   test("rejects payment instructions over 2,000 characters", () => {
     const result = organizationSettingsSchema.safeParse({
+      legalName: "Analytical Engines Ltd",
       currency: "EUR",
       countryCode: "GB",
       paymentInstructions: "x".repeat(2001),
@@ -76,6 +80,13 @@ describe("organizationSettingsSchema", () => {
     assert.deepEqual(result.error.flatten().fieldErrors.paymentInstructions, [
       "Payment instructions must be 2,000 characters or fewer.",
     ]);
+  });
+
+  test("falls back to organization name when legal name is not set", () => {
+    assert.equal(
+      createOrganizationSettingsValues({ name: "Analytical Engines" }).legalName,
+      "Analytical Engines",
+    );
   });
 });
 

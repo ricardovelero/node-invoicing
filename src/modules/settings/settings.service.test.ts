@@ -72,6 +72,7 @@ test("updateOrganizationSettings updates the current organization and stores emp
   assert.deepEqual(updateArgs, {
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     data: {
+      name: "Analytical Engines Ltd",
       legalName: "Analytical Engines Ltd",
       billingEmail: null,
       taxId: null,
@@ -97,7 +98,7 @@ test("updateOrganizationSettings allows Spanish sole traders to enable IRPF with
   };
 
   await updateOrganizationSettings("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
-    legalName: "",
+    legalName: "Spanish Sole Trader",
     billingEmail: "",
     taxId: "",
     addressLine1: "",
@@ -113,7 +114,8 @@ test("updateOrganizationSettings allows Spanish sole traders to enable IRPF with
   });
 
   assert.deepEqual((updateArgs as { data: unknown }).data, {
-    legalName: null,
+    name: "Spanish Sole Trader",
+    legalName: "Spanish Sole Trader",
     billingEmail: null,
     taxId: null,
     addressLine1: null,
@@ -143,7 +145,7 @@ test("updateOrganizationSettings forces IRPF off for Spanish companies and non-S
     };
 
     await updateOrganizationSettings("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
-      legalName: "",
+      legalName: "Example Organisation",
       billingEmail: "",
       taxId: "",
       addressLine1: "",
@@ -308,6 +310,7 @@ test("createOrganizationForUser creates an organization and owner membership", a
   assert.deepEqual(createdOrganizationData, {
     data: {
       name: "New Org",
+      legalName: "New Org",
     },
     select: {
       id: true,

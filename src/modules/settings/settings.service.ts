@@ -126,7 +126,8 @@ export const updateOrganizationSettings = (
   return prisma.organization.update({
     where: { id: organizationId },
     data: {
-      legalName: emptyToNull(data.legalName),
+      name: data.legalName,
+      legalName: data.legalName,
       billingEmail: emptyToNull(data.billingEmail),
       taxId: emptyToNull(data.taxId),
       addressLine1: emptyToNull(data.addressLine1),
@@ -197,6 +198,7 @@ export const createOrganizationForUser = async (
     const organization = await tx.organization.create({
       data: {
         name: data.name,
+        legalName: data.name,
       },
       select: {
         id: true,

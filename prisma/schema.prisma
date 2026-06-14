@@ -95,6 +95,7 @@ model Session {
 
 model Organization {
   id          String   @id @default(uuid()) @db.Uuid
+  /// Display name kept in sync with legalName for now. May become a separate trading name in the future.
   name        String
   legalName   String?
   taxId       String?

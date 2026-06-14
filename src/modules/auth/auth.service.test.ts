@@ -125,6 +125,7 @@ test("registerUser normalizes email, hashes password, and creates the owner memb
     true,
   );
   assert.equal(createdOrganizationData?.name, "Analytical Engines");
+  assert.equal(createdOrganizationData?.legalName, "Analytical Engines");
   assert.deepEqual(createdMembershipData, {
     userId: "user_1",
     organizationId: "org_1",

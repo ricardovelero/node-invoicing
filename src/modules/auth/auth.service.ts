@@ -273,6 +273,7 @@ export const registerUser = async (
       const organization = await tx.organization.create({
         data: {
           name: data.organizationName,
+          legalName: data.organizationName,
         },
       });
 

@@ -107,9 +107,9 @@ beforeEach(() => {
             userAgent:
               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             ip: "203.0.113.10",
-            createdAt: new Date("2026-06-11T09:00:00.000Z"),
-            lastSeenAt: new Date("2026-06-11T11:50:00.000Z"),
-            expiresAt: new Date("2026-06-25T09:00:00.000Z"),
+            createdAt: new Date(Date.now() - 60 * 60 * 1000),
+            lastSeenAt: new Date(Date.now() - 5 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             organization: { sessionIdleTimeoutMinutes: 24 * 60 },
           },
         ];
@@ -342,7 +342,10 @@ test("createOrganizationController creates, switches session, and redirects", as
   await createOrganizationController(req, res, () => undefined);
 
   assert.deepEqual(createdOrganizationData, {
-    data: { name: "New Organisation" },
+    data: {
+      name: "New Organisation",
+      legalName: "New Organisation",
+    },
     select: {
       id: true,
       sessionIdleTimeoutMinutes: true,
@@ -517,6 +520,7 @@ test("updateOrganizationSettingsController returns field errors for invalid subm
     updateCalls += 1;
   };
   const req = createRequest({
+    legalName: "Analytical Engines Ltd",
     currency: "JPY",
     countryCode: "GB",
     billingEmail: "not-an-email",
@@ -559,6 +563,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
   assert.deepEqual(updateArgs, {
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
     data: {
+      name: "Analytical Engines Ltd",
       legalName: "Analytical Engines Ltd",
       billingEmail: "billing@example.com",
       taxId: "VAT123",
@@ -583,6 +588,7 @@ test("updateOrganizationSettingsController keeps the custom rate type selected w
     updateCalls += 1;
   };
   const req = createRequest({
+    legalName: "Analytical Engines Ltd",
     countryCode: "ES",
     legalForm: "sole_trader",
     currency: "EUR",

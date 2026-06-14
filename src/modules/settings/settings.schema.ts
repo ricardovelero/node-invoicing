@@ -55,7 +55,12 @@ export type CreateOrganizationErrors = Partial<
 export type SwitchOrganizationForm = z.infer<typeof switchOrganizationSchema>;
 
 export const organizationSettingsSchema = z.object({
-  legalName: optionalText(200, 'Legal name must be 200 characters or fewer.'),
+  legalName: stringInput(
+    z.string().trim().min(1, 'Enter the legal name.').max(
+      200,
+      'Legal name must be 200 characters or fewer.',
+    ),
+  ),
   billingEmail: optionalText(
     254,
     'Billing email must be 254 characters or fewer.',
@@ -165,18 +170,22 @@ export type OrganizationSettingsErrors = Partial<
   Record<keyof OrganizationSettingsForm, string[]>
 >;
 
-type OrganizationSettingsSource = Partial<{
-  [Key in keyof OrganizationSettingsForm]:
-    | string
-    | number
-    | boolean
-    | { toString: () => string }
-    | null
-    | undefined;
-}>;
+type OrganizationSettingsSourceValue =
+  | string
+  | number
+  | boolean
+  | { toString: () => string }
+  | null
+  | undefined;
+
+type OrganizationSettingsSource = Partial<
+  Record<keyof OrganizationSettingsForm, OrganizationSettingsSourceValue> & {
+    name: OrganizationSettingsSourceValue;
+  }
+>;
 
 const sourceText = (
-  value: string | number | boolean | { toString: () => string } | null | undefined,
+  value: OrganizationSettingsSourceValue,
   fallback = '',
 ) => (value === null || value === undefined ? fallback : value.toString());
 
@@ -209,7 +218,7 @@ export const createOrganizationSettingsValues = (
     resolveDefaultWithholdingRateType(organization);
 
   return {
-    legalName: sourceText(organization.legalName),
+    legalName: sourceText(organization.legalName, sourceText(organization.name)),
     billingEmail: sourceText(organization.billingEmail),
     taxId: sourceText(organization.taxId),
     addressLine1: sourceText(organization.addressLine1),
