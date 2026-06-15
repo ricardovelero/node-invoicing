@@ -39,5 +39,5 @@ test("app layout includes a csrf-protected organization switcher", () => {
   assert.match(layout, /for organization in availableOrganizations/);
   assert.match(layout, /name="organizationId"/);
   assert.match(layout, /organization\.isCurrent/);
-  assert.match(layout, /t\('settings\.actions\.switchOrganization'\)/);
+  assert.match(layout, /t\('settings\.organizations\.manage'\)/);
 });

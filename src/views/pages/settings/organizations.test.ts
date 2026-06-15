@@ -24,6 +24,7 @@ describe("organizations settings page", () => {
     assert.match(organizationsTemplate, /currentOrganization\.name/);
     assert.match(organizationsTemplate, /for membership in memberships/);
     assert.match(organizationsTemplate, /membership\.organizationName/);
+    assert.match(organizationsTemplate, /settings\.organizationRoles\.'/);
     assert.match(organizationsTemplate, /membership\.role/);
     assert.match(organizationsTemplate, /membership\.isCurrent/);
     assert.match(organizationsTemplate, /settings\.organizations\.currentBadge/);

@@ -112,11 +112,17 @@
     "current": "Current organisation",
     "currentDescription": "New customers, items, and invoices are created inside this organisation.",
     "memberships": "Your organisations",
+    "manage": "Manage organisations",
     "role": "Role",
     "status": "Status",
     "currentBadge": "Current",
     "create": "Create organisation",
     "createDescription": "Create a separate organisation with its own customers, items, invoices, and numbering.",
     "switchLabel": "Choose organisation"
+  },
+  "organizationRoles": {
+    "OWNER": "Owner",
+    "ADMIN": "Admin",
+    "MEMBER": "Member"
   }
 }

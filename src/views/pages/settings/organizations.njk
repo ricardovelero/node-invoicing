@@ -32,7 +32,7 @@
           {% for membership in memberships %}
             <tr>
               <td class="px-4 py-3 font-medium">{{ membership.organizationName }}</td>
-              <td class="px-4 py-3 text-muted">{{ membership.role }}</td>
+              <td class="px-4 py-3 text-muted">{{ t('settings.organizationRoles.' ~ membership.role) }}</td>
               <td class="px-4 py-3">
                 <div class="flex justify-end">
                   {% if membership.isCurrent %}

@@ -112,11 +112,17 @@
     "current": "Organización actual",
     "currentDescription": "Los nuevos clientes, artículos y facturas se crean dentro de esta organización.",
     "memberships": "Tus organizaciones",
+    "manage": "Gestionar organizaciones",
     "role": "Rol",
     "status": "Estado",
     "currentBadge": "Actual",
     "create": "Crear organización",
     "createDescription": "Crea una organización separada con sus propios clientes, artículos, facturas y numeración.",
     "switchLabel": "Elegir organización"
+  },
+  "organizationRoles": {
+    "OWNER": "Propietario",
+    "ADMIN": "Administrador",
+    "MEMBER": "Miembro"
   }
 }
