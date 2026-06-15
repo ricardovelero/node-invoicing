@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { NextFunction, Request, Response } from "express";
+import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   handleForgotPassword,
   handleRegister,
@@ -34,6 +35,7 @@ type MockRequest = Request & {
   params: Record<string, string>;
   session: MockSession;
   flashMessages: Record<string, string[]>;
+  t: Translate;
 };
 
 type MockResponse = Response & {
@@ -60,6 +62,9 @@ const originalGetValidPasswordResetToken = authServiceMock.getValidPasswordReset
 const originalResetPasswordWithToken = authServiceMock.resetPasswordWithToken;
 const originalRecordAuthAuditEvent = authServiceMock.recordAuthAuditEvent;
 let auditEvents: Array<Parameters<typeof authService.recordAuthAuditEvent>[0]> = [];
+const t = createTranslator("en-GB", loadTranslations(), {
+  environment: "test",
+});
 
 beforeEach(() => {
   auditEvents = [];
@@ -112,6 +117,7 @@ const createRequest = (
       this.flashMessages[type].push(message);
       return this.flashMessages[type];
     },
+    t,
     sessionID: "sid_current",
   } as MockRequest;
 
@@ -652,7 +658,7 @@ test("loginUser rejects accounts without an organization membership", async () =
     errors: {},
   });
   assert.deepEqual((res.locals.flash as { error: string[] }).error, [
-    "This account is not connected to an organization.",
+    "This account is not connected to an organisation.",
   ]);
   assert.deepEqual(auditEvents, [
     {

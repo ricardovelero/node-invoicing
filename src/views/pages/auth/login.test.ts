@@ -9,8 +9,10 @@ test("login form posts with CSRF and a validated email field", () => {
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
   assert.match(template, /data-validate-form/);
   assert.match(template, /from "components\/form-field\.njk" import field/);
-  assert.match(template, /field\('email', 'Email'/);
+  assert.match(template, /field\('email', t\('auth\.fields\.email'\)/);
   assert.match(template, /validate='email'/);
+  assert.match(template, /auth\.login\.heading/);
+  assert.match(template, /auth\.login\.submit/);
 });
 
 test("login password keeps the forgot link and inline validation hooks", () => {
@@ -19,8 +21,10 @@ test("login password keeps the forgot link and inline validation hooks", () => {
   assert.match(template, /href="\/auth\/forgot"/);
   assert.match(
     template,
-    /passwordField\('password', 'Password', autocomplete='current-password', error=errors\.password, validate='password'\)/,
+    /passwordField\('password', t\('auth\.fields\.password'\), autocomplete='current-password', error=errors\.password, validate='password'\)/,
   );
+  assert.match(template, /auth\.login\.forgotPassword/);
+  assert.match(template, /auth\.login\.registerLink/);
 });
 
 test("login form renders server-side field errors", () => {

@@ -1,0 +1,51 @@
+{
+  "fields": {
+    "email": "Email",
+    "name": "Name",
+    "newPassword": "New password",
+    "organization": "Organization",
+    "organizationName": "organization name",
+    "password": "Password"
+  },
+  "errors": {
+    "emailAlreadyExists": "An account with this email already exists."
+  },
+  "flash": {
+    "accountCreated": "Account created successfully.",
+    "invalidCredentials": "Incorrect credentials.",
+    "noOrganizationMembership": "This account is not connected to an organization.",
+    "passwordReset": "Password reset successfully. Please log in.",
+    "rateLimited": "Too many attempts. Please wait a moment and try again."
+  },
+  "forgot": {
+    "backToLogin": "Log in",
+    "heading": "Forgot password",
+    "section": "Account access",
+    "submit": "Send reset link",
+    "success": "If an account exists for that email, a password reset link has been sent.",
+    "switchPrompt": "Remembered your password?"
+  },
+  "login": {
+    "forgotPassword": "Forgot password?",
+    "heading": "Log in",
+    "registerLink": "Register here",
+    "section": "Welcome back",
+    "submit": "Log in",
+    "switchPrompt": "Don't have an account?"
+  },
+  "register": {
+    "heading": "Create account",
+    "loginLink": "Log in here",
+    "section": "Account setup",
+    "submit": "Create account",
+    "switchPrompt": "Already have an account?"
+  },
+  "reset": {
+    "backToLogin": "Back to login",
+    "heading": "Reset password",
+    "invalidToken": "This password reset link is invalid or has expired.",
+    "requestNewLink": "Request a new link",
+    "section": "Account access",
+    "submit": "Reset password"
+  }
+}

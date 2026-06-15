@@ -7,10 +7,6 @@ const profileTemplate = readFileSync(
   path.join(process.cwd(), 'src', 'views', 'pages', 'settings', 'profile.njk'),
   'utf8',
 );
-const timezoneSelectTemplate = readFileSync(
-  path.join(process.cwd(), 'src', 'views', 'components', 'timezone-select.njk'),
-  'utf8',
-);
 
 describe('profile settings page', () => {
   test('extends the shared settings layout', () => {
@@ -32,17 +28,15 @@ describe('profile settings page', () => {
     assert.match(profileTemplate, /attrs='readonly'/);
   });
 
-  test('uses the reusable timezone select partial', () => {
+  test('uses the shared select macro for time zones', () => {
     assert.match(
       profileTemplate,
-      /from "components\/timezone-select\.njk" import timezoneSelect/,
+      /from "components\/form-field\.njk" import field, selectField/,
     );
     assert.match(
       profileTemplate,
-      /timezoneSelect\('timeZone', t\('settings\.fields\.timeZone'\), timeZoneOptions/,
+      /selectField\('timeZone', t\('settings\.fields\.timeZone'\), timeZoneOptions/,
     );
-    assert.match(timezoneSelectTemplate, /import selectField/);
-    assert.match(timezoneSelectTemplate, /selectField\(name, label, options/);
   });
 
   test('uses translated actions with cancel returning to profile', () => {

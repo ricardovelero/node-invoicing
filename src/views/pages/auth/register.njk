@@ -4,20 +4,20 @@
 {% block content %}
   <div class="mx-auto max-w-md">
     <div class="mb-8">
-      <p class="text-sm font-medium text-muted">Account setup</p>
-      <h1 class="mt-1 text-3xl font-semibold text-ink">Create account</h1>
+      <p class="text-sm font-medium text-muted">{{ t('auth.register.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold text-ink">{{ t('auth.register.heading') }}</h1>
     </div>
 
     <form method="post" action="/auth/register" data-validate-form class="space-y-5 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-      {{ field('name', 'Name', value=values.name, autocomplete='name') }}
-      {{ field('email', 'Email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
-      {{ passwordField('password', 'Password', autocomplete='new-password', error=errors.password, validate='password') }}
-      {{ field('organizationName', 'Organization', value=values.organizationName, error=errors.organizationName, required=true, autocomplete='organization', validate='required', validateLabel='organization name') }}
-      <button class="btn btn-full btn-primary" type="submit">Create account</button>
+      {{ field('name', t('auth.fields.name'), value=values.name, autocomplete='name') }}
+      {{ field('email', t('auth.fields.email'), type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      {{ passwordField('password', t('auth.fields.password'), autocomplete='new-password', error=errors.password, validate='password') }}
+      {{ field('organizationName', t('auth.fields.organization'), value=values.organizationName, error=errors.organizationName, required=true, autocomplete='organization', validate='required', validateLabel=t('auth.fields.organizationName')) }}
+      <button class="btn btn-full btn-primary" type="submit">{{ t('auth.register.submit') }}</button>
       <p class="text-center text-sm text-muted">
-        Already have an account?
-        <a class="font-medium text-action hover:text-action-dark" href="/auth/login">Login here</a>
+        {{ t('auth.register.switchPrompt') }}
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/login">{{ t('auth.register.loginLink') }}</a>
       </p>
     </form>
   </div>

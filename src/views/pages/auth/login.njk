@@ -4,23 +4,23 @@
 {% block content %}
   <div class="mx-auto max-w-md">
     <div class="mb-8">
-      <p class="text-sm font-medium text-muted">Welcome back</p>
-      <h1 class="mt-1 text-3xl font-semibold text-ink">Log in</h1>
+      <p class="text-sm font-medium text-muted">{{ t('auth.login.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold text-ink">{{ t('auth.login.heading') }}</h1>
     </div>
 
     <form method="post" action="/auth/login" data-validate-form class="space-y-5 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-      {{ field('email', 'Email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
-      {{ passwordField('password', 'Password', autocomplete='current-password', error=errors.password, validate='password') }}
+      {{ field('email', t('auth.fields.email'), type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      {{ passwordField('password', t('auth.fields.password'), autocomplete='current-password', error=errors.password, validate='password') }}
 
       <p class="text-right text-sm">
-        <a class="font-medium text-action hover:text-action-dark" href="/auth/forgot">Forgot password?</a>
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/forgot">{{ t('auth.login.forgotPassword') }}</a>
       </p>
 
-      <button class="btn btn-full btn-primary" type="submit">Log in</button>
+      <button class="btn btn-full btn-primary" type="submit">{{ t('auth.login.submit') }}</button>
       <p class="text-center text-sm text-muted">
-        Don't have an account?
-        <a class="font-medium text-action hover:text-action-dark" href="/auth/register">Register here</a>
+        {{ t('auth.login.switchPrompt') }}
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/register">{{ t('auth.login.registerLink') }}</a>
       </p>
     </form>
   </div>

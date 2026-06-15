@@ -1,0 +1,51 @@
+{
+  "fields": {
+    "email": "Correo electrónico",
+    "name": "Nombre",
+    "newPassword": "Nueva contraseña",
+    "organization": "Organización",
+    "organizationName": "nombre de la organización",
+    "password": "Contraseña"
+  },
+  "errors": {
+    "emailAlreadyExists": "Ya existe una cuenta con este correo electrónico."
+  },
+  "flash": {
+    "accountCreated": "Cuenta creada correctamente.",
+    "invalidCredentials": "Credenciales incorrectas.",
+    "noOrganizationMembership": "Esta cuenta no está conectada a una organización.",
+    "passwordReset": "Contraseña restablecida correctamente. Inicia sesión.",
+    "rateLimited": "Demasiados intentos. Espera un momento e inténtalo de nuevo."
+  },
+  "forgot": {
+    "backToLogin": "Iniciar sesión",
+    "heading": "Recuperar contraseña",
+    "section": "Acceso a la cuenta",
+    "submit": "Enviar enlace de recuperación",
+    "success": "Si existe una cuenta con ese correo, se ha enviado un enlace para restablecer la contraseña.",
+    "switchPrompt": "¿Has recordado tu contraseña?"
+  },
+  "login": {
+    "forgotPassword": "¿Has olvidado tu contraseña?",
+    "heading": "Iniciar sesión",
+    "registerLink": "Regístrate aquí",
+    "section": "Bienvenido de nuevo",
+    "submit": "Iniciar sesión",
+    "switchPrompt": "¿No tienes cuenta?"
+  },
+  "register": {
+    "heading": "Crear cuenta",
+    "loginLink": "Inicia sesión aquí",
+    "section": "Configuración de la cuenta",
+    "submit": "Crear cuenta",
+    "switchPrompt": "¿Ya tienes una cuenta?"
+  },
+  "reset": {
+    "backToLogin": "Volver al inicio de sesión",
+    "heading": "Restablecer contraseña",
+    "invalidToken": "Este enlace para restablecer la contraseña no es válido o ha caducado.",
+    "requestNewLink": "Solicitar un enlace nuevo",
+    "section": "Acceso a la cuenta",
+    "submit": "Restablecer contraseña"
+  }
+}

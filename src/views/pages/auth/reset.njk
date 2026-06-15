@@ -4,29 +4,29 @@
 {% block content %}
   <div class="mx-auto max-w-md">
     <div class="mb-8">
-      <p class="text-sm font-medium text-muted">Account access</p>
-      <h1 class="mt-1 text-3xl font-semibold text-ink">Reset password</h1>
+      <p class="text-sm font-medium text-muted">{{ t('auth.reset.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold text-ink">{{ t('auth.reset.heading') }}</h1>
     </div>
 
     <div class="space-y-5 rounded-lg border border-line bg-white p-6">
       {% if invalidToken %}
         <div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          This password reset link is invalid or has expired.
+          {{ t('auth.reset.invalidToken') }}
         </div>
 
-        <a class="btn btn-full btn-primary" href="/auth/forgot">Request a new link</a>
+        <a class="btn btn-full btn-primary" href="/auth/forgot">{{ t('auth.reset.requestNewLink') }}</a>
       {% else %}
         <form method="post" action="/auth/reset/{{ token }}" data-validate-form class="space-y-5">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
-          {{ passwordField('password', 'New password', autocomplete='new-password', error=errors.password, validate='password') }}
+          {{ passwordField('password', t('auth.fields.newPassword'), autocomplete='new-password', error=errors.password, validate='password') }}
 
-          <button class="btn btn-full btn-primary" type="submit">Reset password</button>
+          <button class="btn btn-full btn-primary" type="submit">{{ t('auth.reset.submit') }}</button>
         </form>
       {% endif %}
 
       <p class="text-center text-sm text-muted">
-        <a class="font-medium text-action hover:text-action-dark" href="/auth/login">Back to login</a>
+        <a class="font-medium text-action hover:text-action-dark" href="/auth/login">{{ t('auth.reset.backToLogin') }}</a>
       </p>
     </div>
   </div>

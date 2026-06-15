@@ -20,18 +20,20 @@ import { applySessionMetadata } from '../../middleware/session-metadata';
 import { daysToMs } from '../../lib/session-policy';
 
 const renderRegisterForm = (
+  req: Request,
   res: Parameters<RequestHandler>[1],
   values: Partial<RegisterValues> = {},
   errors: RegisterErrors = {},
   status = 200,
 ) =>
   res.status(status).render('pages/auth/register.njk', {
-    title: 'Create account',
+    title: req.t('auth.register.heading'),
     values,
     errors,
   });
 
 const renderForgotPasswordForm = (
+  req: Request,
   res: Parameters<RequestHandler>[1],
   values: Partial<ForgotPasswordValues> = {},
   errors: ForgotPasswordErrors = {},
@@ -39,13 +41,14 @@ const renderForgotPasswordForm = (
   success = false,
 ) =>
   res.status(status).render('pages/auth/forgot.njk', {
-    title: 'Forgot password',
+    title: req.t('auth.forgot.heading'),
     values,
     errors,
     success,
   });
 
 const renderResetPasswordForm = (
+  req: Request,
   res: Parameters<RequestHandler>[1],
   token: string,
   errors: ResetPasswordErrors = {},
@@ -53,29 +56,27 @@ const renderResetPasswordForm = (
   invalidToken = false,
 ) =>
   res.status(status).render('pages/auth/reset.njk', {
-    title: 'Reset password',
+    title: req.t('auth.reset.heading'),
     token,
     errors,
     invalidToken,
   });
 
 const renderLoginForm = (
+  req: Request,
   res: Parameters<RequestHandler>[1],
   values: Partial<LoginValues> = {},
   errors: LoginErrors = {},
   status = 200,
 ) =>
   res.status(status).render('pages/auth/login.njk', {
-    title: 'Log in',
+    title: req.t('auth.login.heading'),
     values,
     errors,
   });
 
 const getResetTokenParam = (req: Request) =>
   typeof req.params.token === 'string' ? req.params.token : '';
-
-const RATE_LIMIT_MESSAGE =
-  'Too many attempts. Please wait a moment and try again.';
 
 const pushFlashError = (
   res: Parameters<RequestHandler>[1],
@@ -86,23 +87,23 @@ const pushFlashError = (
 };
 
 export const renderLoginRateLimited: RequestHandler = (req, res) => {
-  pushFlashError(res, RATE_LIMIT_MESSAGE);
-  return renderLoginForm(res, {}, {}, 429);
+  pushFlashError(res, req.t('auth.flash.rateLimited'));
+  return renderLoginForm(req, res, {}, {}, 429);
 };
 
 export const renderRegisterRateLimited: RequestHandler = (req, res) => {
-  pushFlashError(res, RATE_LIMIT_MESSAGE);
-  return renderRegisterForm(res, {}, {}, 429);
+  pushFlashError(res, req.t('auth.flash.rateLimited'));
+  return renderRegisterForm(req, res, {}, {}, 429);
 };
 
 export const renderForgotPasswordRateLimited: RequestHandler = (req, res) => {
-  pushFlashError(res, RATE_LIMIT_MESSAGE);
-  return renderForgotPasswordForm(res, {}, {}, 429);
+  pushFlashError(res, req.t('auth.flash.rateLimited'));
+  return renderForgotPasswordForm(req, res, {}, {}, 429);
 };
 
 export const renderResetPasswordRateLimited: RequestHandler = (req, res) => {
-  pushFlashError(res, RATE_LIMIT_MESSAGE);
-  return renderResetPasswordForm(res, getResetTokenParam(req), {}, 429);
+  pushFlashError(res, req.t('auth.flash.rateLimited'));
+  return renderResetPasswordForm(req, res, getResetTokenParam(req), {}, 429);
 };
 
 const getAuditContext = (req: Request) => ({
@@ -160,7 +161,7 @@ export const renderRegister: RequestHandler = (req, res) => {
     return res.redirect('/');
   }
 
-  return renderRegisterForm(res);
+  return renderRegisterForm(req, res);
 };
 
 export const renderLogin: RequestHandler = (req, res) => {
@@ -168,7 +169,7 @@ export const renderLogin: RequestHandler = (req, res) => {
     return res.redirect('/');
   }
 
-  return renderLoginForm(res);
+  return renderLoginForm(req, res);
 };
 
 export const renderForgotPassword: RequestHandler = (req, res) => {
@@ -176,7 +177,7 @@ export const renderForgotPassword: RequestHandler = (req, res) => {
     return res.redirect('/');
   }
 
-  return renderForgotPasswordForm(res);
+  return renderForgotPasswordForm(req, res);
 };
 
 export const handleForgotPassword: RequestHandler = async (req, res, next) => {
@@ -190,6 +191,7 @@ export const handleForgotPassword: RequestHandler = async (req, res, next) => {
 
     if (!result.success) {
       return renderForgotPasswordForm(
+        req,
         res,
         values,
         result.error.flatten().fieldErrors,
@@ -215,7 +217,7 @@ export const handleForgotPassword: RequestHandler = async (req, res, next) => {
       },
     });
 
-    return renderForgotPasswordForm(res, values, {}, 200, true);
+    return renderForgotPasswordForm(req, res, values, {}, 200, true);
   } catch (error) {
     return next(error);
   }
@@ -230,20 +232,20 @@ export const renderResetPassword: RequestHandler = async (req, res, next) => {
     const token = getResetTokenParam(req);
 
     if (!token) {
-      return renderResetPasswordForm(res, '', {}, 404, true);
+      return renderResetPasswordForm(req, res, '', {}, 404, true);
     }
 
     const resetToken = await authService.getValidPasswordResetToken(token);
 
     if (!resetToken.ok) {
       if (resetToken.reason === 'invalidOrExpired') {
-        return renderResetPasswordForm(res, token, {}, 404, true);
+        return renderResetPasswordForm(req, res, token, {}, 404, true);
       }
 
       return next(new Error('Unable to load password reset token.'));
     }
 
-    return renderResetPasswordForm(res, token);
+    return renderResetPasswordForm(req, res, token);
   } catch (error) {
     return next(error);
   }
@@ -258,13 +260,14 @@ export const handleResetPassword: RequestHandler = async (req, res, next) => {
     const token = getResetTokenParam(req);
 
     if (!token) {
-      return renderResetPasswordForm(res, '', {}, 404, true);
+      return renderResetPasswordForm(req, res, '', {}, 404, true);
     }
 
     const result = resetPasswordSchema.safeParse(req.body);
 
     if (!result.success) {
       return renderResetPasswordForm(
+        req,
         res,
         token,
         result.error.flatten().fieldErrors,
@@ -279,7 +282,7 @@ export const handleResetPassword: RequestHandler = async (req, res, next) => {
 
     if (!resetResult.ok) {
       if (resetResult.reason === 'invalidOrExpired') {
-        return renderResetPasswordForm(res, token, {}, 404, true);
+        return renderResetPasswordForm(req, res, token, {}, 404, true);
       }
 
       return next(new Error('Unable to reset password.'));
@@ -291,7 +294,7 @@ export const handleResetPassword: RequestHandler = async (req, res, next) => {
       ...getAuditContext(req),
     });
 
-    req.flash('success', 'Password reset successfully. Please log in.');
+    req.flash('success', req.t('auth.flash.passwordReset'));
 
     return res.redirect('/auth/login');
   } catch (error) {
@@ -305,7 +308,13 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
     const values = registerValuesSchema.parse(req.body);
 
     if (!result.success) {
-      return renderRegisterForm(res, values, result.error.flatten().fieldErrors, 422);
+      return renderRegisterForm(
+        req,
+        res,
+        values,
+        result.error.flatten().fieldErrors,
+        422,
+      );
     }
 
     const sessionUser = await authService.registerUser(result.data);
@@ -313,9 +322,10 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
     if (!sessionUser.ok) {
       if (sessionUser.reason === 'emailAlreadyExists') {
         return renderRegisterForm(
+          req,
           res,
           values,
-          { email: ['An account with this email already exists.'] },
+          { email: [req.t('auth.errors.emailAlreadyExists')] },
           409,
         );
       }
@@ -327,7 +337,7 @@ export const handleRegister: RequestHandler = async (req, res, next) => {
 
     assignAuthenticatedSession(req, sessionUser);
 
-    req.flash('success', 'Account created successfully.');
+    req.flash('success', req.t('auth.flash.accountCreated'));
 
     return res.redirect('/');
   } catch (error) {
@@ -349,6 +359,7 @@ export const loginUser: RequestHandler = async (req, res, next) => {
         metadata: { reason: 'missingCredentials' },
       });
       return renderLoginForm(
+        req,
         res,
         values,
         result.error.flatten().fieldErrors,
@@ -365,8 +376,8 @@ export const loginUser: RequestHandler = async (req, res, next) => {
         ...getAuditContext(req),
         metadata: { reason: 'invalidCredentials' },
       });
-      pushFlashError(res, 'Incorrect credentials.');
-      return renderLoginForm(res, values, {}, 401);
+      pushFlashError(res, req.t('auth.flash.invalidCredentials'));
+      return renderLoginForm(req, res, values, {}, 401);
     }
 
     if (!sessionUser.ok && sessionUser.reason === 'noOrganizationMembership') {
@@ -376,8 +387,8 @@ export const loginUser: RequestHandler = async (req, res, next) => {
         ...getAuditContext(req),
         metadata: { reason: 'noOrganizationMembership' },
       });
-      pushFlashError(res, 'This account is not connected to an organization.');
-      return renderLoginForm(res, values, {}, 401);
+      pushFlashError(res, req.t('auth.flash.noOrganizationMembership'));
+      return renderLoginForm(req, res, values, {}, 401);
     }
 
     if (!sessionUser.ok) {
