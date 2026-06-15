@@ -18,6 +18,14 @@
     "items": "Items",
     "settings": "Settings"
   },
+  "errorPages": {
+    "errorLabel": "Error",
+    "notFoundPageTitle": "Not found",
+    "notFoundTitle": "Page not found",
+    "notFoundMessage": "{path} does not exist.",
+    "serverErrorPageTitle": "Server error",
+    "serverErrorFallback": "Something went wrong."
+  },
   "pagination": {
     "pageStatus": "Page {page} of {totalPages}",
     "totalCount": "({count} {label})"

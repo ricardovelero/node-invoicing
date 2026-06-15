@@ -18,6 +18,14 @@
     "items": "Artículos",
     "settings": "Ajustes"
   },
+  "errorPages": {
+    "errorLabel": "Error",
+    "notFoundPageTitle": "No encontrado",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundMessage": "{path} no existe.",
+    "serverErrorPageTitle": "Error del servidor",
+    "serverErrorFallback": "Algo ha ido mal."
+  },
   "pagination": {
     "pageStatus": "Página {page} de {totalPages}",
     "totalCount": "({count} {label})"
