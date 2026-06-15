@@ -1,0 +1,8 @@
+{% macro dump(value, label = 'Debug') %}
+  {% if appEnv == 'development' %}
+    <pre class="fixed bottom-6 right-6 z-50 max-h-96 max-w-xl overflow-auto rounded bg-black p-4 text-xs text-white shadow-lg">
+      <strong>{{ label }}</strong>
+      {{ value | dump(2) }}
+    </pre>
+  {% endif %}
+{% endmacro %}
