@@ -187,3 +187,21 @@
     @apply m-0 shadow-none;
   }
 }
+
+@keyframes organization-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details[open] > .organization-menu {
+    animation: organization-menu-in 140ms ease-out;
+  }
+}

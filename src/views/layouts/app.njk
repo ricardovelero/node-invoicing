@@ -22,19 +22,36 @@
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/customers') else 'text-muted hover:text-ink' }}" href="/customers">{{ t('common.navigation.customers') }}</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/items') else 'text-muted hover:text-ink' }}" href="/items">{{ t('common.navigation.items') }}</a>
               <a class="rounded-md px-3 py-2 font-medium {{ 'bg-panel text-ink' if currentPath.startsWith('/settings') else 'text-muted hover:text-ink' }}" href="/settings">{{ t('common.navigation.settings') }}</a>
+              
               {% if availableOrganizations and availableOrganizations.length > 1 %}
-                <form class="flex items-center gap-2" method="post" action="/settings/organizations/switch">
-                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                  <input type="hidden" name="returnTo" value="{{ currentPath }}">
-                  <label class="sr-only" for="organizationId">{{ t('settings.organizations.switchLabel') }}</label>
-                  <select id="organizationId" name="organizationId" class="rounded-md border border-line px-2 py-1 text-sm">
+                <details class="group relative">
+                  <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium transition-colors hover:bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 [&::-webkit-details-marker]:hidden">
+                    <span>{{ currentOrganization.name }}</span>
+                    <svg class="h-4 w-4 text-muted transition-transform group-open:rotate-180" aria-hidden="true" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                    </svg>
+                  </summary>
+                  <div class="organization-menu absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md border border-line bg-white p-2 shadow-lg ring-1 ring-black/5">
                     {% for organization in availableOrganizations %}
-                      <option value="{{ organization.id }}" {% if organization.isCurrent %}selected{% endif %}>{{ organization.name }}</option>
+                      <form method="post" action="/settings/organizations/switch">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <input type="hidden" name="returnTo" value="{{ currentPath }}">
+                        <input type="hidden" name="organizationId" value="{{ organization.id }}">
+
+                        <button type="submit" class="w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm hover:bg-panel {{ 'font-semibold text-ink' if organization.isCurrent else 'text-muted' }}">
+                          {{ organization.name }}
+                          {% if organization.isCurrent %}✓{% endif %}
+                        </button>
+                      </form>
                     {% endfor %}
-                  </select>
-                  <button class="btn btn-secondary" type="submit">{{ t('settings.actions.switchOrganization') }}</button>
-                </form>
+
+                    <a href="/settings/organizations" class="mt-2 block border-t border-line px-3 py-2 text-sm text-muted hover:text-ink">
+                      Manage organizations
+                    </a>
+                  </div>
+                </details>
               {% endif %}
+
               <form method="post" action="/auth/logout">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                 <button class="btn btn-link" type="submit">{{ t('common.actions.logout') }}</button>
