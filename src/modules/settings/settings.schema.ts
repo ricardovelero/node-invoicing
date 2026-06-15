@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { passwordRequirementsMessage } from '../auth/auth.schema';
 import { supportedOrganizationCountryCodes } from '../../lib/countries';
-import { supportedLocales } from '../../lib/i18n';
+import { defaultLocale, supportedLocales } from '../../lib/i18n';
 import {
   defaultSessionAbsoluteLifetimeDays,
   defaultSessionIdleTimeoutMinutes,
@@ -288,7 +288,7 @@ type LocalizationSettingsSource = Partial<{
 export const createLocalizationSettingsValues = (
   organization: LocalizationSettingsSource = {},
 ): LocalizationSettingsValues => ({
-  locale: sourceText(organization.locale, 'en-GB'),
+  locale: sourceText(organization.locale, defaultLocale),
 });
 
 const integerInput = (messages: {

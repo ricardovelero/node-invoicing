@@ -20,6 +20,7 @@ import {
   supportedCurrencies,
 } from "./settings.schema";
 import { supportedOrganizationCountryCodes } from "../../lib/countries";
+import { defaultLocale, supportedLocales } from "../../lib/i18n";
 import { daysToMs } from "../../lib/session-policy";
 import { createTimeZoneOptions } from "../../lib/time-zones";
 import {
@@ -204,7 +205,7 @@ type SecuritySessionView = ActiveSession & {
   lastSeenAtIso: string;
 };
 
-const formatDateTime = (date: Date, locale = "en-GB") =>
+const formatDateTime = (date: Date, locale: string = defaultLocale) =>
   new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -380,6 +381,7 @@ export const renderLocalizationSettings: RequestHandler = (req, res) => {
     title: req.t("settings.sections.localization.title"),
     activeSettingsPage: "localization",
     values: createLocalizationSettingsValues(req.auth!.organization),
+    localeOptions: supportedLocales,
     errors: {},
   });
 };
@@ -392,6 +394,7 @@ export const updateLocalizationSettingsController: RequestHandler = async (req, 
       title: req.t("settings.sections.localization.title"),
       activeSettingsPage: "localization",
       values: createLocalizationSettingsValues(req.body),
+      localeOptions: supportedLocales,
       errors: result.error.flatten().fieldErrors,
     });
   }

@@ -12,7 +12,7 @@
     <div class="max-w-xs">
       <label for="locale">{{ t('settings.fields.locale') }} <span aria-hidden="true">*</span></label>
       <select id="locale" name="locale" required>
-        {% for locale in ['en-GB', 'en-US', 'es-ES'] %}
+        {% for locale in localeOptions %}
           <option value="{{ locale }}" {{ 'selected' if values.locale == locale else '' }}>{{ locale }}</option>
         {% endfor %}
       </select>

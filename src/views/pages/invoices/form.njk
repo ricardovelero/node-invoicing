@@ -7,7 +7,7 @@
   </div>
 
   {% if customers.length %}
-    <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-unsaved-changes-guard data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentLocale or 'en-GB' }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-unsaved-changes-guard data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentLocale }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div class="grid gap-5 sm:grid-cols-[1fr_180px]">
         <div>

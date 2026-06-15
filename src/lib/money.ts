@@ -1,10 +1,11 @@
+import { defaultLocale } from './locales';
+
 const defaultCurrency = 'EUR';
-const defaultLocale = 'en-GB';
 
 export const formatMoney = (
   amountMinorUnits: number,
   currency = defaultCurrency,
-  locale = defaultLocale,
+  locale: string = defaultLocale,
 ) =>
   new Intl.NumberFormat(locale, {
     style: 'currency',

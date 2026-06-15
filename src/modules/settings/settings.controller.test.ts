@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
-import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
+import {
+  createTranslator,
+  loadTranslations,
+  supportedLocales,
+  type Translate,
+} from "../../lib/i18n";
 import * as authService from "../auth/auth.service";
 import {
   createOrganizationController,
@@ -825,6 +830,7 @@ test("renderLocalizationSettings renders the current locale", () => {
     title: "Localisation settings",
     activeSettingsPage: "localization",
     values: { locale: "es-ES" },
+    localeOptions: supportedLocales,
     errors: {},
   });
 });
