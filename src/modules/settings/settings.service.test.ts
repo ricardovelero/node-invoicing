@@ -275,8 +275,6 @@ test("createOrganizationForUser creates an organization and owner membership", a
       organization: {
         create: (args: unknown) => Promise<{
           id: string;
-          sessionIdleTimeoutMinutes: number;
-          sessionAbsoluteLifetimeDays: number;
         }>;
       };
       organizationMembership: {
@@ -290,8 +288,6 @@ test("createOrganizationForUser creates an organization and owner membership", a
           createdOrganizationData = args;
           return {
             id: "33333333-3333-3333-3333-333333333333",
-            sessionIdleTimeoutMinutes: 30,
-            sessionAbsoluteLifetimeDays: 14,
           };
         },
       },
@@ -304,18 +300,39 @@ test("createOrganizationForUser creates an organization and owner membership", a
     });
 
   const result = await createOrganizationForUser("user_1", {
-    name: "New Org",
+    legalName: "New Org Ltd",
+    billingEmail: "",
+    taxId: "VAT456",
+    addressLine1: "",
+    city: "Manchester",
+    countryCode: "GB",
+    legalForm: "company",
+    currency: "GBP",
+    withholdingEnabled: true,
+    defaultWithholdingType: "IRPF",
+    defaultWithholdingRateType: "15",
+    defaultWithholdingRate: 15,
+    paymentInstructions: "",
   });
 
   assert.deepEqual(createdOrganizationData, {
     data: {
-      name: "New Org",
-      legalName: "New Org",
+      name: "New Org Ltd",
+      legalName: "New Org Ltd",
+      billingEmail: null,
+      taxId: "VAT456",
+      addressLine1: null,
+      city: "Manchester",
+      countryCode: "GB",
+      legalForm: "company",
+      currency: "GBP",
+      withholdingEnabled: false,
+      defaultWithholdingType: null,
+      defaultWithholdingRate: null,
+      paymentInstructions: null,
     },
     select: {
       id: true,
-      sessionIdleTimeoutMinutes: true,
-      sessionAbsoluteLifetimeDays: true,
     },
   });
   assert.deepEqual(createdMembershipData, {
@@ -327,8 +344,6 @@ test("createOrganizationForUser creates an organization and owner membership", a
   });
   assert.deepEqual(result, {
     organizationId: "33333333-3333-3333-3333-333333333333",
-    sessionIdleTimeoutMinutes: 30,
-    sessionAbsoluteLifetimeDays: 14,
   });
 });
 

@@ -8,6 +8,7 @@ import {
   createOrganizationController,
   renderGeneralSettings,
   renderLocalizationSettings,
+  renderNewOrganizationSettings,
   renderOrganizationSettings,
   renderOrganizationsSettings,
   renderSecuritySettings,
@@ -275,8 +276,6 @@ test("renderOrganizationsSettings renders memberships and marks the current orga
         isCurrent: false,
       },
     ],
-    values: {},
-    errors: {},
   });
 });
 
@@ -285,23 +284,32 @@ test("createOrganizationController returns field errors for invalid submissions"
   prismaMock.$transaction = async () => {
     transactionCalls += 1;
   };
-  const req = createRequest({ name: "" });
+  const req = createRequest({
+    legalName: "",
+    countryCode: "GB",
+    currency: "EUR",
+  });
   const res = createResponse();
 
   await createOrganizationController(req, res, () => undefined);
 
   assert.equal(transactionCalls, 0);
   assert.equal(res.statusCode, 422);
-  assert.equal(res.renderedView, "pages/settings/organizations.njk");
-  assert.deepEqual((res.renderedData as { values: unknown }).values, {
-    name: "",
-  });
+  assert.equal(res.renderedView, "pages/settings/organization-new.njk");
+  assert.equal(
+    (res.renderedData as { formAction: string }).formAction,
+    "/settings/organizations",
+  );
+  assert.equal(
+    (res.renderedData as { cancelHref: string }).cancelHref,
+    "/settings/organizations",
+  );
   assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
-    name: ["Enter an organization name."],
+    legalName: ["Enter the legal name."],
   });
 });
 
-test("createOrganizationController creates, switches session, and redirects", async () => {
+test("createOrganizationController creates without switching session and redirects", async () => {
   let createdOrganizationData: unknown;
   let createdMembershipData: unknown;
   prismaMock.$transaction = async (
@@ -309,8 +317,6 @@ test("createOrganizationController creates, switches session, and redirects", as
       organization: {
         create: (args: unknown) => Promise<{
           id: string;
-          sessionIdleTimeoutMinutes: number;
-          sessionAbsoluteLifetimeDays: number;
         }>;
       };
       organizationMembership: {
@@ -324,8 +330,6 @@ test("createOrganizationController creates, switches session, and redirects", as
           createdOrganizationData = args;
           return {
             id: "33333333-3333-3333-3333-333333333333",
-            sessionIdleTimeoutMinutes: 30,
-            sessionAbsoluteLifetimeDays: 14,
           };
         },
       },
@@ -336,20 +340,39 @@ test("createOrganizationController creates, switches session, and redirects", as
         },
       },
     });
-  const req = createRequest({ name: " New Organisation " });
+  const req = createRequest({
+    legalName: " New Organisation Ltd ",
+    billingEmail: " billing@example.com ",
+    taxId: " VAT456 ",
+    addressLine1: " 2 Example Street ",
+    city: " Manchester ",
+    countryCode: " gb ",
+    legalForm: "company",
+    currency: "GBP",
+    paymentInstructions: " Pay on receipt. ",
+  });
   const res = createResponse();
 
   await createOrganizationController(req, res, () => undefined);
 
   assert.deepEqual(createdOrganizationData, {
     data: {
-      name: "New Organisation",
-      legalName: "New Organisation",
+      name: "New Organisation Ltd",
+      legalName: "New Organisation Ltd",
+      billingEmail: "billing@example.com",
+      taxId: "VAT456",
+      addressLine1: "2 Example Street",
+      city: "Manchester",
+      countryCode: "GB",
+      legalForm: "company",
+      currency: "GBP",
+      withholdingEnabled: false,
+      defaultWithholdingType: null,
+      defaultWithholdingRate: null,
+      paymentInstructions: "Pay on receipt.",
     },
     select: {
       id: true,
-      sessionIdleTimeoutMinutes: true,
-      sessionAbsoluteLifetimeDays: true,
     },
   });
   assert.deepEqual(createdMembershipData, {
@@ -359,11 +382,13 @@ test("createOrganizationController creates, switches session, and redirects", as
       role: "OWNER",
     },
   });
-  assert.equal(req.session.organizationId, "33333333-3333-3333-3333-333333333333");
-  assert.equal(req.session.sessionIdleTimeoutMinutes, 30);
-  assert.equal(req.session.sessionAbsoluteLifetimeDays, 14);
-  assert.equal(req.session.cookie.maxAge, 14 * 24 * 60 * 60 * 1000);
-  assert.deepEqual(req.flashMessages.success, ["Organisation created."]);
+  assert.equal(req.session.organizationId, "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab");
+  assert.equal(req.session.sessionIdleTimeoutMinutes, 45);
+  assert.equal(req.session.sessionAbsoluteLifetimeDays, 21);
+  assert.equal(req.session.cookie.maxAge, undefined);
+  assert.deepEqual(req.flashMessages.success, [
+    "Organisation created. You can switch to it from the organisation selector.",
+  ]);
   assert.equal(res.redirectedTo, "/settings/organizations");
 });
 
@@ -435,7 +460,13 @@ test("renderOrganizationSettings renders current organization values", () => {
   assert.equal(res.renderedView, "pages/settings/organization.njk");
   assert.deepEqual(res.renderedData, {
     title: "Organisation settings",
+    heading: "Organisation settings",
+    description: "Legal details, billing, and invoicing defaults for your organisation.",
     activeSettingsPage: "organization",
+    formAction: "/settings/organization",
+    submitLabel: "Save settings",
+    cancelHref: "/settings",
+    mode: "edit",
     values: {
       legalName: "Analytical Engines Ltd",
       billingEmail: "billing@example.com",
@@ -473,6 +504,39 @@ test("renderOrganizationSettings renders current organization values", () => {
     ],
     errors: {},
   });
+});
+
+test("renderNewOrganizationSettings renders a dedicated create form", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  renderNewOrganizationSettings(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/organization-new.njk");
+  assert.deepEqual(
+    {
+      title: (res.renderedData as { title: string }).title,
+      heading: (res.renderedData as { heading: string }).heading,
+      description: (res.renderedData as { description: string }).description,
+      activeSettingsPage: (res.renderedData as { activeSettingsPage: string }).activeSettingsPage,
+      formAction: (res.renderedData as { formAction: string }).formAction,
+      submitLabel: (res.renderedData as { submitLabel: string }).submitLabel,
+      cancelHref: (res.renderedData as { cancelHref: string }).cancelHref,
+      mode: (res.renderedData as { mode: string }).mode,
+    },
+    {
+      title: "New organisation",
+      heading: "New organisation",
+      description:
+        "Create a separate organisation with its own legal details, billing defaults, customers, items, invoices, and numbering.",
+      activeSettingsPage: "organizations",
+      formAction: "/settings/organizations",
+      submitLabel: "Create organisation",
+      cancelHref: "/settings/organizations",
+      mode: "create",
+    },
+  );
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {});
 });
 
 test("renderOrganizationSettings preserves stored custom withholding rate values", () => {

@@ -1,0 +1,51 @@
+{% from "components/form-field.njk" import field, textareaField, selectField %}
+
+<form method="post" action="{{ formAction }}" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+  {{ field('legalName', t('settings.fields.legalName'), value=values.legalName or '', error=errors.legalName, required=true, autocomplete='organization', validate='required', validateLabel=errors.legalName[0]) }}
+
+  {{ field('billingEmail', t('settings.fields.billingEmail'), type='email', value=values.billingEmail or '', error=errors.billingEmail[0], required=false, autocomplete='email', validate='email', placeholder=t('settings.placeholders.billingEmail'), help=t('settings.help.billingEmail')) }}
+
+  <div class="grid gap-5 sm:grid-cols-2">
+    {{ field('taxId', t('settings.fields.taxId'), value=values.taxId or '', error=errors.taxId) }}
+    {{ selectField('currency', t('settings.fields.defaultCurrency'), currencyOptions, value=values.currency, error=errors.currency, required=true) }}
+  </div>
+
+  <div class="grid gap-5 sm:grid-cols-2">
+    {{ selectField('countryCode', t('settings.fields.countryCode'), countryOptions, value=values.countryCode, error=errors.countryCode, required=true) }}
+    {{ field('city', t('settings.fields.city'), value=values.city or '', error=errors.city, autocomplete='address-level2') }}
+  </div>
+
+  {{ field('addressLine1', t('settings.fields.address'), value=values.addressLine1 or '', error=errors.addressLine1, autocomplete='street-address') }}
+
+  <div class="grid gap-5 sm:grid-cols-2">
+    {{ selectField('legalForm', t('settings.fields.legalForm'), legalFormOptions, value=values.legalForm, error=errors.legalForm, required=true, attrs='data-withholding-legal-form') }}
+  </div>
+
+  <section class="rounded-md border border-line bg-panel p-4"{% if values.countryCode != 'ES' or values.legalForm == 'company' %} hidden{% endif %} data-withholding-settings>
+    <div class="flex items-start gap-3"{% if values.legalForm == 'company' %} hidden{% endif %} data-withholding-enable-row>
+      <input id="withholdingEnabled" class="mt-1 h-4 w-4" name="withholdingEnabled" type="checkbox" {{ 'checked' if values.withholdingEnabled else '' }} data-withholding-enabled>
+      <div>
+        <label class="font-semibold" for="withholdingEnabled">{{ t('settings.withholding.enableIrpf') }}</label>
+        <p class="mt-1 text-sm text-muted">{{ t('settings.withholding.irpfHelp') }}</p>
+        {% if errors.withholdingEnabled %}<p class="mt-1 text-sm text-red-700">{{ errors.withholdingEnabled[0] }}</p>{% endif %}
+      </div>
+    </div>
+    <input type="hidden" name="defaultWithholdingType" value="IRPF">
+    <div class="mt-4 grid gap-5 sm:grid-cols-[180px_1fr]"{% if not values.withholdingEnabled %} hidden{% endif %} data-withholding-rate-fields>
+      {{ selectField('defaultWithholdingRateType', t('settings.fields.defaultWithholdingRate'), withholdingRateTypeOptions, value=values.defaultWithholdingRateType, attrs='data-withholding-rate-type') }}
+      <div{% if values.defaultWithholdingRateType != 'custom' or not values.withholdingEnabled %} hidden{% endif %} data-withholding-custom-rate>
+        {{ field('defaultWithholdingRate', t('settings.fields.customWithholdingRate'), type='number', value=values.defaultWithholdingRate, error=errors.defaultWithholdingRate, attrs='min="0.01" max="100" step="0.01" data-withholding-rate-input') }}
+        {% if errors.defaultWithholdingType %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingType[0] }}</p>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {{ textareaField('paymentInstructions', t('settings.fields.paymentInstructions'), value=values.paymentInstructions or '', error=errors.paymentInstructions, rows=5, maxlength=2000, placeholder=t('settings.placeholders.paymentInstructions')) }}
+
+  <div class="flex items-center justify-end gap-3 pt-2">
+    <a class="btn btn-secondary" href="{{ cancelHref }}">{{ t('common.actions.cancel') }}</a>
+    <button class="btn btn-primary" type="submit">{{ submitLabel }}</button>
+  </div>
+</form>

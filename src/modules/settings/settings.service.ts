@@ -5,13 +5,38 @@ import {
 } from "../../lib/session-policy";
 import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding";
 import type {
-  CreateOrganizationForm,
   LocalizationSettingsForm,
   OrganizationSettingsForm,
   SecuritySettingsForm,
 } from "./settings.schema";
 
 const emptyToNull = (value: string) => value || null;
+
+const createOrganizationSettingsData = (data: OrganizationSettingsForm) => {
+  const withholdingSettings = normalizeOrganizationWithholdingSettings({
+    countryCode: data.countryCode,
+    legalForm: data.legalForm,
+    withholdingEnabled: data.withholdingEnabled,
+    defaultWithholdingType: data.defaultWithholdingType || null,
+    defaultWithholdingRate: data.defaultWithholdingRate,
+  });
+
+  return {
+    name: data.legalName,
+    legalName: data.legalName,
+    billingEmail: emptyToNull(data.billingEmail),
+    taxId: emptyToNull(data.taxId),
+    addressLine1: emptyToNull(data.addressLine1),
+    city: emptyToNull(data.city),
+    countryCode: withholdingSettings.countryCode,
+    legalForm: withholdingSettings.legalForm,
+    currency: data.currency,
+    withholdingEnabled: withholdingSettings.withholdingEnabled,
+    defaultWithholdingType: withholdingSettings.defaultWithholdingType,
+    defaultWithholdingRate: withholdingSettings.defaultWithholdingRate,
+    paymentInstructions: emptyToNull(data.paymentInstructions),
+  };
+};
 
 export type ActiveSession = {
   id: string;
@@ -115,31 +140,9 @@ export const updateOrganizationSettings = (
   organizationId: string,
   data: OrganizationSettingsForm,
 ) => {
-  const withholdingSettings = normalizeOrganizationWithholdingSettings({
-    countryCode: data.countryCode,
-    legalForm: data.legalForm,
-    withholdingEnabled: data.withholdingEnabled,
-    defaultWithholdingType: data.defaultWithholdingType || null,
-    defaultWithholdingRate: data.defaultWithholdingRate,
-  });
-
   return prisma.organization.update({
     where: { id: organizationId },
-    data: {
-      name: data.legalName,
-      legalName: data.legalName,
-      billingEmail: emptyToNull(data.billingEmail),
-      taxId: emptyToNull(data.taxId),
-      addressLine1: emptyToNull(data.addressLine1),
-      city: emptyToNull(data.city),
-      countryCode: withholdingSettings.countryCode,
-      legalForm: withholdingSettings.legalForm,
-      currency: data.currency,
-      withholdingEnabled: withholdingSettings.withholdingEnabled,
-      defaultWithholdingType: withholdingSettings.defaultWithholdingType,
-      defaultWithholdingRate: withholdingSettings.defaultWithholdingRate,
-      paymentInstructions: emptyToNull(data.paymentInstructions),
-    },
+    data: createOrganizationSettingsData(data),
   });
 };
 
@@ -192,18 +195,13 @@ export const getOrganizationsForUser = async (
 
 export const createOrganizationForUser = async (
   userId: string,
-  data: CreateOrganizationForm,
+  data: OrganizationSettingsForm,
 ) =>
   prisma.$transaction(async (tx) => {
     const organization = await tx.organization.create({
-      data: {
-        name: data.name,
-        legalName: data.name,
-      },
+      data: createOrganizationSettingsData(data),
       select: {
         id: true,
-        sessionIdleTimeoutMinutes: true,
-        sessionAbsoluteLifetimeDays: true,
       },
     });
 
@@ -217,8 +215,6 @@ export const createOrganizationForUser = async (
 
     return {
       organizationId: organization.id,
-      sessionIdleTimeoutMinutes: organization.sessionIdleTimeoutMinutes,
-      sessionAbsoluteLifetimeDays: organization.sessionAbsoluteLifetimeDays,
     };
   });
 

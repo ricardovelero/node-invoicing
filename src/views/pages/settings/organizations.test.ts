@@ -22,6 +22,8 @@ describe("organizations settings page", () => {
 
   test("renders current organization and memberships", () => {
     assert.match(organizationsTemplate, /currentOrganization\.name/);
+    assert.match(organizationsTemplate, /href="\/settings\/organizations\/new"/);
+    assert.match(organizationsTemplate, /settings\.actions\.newOrganization/);
     assert.match(organizationsTemplate, /for membership in memberships/);
     assert.match(organizationsTemplate, /membership\.organizationName/);
     assert.match(organizationsTemplate, /settings\.organizationRoles\.'/);
@@ -44,11 +46,14 @@ describe("organizations settings page", () => {
     assert.match(organizationsTemplate, /settings\.actions\.switchOrganization/);
   });
 
-  test("renders the create organization form", () => {
-    assert.match(organizationsTemplate, /method="post" action="\/settings\/organizations"/);
-    assert.match(organizationsTemplate, /field\('name', t\('settings\.fields\.organizationName'\)/);
-    assert.match(organizationsTemplate, /value=values\.name or ''/);
-    assert.match(organizationsTemplate, /error=errors\.name/);
-    assert.match(organizationsTemplate, /settings\.actions\.createOrganization/);
+  test("does not render the create organization form inline", () => {
+    assert.doesNotMatch(
+      organizationsTemplate,
+      /method="post" action="\/settings\/organizations"/,
+    );
+    assert.doesNotMatch(
+      organizationsTemplate,
+      /field\('name', t\('settings\.fields\.organizationName'\)/,
+    );
   });
 });

@@ -76,13 +76,14 @@
   "actions": {
     "save": "Guardar ajustes",
     "changePassword": "Cambiar contraseña",
+    "newOrganization": "Nueva organización",
     "createOrganization": "Crear organización",
     "revokeSession": "Revocar sesión",
     "revokeOtherSessions": "Revocar otras sesiones",
     "switchOrganization": "Cambiar"
   },
   "flash": {
-    "organizationCreated": "Organización creada.",
+    "organizationCreated": "Organización creada. Puedes cambiar a ella desde el selector de organizaciones.",
     "organizationSwitched": "Organización cambiada.",
     "organizationNotSwitched": "No se pudo cambiar de organización.",
     "updated": "Ajustes de la organización actualizados.",
@@ -113,6 +114,8 @@
     "currentDescription": "Los nuevos clientes, artículos y facturas se crean dentro de esta organización.",
     "memberships": "Tus organizaciones",
     "manage": "Gestionar organizaciones",
+    "newTitle": "Nueva organización",
+    "newDescription": "Crea una organización separada con sus propios datos legales, valores de facturación, clientes, artículos, facturas y numeración.",
     "role": "Rol",
     "status": "Estado",
     "currentBadge": "Actual",

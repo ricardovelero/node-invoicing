@@ -3,13 +3,9 @@ import * as authService from "../auth/auth.service";
 import {
   changePasswordSchema,
   type ChangePasswordErrors,
-  createOrganizationSchema,
-  createOrganizationValuesSchema,
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
   createSecuritySettingsValues,
-  type CreateOrganizationErrors,
-  type CreateOrganizationValues,
   type OrganizationSettingsErrors,
   type OrganizationSettingsValues,
   type SecuritySettingsErrors,
@@ -96,9 +92,26 @@ const createOrganizationSettingsViewModel = (
   req: Request,
   values: OrganizationSettingsValues,
   errors: OrganizationSettingsErrors = {},
+  options: {
+    mode?: "create" | "edit";
+    title?: string;
+    heading?: string;
+    description?: string;
+    activeSettingsPage?: string;
+    formAction?: string;
+    submitLabel?: string;
+    cancelHref?: string;
+  } = {},
 ) => ({
-  title: req.t("settings.sections.organization.title"),
-  activeSettingsPage: "organization",
+  title: options.title ?? req.t("settings.sections.organization.title"),
+  heading: options.heading ?? req.t("settings.sections.organization.title"),
+  description:
+    options.description ?? req.t("settings.sections.organization.description"),
+  activeSettingsPage: options.activeSettingsPage ?? "organization",
+  formAction: options.formAction ?? "/settings/organization",
+  submitLabel: options.submitLabel ?? req.t("settings.actions.save"),
+  cancelHref: options.cancelHref ?? "/settings",
+  mode: options.mode ?? "edit",
   values,
   withholdingEligible: valuesAreIrpfEligible(values),
   withholdingRateOptions: getWithholdingRateOptions(values.countryCode),
@@ -147,11 +160,7 @@ const createOrganizationMembershipViews = (
     isCurrent: membership.organizationId === currentOrganizationId,
   }));
 
-const createOrganizationsViewModel = async (
-  req: Request,
-  values: Partial<CreateOrganizationValues> = {},
-  errors: CreateOrganizationErrors = {},
-) => {
+const createOrganizationsViewModel = async (req: Request) => {
   const memberships = await getOrganizationsForUser(req.auth!.user.id);
 
   return {
@@ -162,8 +171,6 @@ const createOrganizationsViewModel = async (
       memberships,
       req.auth!.organization.id,
     ),
-    values,
-    errors,
   };
 };
 
@@ -249,6 +256,30 @@ export const renderOrganizationSettings: RequestHandler = (req, res) => {
   res.render(
     "pages/settings/organization.njk",
     createOrganizationSettingsViewModel(req, values),
+  );
+};
+
+export const renderNewOrganizationSettings: RequestHandler = (req, res) => {
+  res.render(
+    "pages/settings/organization-new.njk",
+    createOrganizationSettingsViewModel(
+      req,
+      createOrganizationSettingsValues({
+        countryCode: req.auth!.organization.countryCode,
+        currency: req.auth!.organization.currency,
+      }),
+      {},
+      {
+        mode: "create",
+        title: req.t("settings.organizations.newTitle"),
+        heading: req.t("settings.organizations.newTitle"),
+        description: req.t("settings.organizations.newDescription"),
+        activeSettingsPage: "organizations",
+        formAction: "/settings/organizations",
+        submitLabel: req.t("settings.actions.createOrganization"),
+        cancelHref: "/settings/organizations",
+      },
+    ),
   );
 };
 
@@ -437,27 +468,35 @@ export const renderOrganizationsSettings: RequestHandler = async (req, res) => {
 };
 
 export const createOrganizationController: RequestHandler = async (req, res, next) => {
-  const result = createOrganizationSchema.safeParse(req.body);
-  const values = createOrganizationValuesSchema.parse(req.body);
+  const result = organizationSettingsSchema.safeParse(req.body);
 
   if (!result.success) {
     return res.status(422).render(
-      "pages/settings/organizations.njk",
-      await createOrganizationsViewModel(
+      "pages/settings/organization-new.njk",
+      createOrganizationSettingsViewModel(
         req,
-        values,
+        createOrganizationSettingsValues(req.body),
         result.error.flatten().fieldErrors,
+        {
+          mode: "create",
+          title: req.t("settings.organizations.newTitle"),
+          heading: req.t("settings.organizations.newTitle"),
+          description: req.t("settings.organizations.newDescription"),
+          activeSettingsPage: "organizations",
+          formAction: "/settings/organizations",
+          submitLabel: req.t("settings.actions.createOrganization"),
+          cancelHref: "/settings/organizations",
+        },
       ),
     );
   }
 
   try {
-    const organization = await createOrganizationForUser(
+    await createOrganizationForUser(
       req.auth!.user.id,
       result.data,
     );
 
-    assignActiveOrganizationSession(req, organization);
     req.flash("success", req.t("settings.flash.organizationCreated"));
     return res.redirect("/settings/organizations");
   } catch (error) {

@@ -76,13 +76,14 @@
   "actions": {
     "save": "Save settings",
     "changePassword": "Change password",
+    "newOrganization": "New organization",
     "createOrganization": "Create organization",
     "revokeSession": "Revoke session",
     "revokeOtherSessions": "Revoke other sessions",
     "switchOrganization": "Switch"
   },
   "flash": {
-    "organizationCreated": "Organization created.",
+    "organizationCreated": "Organization created. You can switch to it from the organization selector.",
     "organizationSwitched": "Organization switched.",
     "organizationNotSwitched": "Organization could not be switched.",
     "updated": "Organization settings updated.",
@@ -113,6 +114,8 @@
     "currentDescription": "New customers, items, and invoices are created inside this organization.",
     "memberships": "Your organizations",
     "manage": "Manage organizations",
+    "newTitle": "New organization",
+    "newDescription": "Create a separate organization with its own legal details, billing defaults, customers, items, invoices, and numbering.",
     "role": "Role",
     "status": "Status",
     "currentBadge": "Current",

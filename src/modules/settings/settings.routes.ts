@@ -4,6 +4,7 @@ import {
   createOrganizationController,
   renderGeneralSettings,
   renderLocalizationSettings,
+  renderNewOrganizationSettings,
   renderOrganizationSettings,
   renderOrganizationsSettings,
   renderSecuritySettings,
@@ -20,6 +21,7 @@ import {
 export const settingsRouter = Router();
 
 settingsRouter.get("/organizations", renderOrganizationsSettings);
+settingsRouter.get("/organizations/new", renderNewOrganizationSettings);
 settingsRouter.post("/organizations", createOrganizationController);
 settingsRouter.post("/organizations/switch", switchOrganizationController);
 
