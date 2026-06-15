@@ -28,6 +28,32 @@ export const isSupportedLocale = (locale: unknown): locale is SupportedLocale =>
   typeof locale === "string" &&
   supportedLocales.includes(locale as SupportedLocale);
 
+export const toSupportedLocale = (
+  value: unknown,
+): SupportedLocale | undefined => (isSupportedLocale(value) ? value : undefined);
+
+type LocaleResolution = {
+  organizationLocale?: SupportedLocale;
+  cookieLocale?: SupportedLocale;
+  pathLocale?: SupportedLocale;
+  isAuthenticated: boolean;
+};
+
+export const resolveLocale = ({
+  organizationLocale,
+  cookieLocale,
+  pathLocale,
+  isAuthenticated,
+}: LocaleResolution): SupportedLocale => {
+  if (organizationLocale) {
+    return organizationLocale;
+  }
+
+  return isAuthenticated
+    ? cookieLocale ?? pathLocale ?? defaultLocale
+    : pathLocale ?? cookieLocale ?? defaultLocale;
+};
+
 const emptyCatalog = (): TranslationCatalog =>
   Object.fromEntries(supportedLocales.map((locale) => [locale, {}])) as TranslationCatalog;
 

@@ -6,6 +6,8 @@ import {
   isSupportedLocale,
   loadTranslations,
   localeFromPath,
+  resolveLocale,
+  toSupportedLocale,
 } from "./i18n";
 
 test("loadTranslations loads common and module namespaces", () => {
@@ -72,4 +74,50 @@ test("locale helpers validate supported locales and path prefixes", () => {
   assert.equal(localeFromPath("/en-us/pricing"), "en-US");
   assert.equal(localeFromPath("/es/pricing"), "es-ES");
   assert.equal(localeFromPath("/pricing"), undefined);
+});
+
+test("toSupportedLocale keeps supported locales and drops the rest", () => {
+  assert.equal(toSupportedLocale("es-ES"), "es-ES");
+  assert.equal(toSupportedLocale("fr-FR"), undefined);
+  assert.equal(toSupportedLocale(null), undefined);
+  assert.equal(toSupportedLocale(42), undefined);
+});
+
+test("resolveLocale prefers the organization locale", () => {
+  assert.equal(
+    resolveLocale({
+      organizationLocale: "en-US",
+      cookieLocale: "es-ES",
+      pathLocale: "en-GB",
+      isAuthenticated: true,
+    }),
+    "en-US",
+  );
+});
+
+test("resolveLocale prefers the cookie over the path when authenticated", () => {
+  assert.equal(
+    resolveLocale({
+      cookieLocale: "es-ES",
+      pathLocale: "en-US",
+      isAuthenticated: true,
+    }),
+    "es-ES",
+  );
+});
+
+test("resolveLocale prefers the path over the cookie when unauthenticated", () => {
+  assert.equal(
+    resolveLocale({
+      cookieLocale: "es-ES",
+      pathLocale: "en-US",
+      isAuthenticated: false,
+    }),
+    "en-US",
+  );
+});
+
+test("resolveLocale falls back to the default locale", () => {
+  assert.equal(resolveLocale({ isAuthenticated: true }), defaultLocale);
+  assert.equal(resolveLocale({ isAuthenticated: false }), defaultLocale);
 });

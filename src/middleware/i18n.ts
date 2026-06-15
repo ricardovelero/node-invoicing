@@ -1,20 +1,24 @@
 import type { RequestHandler } from "express";
 import {
   createTranslator,
-  defaultLocale,
-  isSupportedLocale,
   loadTranslations,
   localeFromPath,
+  resolveLocale,
+  toSupportedLocale,
   type SupportedLocale,
   type Translate,
+  type TranslationCatalog,
 } from "../lib/i18n";
 import { env } from "../config/env";
 
 const oneYearMs = 1000 * 60 * 60 * 24 * 365;
-const translations = loadTranslations();
+
+let cachedTranslations: TranslationCatalog | undefined;
 
 const getTranslations = () =>
-  env.NODE_ENV === "development" ? loadTranslations() : translations;
+  env.NODE_ENV === "development"
+    ? loadTranslations()
+    : (cachedTranslations ??= loadTranslations());
 
 declare global {
   namespace Express {
@@ -24,12 +28,6 @@ declare global {
     }
   }
 }
-
-const validCookieLocale = (locale: unknown) =>
-  isSupportedLocale(locale) ? locale : undefined;
-
-const validOrganizationLocale = (locale: unknown) =>
-  isSupportedLocale(locale) ? locale : undefined;
 
 export const localeMiddleware: RequestHandler = (req, res, next) => {
   const pathLocale = localeFromPath(req.path);
@@ -43,13 +41,14 @@ export const localeMiddleware: RequestHandler = (req, res, next) => {
     });
   }
 
-  const organizationLocale = validOrganizationLocale(req.auth?.organization.locale);
-  const cookieLocale = validCookieLocale(req.cookies?.locale);
-  const locale =
-    organizationLocale ??
-    (req.auth ? cookieLocale : pathLocale ?? cookieLocale) ??
-    pathLocale ??
-    defaultLocale;
+  const organizationLocale = toSupportedLocale(req.auth?.organization.locale);
+  const cookieLocale = toSupportedLocale(req.cookies?.locale);
+  const locale = resolveLocale({
+    organizationLocale,
+    cookieLocale,
+    pathLocale,
+    isAuthenticated: Boolean(req.auth),
+  });
   const t = createTranslator(locale, getTranslations(), {
     environment: env.NODE_ENV,
   });
