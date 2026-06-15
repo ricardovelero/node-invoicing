@@ -1,15 +1,29 @@
-{% if flash.success.length %}
-  <div
-    data-auto-dismiss="3500"
-    class="fixed right-6 top-6 z-50 rounded-md border border-action/25 bg-action px-4 py-3 text-sm text-white shadow-lg">
-    {{ flash.success[0] }}
-  </div>
-{% endif %}
+{% set flashItems = [] %}
 
-{% if flash.error.length %}
-  <div
-    data-auto-dismiss="4500"
-    class="fixed right-6 top-6 z-50 rounded-md border border-red-200 bg-red-600 px-4 py-3 text-sm text-white shadow-lg">
-    {{ flash.error[0] }}
+{# {% if appEnv == 'development' %}
+  {% set flashItems = flashItems.concat([
+    { type: 'success', message: 'Organization created successfully.' },
+    { type: 'error', message: 'Security check failed. Please refresh the page and try again.' },
+    { type: 'success', message: 'Profile updated successfully.' }
+  ]) %}
+{% endif %} #}
+
+{% for message in flash.success %}
+  {% set flashItems = flashItems.concat([{ type: 'success', message: message }]) %}
+{% endfor %}
+
+{% for message in flash.error %}
+  {% set flashItems = flashItems.concat([{ type: 'error', message: message }]) %}
+{% endfor %}
+
+{% if flashItems.length %}
+  <div class="fixed right-6 top-6 z-50 flex max-w-sm flex-col gap-1">
+    {% for item in flashItems.slice(0, 3) %}
+      <div
+        data-auto-dismiss="{{ '4500' if item.type == 'error' else '3500' }}"
+        class="rounded-md border px-4 py-3 text-sm text-white shadow-lg {{ 'border-red-200 bg-red-600' if item.type == 'error' else 'border-action/25 bg-action' }}">
+        {{ item.message }}
+      </div>
+    {% endfor %}
   </div>
 {% endif %}
