@@ -10,6 +10,7 @@ import {
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
+  markOverdueInvoices,
   recordInvoicePayment,
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
@@ -31,6 +32,7 @@ const prismaMock = prisma as unknown as {
     findFirst: unknown;
     findMany: unknown;
     update: unknown;
+    updateMany: unknown;
   };
   invoiceLine: {
     deleteMany: unknown;
@@ -95,6 +97,7 @@ const originalCreate = prismaMock.invoice.create;
 const originalInvoiceFindFirst = prismaMock.invoice.findFirst;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalInvoiceUpdate = prismaMock.invoice.update;
+const originalInvoiceUpdateMany = prismaMock.invoice.updateMany;
 const originalInvoiceLineDeleteMany = prismaMock.invoiceLine.deleteMany;
 const originalInvoiceSnapshotCreate = prismaMock.invoiceSnapshot.create;
 const originalInvoiceSnapshotUpdate = prismaMock.invoiceSnapshot.update;
@@ -119,6 +122,7 @@ afterEach(() => {
   prismaMock.invoice.findFirst = originalInvoiceFindFirst;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.invoice.update = originalInvoiceUpdate;
+  prismaMock.invoice.updateMany = originalInvoiceUpdateMany;
   prismaMock.invoiceLine.deleteMany = originalInvoiceLineDeleteMany;
   prismaMock.invoiceSnapshot.create = originalInvoiceSnapshotCreate;
   prismaMock.invoiceSnapshot.update = originalInvoiceSnapshotUpdate;
@@ -1917,6 +1921,149 @@ test("getInvoices filters partially paid invoices by payment state", async () =>
     },
   ]);
   assert.equal(result.totalCount, 1);
+});
+
+test("getInvoices filters overdue invoices by due date and outstanding balance", async () => {
+  const now = new Date(2026, 5, 15);
+  const pastDue = new Date(2026, 5, 1);
+  const futureDue = new Date(2026, 5, 20);
+  const invoiceFindManyArgs: unknown[] = [];
+
+  prismaMock.invoice.count = async (args: unknown) => {
+    assert.deepEqual(args, {
+      where: {
+        organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        id: { in: ["overdue_unpaid_sent", "overdue_partial"] },
+      },
+    });
+    return 2;
+  };
+  prismaMock.invoice.findMany = async (args: unknown) => {
+    invoiceFindManyArgs.push(args);
+
+    if (invoiceFindManyArgs.length === 1) {
+      return [
+        // Past due, never marked OVERDUE, no payments. The old stored-status
+        // filter missed this; it is the core of the reported bug.
+        {
+          id: "overdue_unpaid_sent",
+          status: "SENT",
+          dueDate: pastDue,
+          totalCents: 10000,
+          payments: [],
+        },
+        // Past due with a partial payment — still owes money, so overdue.
+        {
+          id: "overdue_partial",
+          status: "OVERDUE",
+          dueDate: pastDue,
+          totalCents: 10000,
+          payments: [{ amountCents: 3000 }],
+        },
+        // Past due but fully paid (no balance) — excluded.
+        {
+          id: "settled_no_balance",
+          status: "OVERDUE",
+          dueDate: pastDue,
+          totalCents: 10000,
+          payments: [{ amountCents: 10000 }],
+        },
+        // Not past due — excluded even though it has a balance.
+        {
+          id: "future_partial",
+          status: "PARTIALLY_PAID",
+          dueDate: futureDue,
+          totalCents: 10000,
+          payments: [{ amountCents: 3000 }],
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "overdue_unpaid_sent",
+        status: "SENT",
+        dueDate: pastDue,
+        totalCents: 10000,
+        payments: [],
+      },
+      {
+        id: "overdue_partial",
+        status: "OVERDUE",
+        dueDate: pastDue,
+        totalCents: 10000,
+        payments: [{ amountCents: 3000 }],
+      },
+    ];
+  };
+
+  const result = await getInvoices(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    {
+      page: 1,
+      limit: 10,
+      q: "",
+      status: "OVERDUE",
+      sort: "dueDate",
+      direction: "asc",
+    },
+    now,
+  );
+
+  assert.deepEqual(invoiceFindManyArgs[0], {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      status: {
+        in: ["SENT", "PARTIALLY_PAID", "OVERDUE"],
+      },
+    },
+    select: {
+      id: true,
+      dueDate: true,
+      totalCents: true,
+      payments: {
+        select: {
+          amountCents: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(invoiceFindManyArgs[1], {
+    where: {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      id: { in: ["overdue_unpaid_sent", "overdue_partial"] },
+    },
+    include: { customer: true, snapshot: true, payments: true },
+    orderBy: { dueDate: "asc" },
+    skip: 0,
+    take: 10,
+  });
+  assert.deepEqual(
+    result.invoices.map((invoice) => invoice.id),
+    ["overdue_unpaid_sent", "overdue_partial"],
+  );
+  assert.equal(result.totalCount, 2);
+});
+
+test("markOverdueInvoices flips past-due open invoices via a single bulk update", async () => {
+  const now = new Date(2026, 5, 15);
+  let updateManyArgs: unknown;
+
+  prismaMock.invoice.updateMany = async (args: unknown) => {
+    updateManyArgs = args;
+    return { count: 3 };
+  };
+
+  const count = await markOverdueInvoices(now);
+
+  assert.deepEqual(updateManyArgs, {
+    where: {
+      status: { in: ["SENT", "PARTIALLY_PAID"] },
+      dueDate: { lt: new Date(2026, 5, 15) },
+    },
+    data: { status: "OVERDUE" },
+  });
+  assert.equal(count, 3);
 });
 
 test("calculateInvoicePaymentSummary handles partial, exact, overpaid, and zero totals", () => {
