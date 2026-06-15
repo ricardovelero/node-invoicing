@@ -2,7 +2,7 @@ import type { Organization, OrganizationRole, User } from "@prisma/client";
 import type { RequestHandler } from "express";
 import { prisma } from "../db/prisma";
 
-type CurrentUser = Pick<User, "id" | "email" | "name">;
+type CurrentUser = Pick<User, "id" | "email" | "name" | "fullName" | "timeZone">;
 type CurrentOrganization = Pick<
   Organization,
   | "id"
@@ -66,6 +66,8 @@ export const loadAuthContext: RequestHandler = async (req, res, next) => {
             id: true,
             email: true,
             name: true,
+            fullName: true,
+            timeZone: true,
           },
         },
         organization: {

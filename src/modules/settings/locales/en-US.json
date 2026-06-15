@@ -3,17 +3,16 @@
   "intro": "Manage your organization, preferences, and security from one place.",
   "nav": {
     "label": "Settings sections",
-    "general": "General",
+    "profile": "Profile",
     "organization": "Organization",
     "localization": "Localization",
     "security": "Security",
     "organizations": "Organizations"
   },
   "sections": {
-    "general": {
-      "title": "General settings",
-      "description": "Basic account and application preferences.",
-      "placeholder": "General account settings will appear here soon."
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your personal information and preferences."
     },
     "organization": {
       "title": "Organization settings",
@@ -34,6 +33,9 @@
     }
   },
   "fields": {
+    "fullName": "Full name",
+    "email": "Email address",
+    "timeZone": "Time zone",
     "legalName": "Legal name",
     "billingEmail": "Billing email",
     "taxId": "Tax ID",
@@ -64,6 +66,8 @@
     "customRate": "Custom"
   },
   "help": {
+    "emailReadOnly": "Email changes are not supported yet.",
+    "timeZone": "Used for personal date and time preferences when available.",
     "billingEmail": "Customer replies to invoice emails will go to this address.",
     "locale": "Controls the language and formats used across the app and your invoices.",
     "sessionIdleTimeoutMinutes": "Users are asked to log in again after this many minutes without activity.",
@@ -75,6 +79,7 @@
   },
   "actions": {
     "save": "Save settings",
+    "saveChanges": "Save changes",
     "changePassword": "Change password",
     "newOrganization": "New organization",
     "createOrganization": "Create organization",
@@ -83,6 +88,7 @@
     "switchOrganization": "Switch"
   },
   "flash": {
+    "profileUpdated": "Profile updated successfully.",
     "organizationCreated": "Organization created. You can switch to it from the organization selector.",
     "organizationSwitched": "Organization switched.",
     "organizationNotSwitched": "Organization could not be switched.",
@@ -93,6 +99,10 @@
     "sessionRevoked": "Session revoked.",
     "sessionNotRevoked": "Session could not be revoked.",
     "otherSessionsRevoked": "{count} other sessions revoked."
+  },
+  "profile": {
+    "applicationDefaultTimeZone": "Application default",
+    "notFound": "Profile not found"
   },
   "security": {
     "sessionTimeouts": "Session timeouts",

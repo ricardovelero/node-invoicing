@@ -5,9 +5,11 @@ import {
   createOrganizationForUser,
   getActiveSessionsForUser,
   getOrganizationsForUser,
+  getProfileForUser,
   revokeOtherSessionsForUser,
   revokeSessionForUser,
   switchOrganizationForUser,
+  updateProfileForUser,
   updateLocalizationSettings,
   updateOrganizationSettings,
   updateSecuritySettings,
@@ -16,6 +18,10 @@ import {
 const prismaMock = prisma as unknown as {
   $transaction: unknown;
   organization: {
+    update: unknown;
+  };
+  user: {
+    findUnique: unknown;
     update: unknown;
   };
   organizationMembership: {
@@ -30,6 +36,8 @@ const prismaMock = prisma as unknown as {
 
 const originalTransaction = prismaMock.$transaction;
 const originalUpdate = prismaMock.organization.update;
+const originalUserFindUnique = prismaMock.user.findUnique;
+const originalUserUpdate = prismaMock.user.update;
 const originalMembershipFindMany = prismaMock.organizationMembership.findMany;
 const originalMembershipFindFirst = prismaMock.organizationMembership.findFirst;
 const originalSessionFindMany = prismaMock.session.findMany;
@@ -38,10 +46,87 @@ const originalSessionUpdateMany = prismaMock.session.updateMany;
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.organization.update = originalUpdate;
+  prismaMock.user.findUnique = originalUserFindUnique;
+  prismaMock.user.update = originalUserUpdate;
   prismaMock.organizationMembership.findMany = originalMembershipFindMany;
   prismaMock.organizationMembership.findFirst = originalMembershipFindFirst;
   prismaMock.session.findMany = originalSessionFindMany;
   prismaMock.session.updateMany = originalSessionUpdateMany;
+});
+
+test("getProfileForUser fetches profile fields for the current user", async () => {
+  let findUniqueArgs: unknown;
+  prismaMock.user.findUnique = async (args: unknown) => {
+    findUniqueArgs = args;
+    return {
+      id: "user_1",
+      email: "ada@example.com",
+      name: "Ada Lovelace",
+      fullName: "Augusta Ada Lovelace",
+      timeZone: "Europe/London",
+    };
+  };
+
+  const profile = await getProfileForUser("user_1");
+
+  assert.deepEqual(findUniqueArgs, {
+    where: { id: "user_1" },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
+    },
+  });
+  assert.deepEqual(profile, {
+    id: "user_1",
+    email: "ada@example.com",
+    name: "Ada Lovelace",
+    fullName: "Augusta Ada Lovelace",
+    timeZone: "Europe/London",
+  });
+});
+
+test("updateProfileForUser updates only personal profile fields", async () => {
+  let updateArgs: unknown;
+  prismaMock.user.update = async (args: unknown) => {
+    updateArgs = args;
+    return {
+      id: "user_1",
+      email: "ada@example.com",
+      name: "Ada Lovelace",
+      fullName: "Augusta Ada Lovelace",
+      timeZone: null,
+    };
+  };
+
+  const profile = await updateProfileForUser("user_1", {
+    fullName: "Augusta Ada Lovelace",
+    timeZone: null,
+  });
+
+  assert.deepEqual(updateArgs, {
+    where: { id: "user_1" },
+    data: {
+      fullName: "Augusta Ada Lovelace",
+      timeZone: null,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
+    },
+  });
+  assert.deepEqual(profile, {
+    id: "user_1",
+    email: "ada@example.com",
+    name: "Ada Lovelace",
+    fullName: "Augusta Ada Lovelace",
+    timeZone: null,
+  });
 });
 
 test("updateOrganizationSettings updates the current organization and stores empty fields as null", async () => {

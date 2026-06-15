@@ -15,7 +15,7 @@ describe("settings nav", () => {
 
   test("links to every settings section", () => {
     for (const section of [
-      "general",
+      "profile",
       "organization",
       "localization",
       "security",
@@ -23,6 +23,7 @@ describe("settings nav", () => {
     ]) {
       assert.match(navTemplate, new RegExp(`href: "/settings/${section}"`));
     }
+    assert.doesNotMatch(navTemplate, /\/settings\/general/);
   });
 
   test("highlights the active tab from activeSettingsPage", () => {

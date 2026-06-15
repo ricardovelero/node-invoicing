@@ -3,17 +3,16 @@
   "intro": "Gestiona tu organización, tus preferencias y la seguridad desde un solo lugar.",
   "nav": {
     "label": "Secciones de ajustes",
-    "general": "General",
+    "profile": "Perfil",
     "organization": "Organización",
     "localization": "Localización",
     "security": "Seguridad",
     "organizations": "Organizaciones"
   },
   "sections": {
-    "general": {
-      "title": "Ajustes generales",
-      "description": "Preferencias básicas de la cuenta y de la aplicación.",
-      "placeholder": "Los ajustes generales de la cuenta estarán disponibles pronto."
+    "profile": {
+      "title": "Perfil",
+      "description": "Gestiona tu información personal y tus preferencias."
     },
     "organization": {
       "title": "Ajustes de la organización",
@@ -34,6 +33,9 @@
     }
   },
   "fields": {
+    "fullName": "Nombre completo",
+    "email": "Correo electrónico",
+    "timeZone": "Zona horaria",
     "legalName": "Razón social",
     "billingEmail": "Correo de facturación",
     "taxId": "NIF/CIF",
@@ -64,6 +66,8 @@
     "customRate": "Personalizado"
   },
   "help": {
+    "emailReadOnly": "Los cambios de correo electrónico aún no están disponibles.",
+    "timeZone": "Se usa para tus preferencias personales de fecha y hora cuando esté disponible.",
     "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección.",
     "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas.",
     "sessionIdleTimeoutMinutes": "Los usuarios tendrán que iniciar sesión de nuevo tras estos minutos sin actividad.",
@@ -75,6 +79,7 @@
   },
   "actions": {
     "save": "Guardar ajustes",
+    "saveChanges": "Guardar cambios",
     "changePassword": "Cambiar contraseña",
     "newOrganization": "Nueva organización",
     "createOrganization": "Crear organización",
@@ -83,6 +88,7 @@
     "switchOrganization": "Cambiar"
   },
   "flash": {
+    "profileUpdated": "Perfil actualizado correctamente.",
     "organizationCreated": "Organización creada. Puedes cambiar a ella desde el selector de organizaciones.",
     "organizationSwitched": "Organización cambiada.",
     "organizationNotSwitched": "No se pudo cambiar de organización.",
@@ -93,6 +99,10 @@
     "sessionRevoked": "Sesión revocada.",
     "sessionNotRevoked": "No se pudo revocar la sesión.",
     "otherSessionsRevoked": "{count} otras sesiones revocadas."
+  },
+  "profile": {
+    "applicationDefaultTimeZone": "Valor predeterminado de la aplicación",
+    "notFound": "Perfil no encontrado"
   },
   "security": {
     "sessionTimeouts": "Tiempos de sesión",

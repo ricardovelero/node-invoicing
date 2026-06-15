@@ -5,18 +5,23 @@ import {
   type ChangePasswordErrors,
   createLocalizationSettingsValues,
   createOrganizationSettingsValues,
+  createProfileSettingsValues,
   createSecuritySettingsValues,
   type OrganizationSettingsErrors,
   type OrganizationSettingsValues,
+  type ProfileSettingsErrors,
+  type ProfileSettingsValues,
   type SecuritySettingsErrors,
   localizationSettingsSchema,
   organizationSettingsSchema,
+  profileSettingsSchema,
   securitySettingsSchema,
   switchOrganizationSchema,
   supportedCurrencies,
 } from "./settings.schema";
 import { supportedOrganizationCountryCodes } from "../../lib/countries";
 import { daysToMs } from "../../lib/session-policy";
+import { createTimeZoneOptions } from "../../lib/time-zones";
 import {
   customRateType,
   getWithholdingRateOptions,
@@ -25,11 +30,13 @@ import {
 } from "../../lib/withholding";
 import {
   getActiveSessionsForUser,
+  getProfileForUser,
   getOrganizationsForUser,
   createOrganizationForUser,
   revokeOtherSessionsForUser,
   revokeSessionForUser,
   switchOrganizationForUser,
+  updateProfileForUser,
   updateLocalizationSettings,
   updateOrganizationSettings,
   updateSecuritySettings,
@@ -174,6 +181,20 @@ const createOrganizationsViewModel = async (req: Request) => {
   };
 };
 
+const createProfileSettingsViewModel = (
+  req: Request,
+  values: ProfileSettingsValues,
+  errors: ProfileSettingsErrors = {},
+) => ({
+  title: req.t("settings.sections.profile.title"),
+  activeSettingsPage: "profile",
+  values,
+  errors,
+  timeZoneOptions: createTimeZoneOptions(
+    req.t("settings.profile.applicationDefaultTimeZone"),
+  ),
+});
+
 type SecuritySessionView = ActiveSession & {
   createdAtDisplay: string;
   createdAtIso: string;
@@ -243,11 +264,61 @@ export const renderSettingsOverview: RequestHandler = (req, res) => {
   });
 };
 
-export const renderGeneralSettings: RequestHandler = (req, res) => {
-  res.render("pages/settings/general.njk", {
-    title: req.t("settings.sections.general.title"),
-    activeSettingsPage: "general",
-  });
+export const redirectGeneralSettings: RequestHandler = (_req, res) => {
+  res.redirect("/settings/profile");
+};
+
+export const renderProfileSettings: RequestHandler = async (req, res, next) => {
+  try {
+    const profile = await getProfileForUser(req.auth!.user.id);
+
+    if (!profile) {
+      return res.status(404).render("pages/errors/not-found.njk", {
+        title: req.t("settings.profile.notFound"),
+        path: req.path,
+      });
+    }
+
+    return res.render(
+      "pages/settings/profile.njk",
+      createProfileSettingsViewModel(
+        req,
+        createProfileSettingsValues(profile),
+      ),
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateProfileSettingsController: RequestHandler = async (
+  req,
+  res,
+  next,
+) => {
+  const result = profileSettingsSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(422).render(
+      "pages/settings/profile.njk",
+      createProfileSettingsViewModel(
+        req,
+        createProfileSettingsValues({
+          ...req.body,
+          email: req.auth!.user.email,
+        }),
+        result.error.flatten().fieldErrors,
+      ),
+    );
+  }
+
+  try {
+    await updateProfileForUser(req.auth!.user.id, result.data);
+    req.flash("success", req.t("settings.flash.profileUpdated"));
+    return res.redirect("/settings/profile");
+  } catch (error) {
+    return next(error);
+  }
 };
 
 export const renderOrganizationSettings: RequestHandler = (req, res) => {

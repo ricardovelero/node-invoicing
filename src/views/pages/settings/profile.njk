@@ -1,0 +1,25 @@
+{% extends "pages/settings/_layout.njk" %}
+{% from "components/form-field.njk" import field, selectField %}
+{% from "components/timezone-select.njk" import timezoneSelect %}
+
+{% block settingsContent %}
+  <div class="mb-6 max-w-3xl">
+    <h2 class="text-xl font-semibold">{{ t('settings.sections.profile.title') }}</h2>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.sections.profile.description') }}</p>
+  </div>
+
+  <form method="post" action="/settings/profile" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    {{ field('fullName', t('settings.fields.fullName'), value=values.fullName or '', error=errors.fullName, required=true, autocomplete='name', validate='required', validateLabel=t('settings.fields.fullName')) }}
+
+    {{ field('email', t('settings.fields.email'), type='email', value=values.email or '', error=errors.email, required=false, autocomplete='email', help=t('settings.help.emailReadOnly'), attrs='readonly') }}
+
+    {{ selectField('timeZone', t('settings.fields.timeZone'), timeZoneOptions, value=values.timeZone, error=errors.timeZone, required=required, help=t('settings.help.timeZone')) }}
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a class="btn btn-secondary" href="/settings/profile">{{ t('common.actions.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ t('settings.actions.saveChanges') }}</button>
+    </div>
+  </form>
+{% endblock %}

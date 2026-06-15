@@ -6,11 +6,12 @@ import { createTranslator, loadTranslations, type Translate } from "../../lib/i1
 import * as authService from "../auth/auth.service";
 import {
   createOrganizationController,
-  renderGeneralSettings,
+  redirectGeneralSettings,
   renderLocalizationSettings,
   renderNewOrganizationSettings,
   renderOrganizationSettings,
   renderOrganizationsSettings,
+  renderProfileSettings,
   renderSecuritySettings,
   renderSettingsOverview,
   revokeOtherSessionsController,
@@ -19,6 +20,7 @@ import {
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
+  updateProfileSettingsController,
   updateSecuritySettingsController,
 } from "./settings.controller";
 
@@ -50,6 +52,10 @@ const prismaMock = prisma as unknown as {
   organization: {
     update: unknown;
   };
+  user: {
+    findUnique: unknown;
+    update: unknown;
+  };
   organizationMembership: {
     findMany: unknown;
     findFirst: unknown;
@@ -66,6 +72,8 @@ const authServiceMock = authService as unknown as {
 
 const originalTransaction = prismaMock.$transaction;
 const originalUpdate = prismaMock.organization.update;
+const originalUserFindUnique = prismaMock.user.findUnique;
+const originalUserUpdate = prismaMock.user.update;
 const originalMembershipFindMany = prismaMock.organizationMembership.findMany;
 const originalMembershipFindFirst = prismaMock.organizationMembership.findFirst;
 const originalSessionFindMany = prismaMock.session.findMany;
@@ -118,11 +126,20 @@ beforeEach(() => {
     auditEvents.push(event);
     return { ok: true };
   };
+  prismaMock.user.findUnique = async () => ({
+    id: "user_1",
+    email: "ada@example.com",
+    name: "Ada Lovelace",
+    fullName: "Augusta Ada Lovelace",
+    timeZone: "Europe/London",
+  });
 });
 
 afterEach(() => {
   prismaMock.$transaction = originalTransaction;
   prismaMock.organization.update = originalUpdate;
+  prismaMock.user.findUnique = originalUserFindUnique;
+  prismaMock.user.update = originalUserUpdate;
   prismaMock.organizationMembership.findMany = originalMembershipFindMany;
   prismaMock.organizationMembership.findFirst = originalMembershipFindFirst;
   prismaMock.session.findMany = originalSessionFindMany;
@@ -140,6 +157,8 @@ const createRequest = (body: Record<string, unknown> = {}) =>
         id: "user_1",
         email: "ada@example.com",
         name: "Ada Lovelace",
+        fullName: "Augusta Ada Lovelace",
+        timeZone: "Europe/London",
       },
       organization: {
         id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
@@ -221,32 +240,149 @@ test("renderSettingsOverview renders the settings overview", () => {
   });
 });
 
-test("placeholder sections render their pages with the active tab", async () => {
-  const cases = [
-    {
-      handler: renderGeneralSettings,
-      view: "pages/settings/general.njk",
-      activeSettingsPage: "general",
+test("redirectGeneralSettings keeps the legacy route compatible", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  redirectGeneralSettings(req, res, () => undefined);
+
+  assert.equal(res.redirectedTo, "/settings/profile");
+});
+
+test("renderProfileSettings renders the current user profile", async () => {
+  let findUniqueArgs: unknown;
+  prismaMock.user.findUnique = async (args: unknown) => {
+    findUniqueArgs = args;
+    return {
+      id: "user_1",
+      email: "ada@example.com",
+      name: "Ada Lovelace",
+      fullName: "Augusta Ada Lovelace",
+      timeZone: "Europe/London",
+    };
+  };
+  const req = createRequest();
+  const res = createResponse();
+
+  await renderProfileSettings(req, res, () => undefined);
+
+  assert.deepEqual(findUniqueArgs, {
+    where: { id: "user_1" },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
     },
-    {
-      handler: renderSecuritySettings,
-      view: "pages/settings/security.njk",
-      activeSettingsPage: "security",
+  });
+  assert.equal(res.renderedView, "pages/settings/profile.njk");
+  assert.deepEqual(res.renderedData, {
+    title: "Profile",
+    activeSettingsPage: "profile",
+    values: {
+      fullName: "Augusta Ada Lovelace",
+      email: "ada@example.com",
+      timeZone: "Europe/London",
     },
-  ];
+    errors: {},
+    timeZoneOptions: [
+      { value: "", label: "Application default" },
+      { value: "UTC", label: "UTC" },
+      { value: "Europe/Madrid", label: "Europe/Madrid" },
+      { value: "Europe/London", label: "Europe/London" },
+      { value: "Europe/Paris", label: "Europe/Paris" },
+      { value: "America/New_York", label: "America/New_York" },
+      { value: "America/Chicago", label: "America/Chicago" },
+      { value: "America/Denver", label: "America/Denver" },
+      { value: "America/Los_Angeles", label: "America/Los_Angeles" },
+      { value: "America/Mexico_City", label: "America/Mexico_City" },
+      { value: "America/Sao_Paulo", label: "America/Sao_Paulo" },
+      { value: "Asia/Dubai", label: "Asia/Dubai" },
+      { value: "Asia/Kolkata", label: "Asia/Kolkata" },
+      { value: "Asia/Singapore", label: "Asia/Singapore" },
+      { value: "Asia/Tokyo", label: "Asia/Tokyo" },
+      { value: "Australia/Sydney", label: "Australia/Sydney" },
+    ],
+  });
+});
 
-  for (const testCase of cases) {
-    const req = createRequest();
-    const res = createResponse();
+test("updateProfileSettingsController returns field errors for invalid submissions", async () => {
+  let updateCalls = 0;
+  prismaMock.user.update = async () => {
+    updateCalls += 1;
+  };
+  const req = createRequest({
+    fullName: "",
+    timeZone: "Mars/Olympus_Mons",
+  });
+  const res = createResponse();
 
-    await Promise.resolve(testCase.handler(req, res, () => undefined));
+  await updateProfileSettingsController(req, res, () => undefined);
 
-    assert.equal(res.renderedView, testCase.view);
-    assert.equal(
-      (res.renderedData as { activeSettingsPage: string }).activeSettingsPage,
-      testCase.activeSettingsPage,
-    );
-  }
+  assert.equal(updateCalls, 0);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.renderedView, "pages/settings/profile.njk");
+  assert.deepEqual((res.renderedData as { values: unknown }).values, {
+    fullName: "",
+    email: "ada@example.com",
+    timeZone: "Mars/Olympus_Mons",
+  });
+  assert.deepEqual((res.renderedData as { errors: unknown }).errors, {
+    fullName: ["Enter your full name."],
+    timeZone: ["Choose a supported time zone."],
+  });
+});
+
+test("updateProfileSettingsController updates the current user and redirects", async () => {
+  let updateArgs: unknown;
+  prismaMock.user.update = async (args: unknown) => {
+    updateArgs = args;
+    return {
+      id: "user_1",
+      email: "ada@example.com",
+      name: "Ada Lovelace",
+      fullName: "Augusta Ada Lovelace",
+      timeZone: null,
+    };
+  };
+  const req = createRequest({
+    fullName: "  Augusta Ada Lovelace  ",
+    timeZone: "",
+  });
+  const res = createResponse();
+
+  await updateProfileSettingsController(req, res, () => undefined);
+
+  assert.deepEqual(updateArgs, {
+    where: { id: "user_1" },
+    data: {
+      fullName: "Augusta Ada Lovelace",
+      timeZone: null,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
+    },
+  });
+  assert.deepEqual(req.flashMessages.success, ["Profile updated successfully."]);
+  assert.equal(res.redirectedTo, "/settings/profile");
+});
+
+test("renderSecuritySettings renders its page with the active tab", async () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  await renderSecuritySettings(req, res, () => undefined);
+
+  assert.equal(res.renderedView, "pages/settings/security.njk");
+  assert.equal(
+    (res.renderedData as { activeSettingsPage: string }).activeSettingsPage,
+    "security",
+  );
 });
 
 test("renderOrganizationsSettings renders memberships and marks the current organization", async () => {

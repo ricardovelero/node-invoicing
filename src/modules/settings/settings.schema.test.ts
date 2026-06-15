@@ -3,8 +3,10 @@ import { describe, test } from "node:test";
 import {
   changePasswordSchema,
   createOrganizationSettingsValues,
+  createProfileSettingsValues,
   localizationSettingsSchema,
   organizationSettingsSchema,
+  profileSettingsSchema,
   securitySettingsSchema,
   switchOrganizationSchema,
 } from "./settings.schema";
@@ -110,6 +112,62 @@ describe("organization membership schemas", () => {
     assert.deepEqual(invalid.error.flatten().fieldErrors.organizationId, [
       "Choose an organization.",
     ]);
+  });
+});
+
+describe("profileSettingsSchema", () => {
+  test("trims profile values and maps the default time zone to null", () => {
+    const result = profileSettingsSchema.safeParse({
+      fullName: "  Ada Lovelace  ",
+      timeZone: "",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      fullName: "Ada Lovelace",
+      timeZone: null,
+    });
+  });
+
+  test("accepts supported IANA time zones", () => {
+    const result = profileSettingsSchema.safeParse({
+      fullName: "Ada Lovelace",
+      timeZone: "Europe/Madrid",
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, {
+      fullName: "Ada Lovelace",
+      timeZone: "Europe/Madrid",
+    });
+  });
+
+  test("rejects invalid profile submissions", () => {
+    const result = profileSettingsSchema.safeParse({
+      fullName: "",
+      timeZone: "Mars/Olympus_Mons",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors, {
+      fullName: ["Enter your full name."],
+      timeZone: ["Choose a supported time zone."],
+    });
+  });
+
+  test("falls back to legacy user name for profile values", () => {
+    assert.deepEqual(
+      createProfileSettingsValues({
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        timeZone: null,
+      }),
+      {
+        fullName: "Ada Lovelace",
+        email: "ada@example.com",
+        timeZone: "",
+      },
+    );
   });
 });
 

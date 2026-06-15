@@ -2,16 +2,18 @@ import { Router } from "express";
 import { requireOrganizationRole } from "../../middleware/auth";
 import {
   createOrganizationController,
-  renderGeneralSettings,
+  redirectGeneralSettings,
   renderLocalizationSettings,
   renderNewOrganizationSettings,
   renderOrganizationSettings,
   renderOrganizationsSettings,
+  renderProfileSettings,
   renderSecuritySettings,
   renderSettingsOverview,
   revokeOtherSessionsController,
   revokeSessionController,
   switchOrganizationController,
+  updateProfileSettingsController,
   updateLocalizationSettingsController,
   updateOrganizationSettingsController,
   updatePasswordController,
@@ -24,10 +26,12 @@ settingsRouter.get("/organizations", renderOrganizationsSettings);
 settingsRouter.get("/organizations/new", renderNewOrganizationSettings);
 settingsRouter.post("/organizations", createOrganizationController);
 settingsRouter.post("/organizations/switch", switchOrganizationController);
+settingsRouter.get("/profile", renderProfileSettings);
+settingsRouter.post("/profile", updateProfileSettingsController);
+settingsRouter.get("/general", redirectGeneralSettings);
 
 settingsRouter.use(requireOrganizationRole(["OWNER", "ADMIN"]));
 settingsRouter.get("/", renderSettingsOverview);
-settingsRouter.get("/general", renderGeneralSettings);
 settingsRouter.get("/organization", renderOrganizationSettings);
 settingsRouter.post("/organization", updateOrganizationSettingsController);
 settingsRouter.get("/localization", renderLocalizationSettings);

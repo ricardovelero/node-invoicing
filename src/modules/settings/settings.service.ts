@@ -7,6 +7,7 @@ import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding"
 import type {
   LocalizationSettingsForm,
   OrganizationSettingsForm,
+  ProfileSettingsForm,
   SecuritySettingsForm,
 } from "./settings.schema";
 
@@ -63,6 +64,14 @@ export type SwitchOrganizationResult =
       sessionAbsoluteLifetimeDays: number;
     }
   | { ok: false; reason: "notFound" };
+
+export type UserProfileView = {
+  id: string;
+  email: string;
+  name: string | null;
+  fullName: string | null;
+  timeZone: string | null;
+};
 
 const detectBrowser = (userAgent: string | null) => {
   if (!userAgent) {
@@ -166,6 +175,37 @@ export const updateSecuritySettings = (
     data: {
       sessionIdleTimeoutMinutes: data.sessionIdleTimeoutMinutes,
       sessionAbsoluteLifetimeDays: data.sessionAbsoluteLifetimeDays,
+    },
+  });
+
+export const getProfileForUser = (userId: string) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
+    },
+  });
+
+export const updateProfileForUser = (
+  userId: string,
+  data: ProfileSettingsForm,
+) =>
+  prisma.user.update({
+    where: { id: userId },
+    data: {
+      fullName: data.fullName,
+      timeZone: data.timeZone,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      fullName: true,
+      timeZone: true,
     },
   });
 

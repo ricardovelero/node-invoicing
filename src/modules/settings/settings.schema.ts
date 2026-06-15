@@ -11,6 +11,10 @@ import {
   minSessionIdleTimeoutMinutes,
 } from '../../lib/session-policy';
 import {
+  defaultTimeZone,
+  isSupportedTimeZone,
+} from '../../lib/time-zones';
+import {
   customRateType,
   legalForms,
   rateToNumber,
@@ -33,6 +37,54 @@ export const switchOrganizationSchema = z.object({
 });
 
 export type SwitchOrganizationForm = z.infer<typeof switchOrganizationSchema>;
+
+export const profileSettingsSchema = z.object({
+  fullName: stringInput(
+    z.string().trim().min(1, 'Enter your full name.').max(
+      120,
+      'Full name must be 120 characters or fewer.',
+    ),
+  ),
+  timeZone: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : ''),
+    z.string().refine(
+      (value) => value === defaultTimeZone || isSupportedTimeZone(value),
+      'Choose a supported time zone.',
+    ).transform((value) => (value === defaultTimeZone ? null : value)),
+  ),
+});
+
+export type ProfileSettingsForm = z.infer<typeof profileSettingsSchema>;
+
+export type ProfileSettingsValues = {
+  fullName: string;
+  email: string;
+  timeZone: string;
+};
+
+export type ProfileSettingsErrors = Partial<
+  Record<keyof ProfileSettingsValues, string[]>
+>;
+
+type ProfileSettingsSource = Partial<{
+  fullName: string | { toString: () => string } | null | undefined;
+  name: string | { toString: () => string } | null | undefined;
+  email: string | { toString: () => string } | null | undefined;
+  timeZone: string | { toString: () => string } | null | undefined;
+}>;
+
+const sourceText = (
+  value: string | number | boolean | { toString: () => string } | null | undefined,
+  fallback = '',
+) => (value === null || value === undefined ? fallback : value.toString());
+
+export const createProfileSettingsValues = (
+  user: ProfileSettingsSource = {},
+): ProfileSettingsValues => ({
+  fullName: sourceText(user.fullName, sourceText(user.name)),
+  email: sourceText(user.email),
+  timeZone: sourceText(user.timeZone, defaultTimeZone),
+});
 
 export const organizationSettingsSchema = z.object({
   legalName: stringInput(
@@ -163,11 +215,6 @@ type OrganizationSettingsSource = Partial<
     name: OrganizationSettingsSourceValue;
   }
 >;
-
-const sourceText = (
-  value: OrganizationSettingsSourceValue,
-  fallback = '',
-) => (value === null || value === undefined ? fallback : value.toString());
 
 const resolveDefaultWithholdingRateType = (
   organization: OrganizationSettingsSource,

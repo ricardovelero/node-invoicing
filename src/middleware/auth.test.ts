@@ -79,6 +79,8 @@ const user = {
   id: "user_1",
   email: "ada@example.com",
   name: "Ada Lovelace",
+  fullName: "Augusta Ada Lovelace",
+  timeZone: "Europe/London",
 };
 
 const createAuthRequest = (organizationId?: string) =>
@@ -120,7 +122,10 @@ test("loadAuthContext selects the session organization when membership exists", 
   assert.equal(next.error, undefined);
   assert.equal(req.auth?.organization.id, "22222222-2222-2222-2222-222222222222");
   assert.equal(req.auth?.role, "ADMIN");
+  assert.equal(req.auth?.user.fullName, "Augusta Ada Lovelace");
+  assert.equal(req.auth?.user.timeZone, "Europe/London");
   assert.equal(req.session.organizationId, "22222222-2222-2222-2222-222222222222");
+  assert.deepEqual(res.locals.currentUser, user);
   assert.deepEqual(res.locals.availableOrganizations, [
     {
       id: "11111111-1111-1111-1111-111111111111",
