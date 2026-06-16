@@ -1,5 +1,8 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import field, textareaField, selectField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/ui/select-field.njk" import selectField %}
+{% from "components/ui/textarea-field.njk" import textareaField %}
 {% from "pages/invoices/_line-item-row.njk" import invoiceLineRow %}
 
 {% block content %}
@@ -30,12 +33,21 @@
           </select>
           {% if errors.customerId %}<p class="mt-1 text-sm text-red-700">{{ errors.customerId[0] }}</p>{% endif %}
         </div>
-        {{ selectField('currency', t('invoices.form.fields.currency'), currencyOptions, value=values.currency, error=errors.currency, required=true, attrs='data-invoice-currency-select', describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
+        <div>
+          {{ labelField('currency', t('invoices.form.fields.currency'), required=true) }}
+          {{ selectField('currency', currencyOptions, value=values.currency, error=errors.currency, required=true, attrs='data-invoice-currency-select', describedBy=false, renderHiddenError=false, errorId=false) }}
+        </div>
       </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
-        {{ field('issueDate', t('invoices.form.fields.issueDate'), type='date', value=values.issueDate or '', error=errors.issueDate, attrs='data-invoice-issue-date', describedBy=false, renderHiddenError=false, errorId=false, requiredLabel=true, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
-        {{ field('dueDate', t('invoices.form.fields.dueDate'), type='date', value=values.dueDate or '', error=errors.dueDate, attrs='data-invoice-due-date', describedBy='dueDate-error', errorId='dueDate-error', errorAttrs='data-invoice-due-date-error', requiredLabel=true, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
+        <div>
+          {{ labelField('issueDate', t('invoices.form.fields.issueDate'), required=true) }}
+          {{ inputField('issueDate', type='date', value=values.issueDate or '', error=errors.issueDate, attrs='data-invoice-issue-date', describedBy=false, renderHiddenError=false, errorId=false) }}
+        </div>
+        <div>
+          {{ labelField('dueDate', t('invoices.form.fields.dueDate'), required=true) }}
+          {{ inputField('dueDate', type='date', value=values.dueDate or '', error=errors.dueDate, attrs='data-invoice-due-date', describedBy='dueDate-error', errorId='dueDate-error', errorAttrs='data-invoice-due-date-error') }}
+        </div>
       </div>
 
       <div class="rounded-md border border-line">
@@ -139,9 +151,15 @@
         {{ invoiceLineRow({ description: '', quantity: '1', unitPrice: '0', discountType: 'amount', discountValue: '0', taxRate: '0' }, {}, currencyLabel, t, isTemplate=true) }}
       </template>
 
-      {{ textareaField('paymentInstructions', t('invoices.form.fields.paymentInstructions'), value=values.paymentInstructions or '', error=errors.paymentInstructions, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.paymentInstructions'), describedBy=false, renderHiddenError=false, errorId=false) }}
+      <div>
+        {{ labelField('paymentInstructions', t('invoices.form.fields.paymentInstructions')) }}
+        {{ textareaField('paymentInstructions', value=values.paymentInstructions or '', error=errors.paymentInstructions, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.paymentInstructions'), describedBy=false, renderHiddenError=false, errorId=false) }}
+      </div>
 
-      {{ textareaField('notes', t('invoices.form.fields.notes'), value=values.notes or '', error=errors.notes, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.notes'), describedBy=false, renderHiddenError=false, errorId=false) }}
+      <div>
+        {{ labelField('notes', t('invoices.form.fields.notes')) }}
+        {{ textareaField('notes', value=values.notes or '', error=errors.notes, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.notes'), describedBy=false, renderHiddenError=false, errorId=false) }}
+      </div>
 
       <div class="space-y-3 pt-2">
         {% if formError %}<p class="text-sm text-red-700">{{ formError }}</p>{% endif %}

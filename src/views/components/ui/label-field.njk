@@ -1,8 +1,8 @@
-{% macro labelField(name, label, required=false, attrs='', className='block text-sm font-medium text-ink', requiredMarker='*', requiredMarkerClass='text-red-600', requiredMarkerAriaHidden=true, requiredMarkerAttrs='') %}
+{% macro labelField(name, label, required=false, attrs='', className='block text-sm font-medium text-ink', requiredMarker='*', requiredMarkerAriaHidden=true, requiredMarkerAttrs='') %}
   <label class="{{ className }}" for="{{ name }}"{% if attrs %} {{ attrs | safe }}{% endif %}>
     {{ label }}
     {% if required %}
-      <span class="{{ requiredMarkerClass }}"{% if requiredMarkerAriaHidden %} aria-hidden="true"{% endif %}{% if requiredMarkerAttrs %} {{ requiredMarkerAttrs | safe }}{% endif %}>{{ requiredMarker }}</span>
+      <span class="text-red-600"{% if requiredMarkerAriaHidden %} aria-hidden="true"{% endif %}{% if requiredMarkerAttrs %} {{ requiredMarkerAttrs | safe }}{% endif %}>{{ requiredMarker }}</span>
     {% endif %}
   </label>
 {% endmacro %}
