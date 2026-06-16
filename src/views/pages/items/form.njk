@@ -13,12 +13,12 @@
   <form method="post" action="{{ formAction or '/items' }}" data-unsaved-changes-guard class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
-      {{ labelField('name', t('items.form.fields.name')) }}
-      {{ inputField('name', value=values.name or '', error=errors.name, autocomplete='off', describedBy=false, renderHiddenError=false, errorId=false) }}
+      {{ labelField('name', t('items.form.fields.name'), required=true) }}
+      {{ inputField('name', value=values.name or '', error=errors.name, required=true, autocomplete='off', describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div>
-      {{ labelField('description', t('items.form.fields.description')) }}
-      {{ textareaField('description', value=values.description or '', error=errors.description, rows=4, describedBy=false, renderHiddenError=false, errorId=false) }}
+      {{ labelField('description', t('items.form.fields.description'), required=true) }}
+      {{ textareaField('description', value=values.description or '', error=errors.description, required=true, rows=4, describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>

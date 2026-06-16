@@ -52,6 +52,7 @@ export const setupWithholdingRateControls = () => {
       enableRow.hidden = !canUseWithholding;
       rateFields.hidden = !shouldShowRateFields;
       customRateField.hidden = !shouldShowRateFields || !isCustomRate;
+      rateInput.required = shouldShowRateFields && isCustomRate;
 
       if (!isCustomRate) {
         rateInput.value = rateTypeSelect.value;

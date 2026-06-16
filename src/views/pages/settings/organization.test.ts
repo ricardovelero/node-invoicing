@@ -132,6 +132,49 @@ describe('organization settings form', () => {
     assert.doesNotMatch(formPartial, /id="country"/);
   });
 
+  test('aligns required cues with the organization settings schema', () => {
+    assert.match(
+      formPartial,
+      /labelField\('legalName', t\('settings\.fields\.legalName'\), required=true\)/,
+    );
+    assert.match(
+      formPartial,
+      /inputField\('legalName', value=values\.legalName or '', error=errors\.legalName, required=true/,
+    );
+    assert.match(
+      formPartial,
+      /labelField\('currency', t\('settings\.fields\.defaultCurrency'\), required=true\)/,
+    );
+    assert.match(
+      formPartial,
+      /selectField\('currency', currencyOptions, value=values\.currency, error=errors\.currency, required=true\)/,
+    );
+    assert.match(
+      formPartial,
+      /labelField\('countryCode', t\('settings\.fields\.countryCode'\), required=true\)/,
+    );
+    assert.match(
+      formPartial,
+      /selectField\('countryCode', countryOptions, value=values\.countryCode, error=errors\.countryCode, required=true\)/,
+    );
+    assert.match(
+      formPartial,
+      /labelField\('legalForm', t\('settings\.fields\.legalForm'\)\)/,
+    );
+    assert.match(
+      formPartial,
+      /selectField\('legalForm', legalFormOptions, value=values\.legalForm, error=errors\.legalForm, attrs='data-withholding-legal-form'\)/,
+    );
+    assert.match(
+      formPartial,
+      /labelField\('defaultWithholdingRate', t\('settings\.fields\.customWithholdingRate'\), required=values\.withholdingEnabled and values\.defaultWithholdingRateType == 'custom'\)/,
+    );
+    assert.match(
+      formPartial,
+      /inputField\('defaultWithholdingRate', type='number', value=values\.defaultWithholdingRate, error=errors\.defaultWithholdingRate, required=values\.withholdingEnabled and values\.defaultWithholdingRateType == 'custom'/,
+    );
+  });
+
   test('receives select options from the controller', () => {
     assert.doesNotMatch(formPartial, /{% set currencyOptions/);
     assert.doesNotMatch(formPartial, /{% set legalFormOptions/);

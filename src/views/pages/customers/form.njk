@@ -11,8 +11,8 @@
   <form method="post" action="{{ formAction or '/customers' }}" data-unsaved-changes-guard class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
-      {{ labelField('name', t('customers.form.fields.name')) }}
-      {{ inputField('name', value=values.name or '', error=errors.name, autocomplete='organization', describedBy=false, renderHiddenError=false, errorId=false) }}
+      {{ labelField('name', t('customers.form.fields.name'), required=true) }}
+      {{ inputField('name', value=values.name or '', error=errors.name, required=true, autocomplete='organization', describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>

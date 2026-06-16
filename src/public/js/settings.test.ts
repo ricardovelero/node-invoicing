@@ -64,5 +64,6 @@ test('withholding rate controls toggle custom rate visibility and sync preset ra
     source,
     /customRateField\.hidden = !shouldShowRateFields \|\| !isCustomRate/,
   );
+  assert.match(source, /rateInput\.required = shouldShowRateFields && isCustomRate/);
   assert.match(source, /rateInput\.value = rateTypeSelect\.value/);
 });

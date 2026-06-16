@@ -46,8 +46,8 @@
 
   <div class="grid gap-5 sm:grid-cols-2">
     <div>
-      {{ labelField('legalForm', t('settings.fields.legalForm'), required=true) }}
-      {{ selectField('legalForm', legalFormOptions, value=values.legalForm, error=errors.legalForm, required=true, attrs='data-withholding-legal-form') }}
+      {{ labelField('legalForm', t('settings.fields.legalForm')) }}
+      {{ selectField('legalForm', legalFormOptions, value=values.legalForm, error=errors.legalForm, attrs='data-withholding-legal-form') }}
     </div>
   </div>
 
@@ -70,8 +70,8 @@
         {{ selectField('defaultWithholdingRateType', withholdingRateTypeOptions, value=values.defaultWithholdingRateType, attrs='data-withholding-rate-type') }}
       </div>
       <div{% if values.defaultWithholdingRateType != 'custom' or not values.withholdingEnabled %} hidden{% endif %} data-withholding-custom-rate>
-        {{ labelField('defaultWithholdingRate', t('settings.fields.customWithholdingRate')) }}
-        {{ inputField('defaultWithholdingRate', type='number', value=values.defaultWithholdingRate, error=errors.defaultWithholdingRate, attrs='min="0.01" max="100" step="0.01" data-withholding-rate-input') }}
+        {{ labelField('defaultWithholdingRate', t('settings.fields.customWithholdingRate'), required=values.withholdingEnabled and values.defaultWithholdingRateType == 'custom') }}
+        {{ inputField('defaultWithholdingRate', type='number', value=values.defaultWithholdingRate, error=errors.defaultWithholdingRate, required=values.withholdingEnabled and values.defaultWithholdingRateType == 'custom', attrs='min="0.01" max="100" step="0.01" data-withholding-rate-input') }}
         {% if errors.defaultWithholdingType %}<p class="mt-1 text-sm text-red-700">{{ errors.defaultWithholdingType[0] }}</p>{% endif %}
       </div>
     </div>

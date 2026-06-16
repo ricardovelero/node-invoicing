@@ -36,12 +36,13 @@ describe('profile settings page', () => {
     assert.match(profileTemplate, /from "components\/ui\/label-field\.njk" import labelField/);
     assert.match(
       profileTemplate,
-      /labelField\('timeZone', t\('settings\.fields\.timeZone'\), required=required\)/,
+      /labelField\('timeZone', t\('settings\.fields\.timeZone'\)\)/,
     );
     assert.match(
       profileTemplate,
-      /selectField\('timeZone', timeZoneOptions, value=values\.timeZone/,
+      /selectField\('timeZone', timeZoneOptions, value=values\.timeZone, error=errors\.timeZone, help=t\('settings\.help\.timeZone'\)\)/,
     );
+    assert.doesNotMatch(profileTemplate, /required=required/);
   });
 
   test('uses translated actions with cancel returning to profile', () => {

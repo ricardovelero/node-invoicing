@@ -23,8 +23,8 @@
     </div>
 
     <div>
-      {{ labelField('timeZone', t('settings.fields.timeZone'), required=required) }}
-      {{ selectField('timeZone', timeZoneOptions, value=values.timeZone, error=errors.timeZone, required=required, help=t('settings.help.timeZone')) }}
+      {{ labelField('timeZone', t('settings.fields.timeZone')) }}
+      {{ selectField('timeZone', timeZoneOptions, value=values.timeZone, error=errors.timeZone, help=t('settings.help.timeZone')) }}
     </div>
 
     <div class="flex items-center justify-end gap-3 pt-2">

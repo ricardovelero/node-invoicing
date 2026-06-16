@@ -17,10 +17,10 @@ test("item form includes csrf and configurable create/edit fields", () => {
   assert.match(template, /from "components\/ui\/select-field\.njk" import selectField/);
   assert.match(template, /from "components\/ui\/textarea-field\.njk" import textareaField/);
   assert.doesNotMatch(template, /from "components\/form-field\.njk"/);
-  assert.match(template, /labelField\('name'/);
-  assert.match(template, /inputField\('name'/);
-  assert.match(template, /labelField\('description'/);
-  assert.match(template, /textareaField\('description'/);
+  assert.match(template, /labelField\('name'[\s\S]*?required=true/);
+  assert.match(template, /inputField\('name'[\s\S]*?required=true/);
+  assert.match(template, /labelField\('description'[\s\S]*?required=true/);
+  assert.match(template, /textareaField\('description'[\s\S]*?required=true/);
   assert.match(template, /inputField\('unitPrice'/);
   assert.match(template, /selectField\('currency'/);
   assert.match(template, /inputField\('taxRate'/);
@@ -28,5 +28,9 @@ test("item form includes csrf and configurable create/edit fields", () => {
   assert.match(template, /href="{{ cancelHref or '\/items' }}"/);
   assert.match(template, /t\('items\.form\.fields\.unitPrice'\)/);
   assert.match(template, /t\('common\.actions\.cancel'\)/);
+  assert.doesNotMatch(template, /labelField\('unitPrice'[\s\S]*?required=true/);
+  assert.doesNotMatch(template, /inputField\('unitPrice'[\s\S]*?required=true/);
+  assert.doesNotMatch(template, /labelField\('taxRate'[\s\S]*?required=true/);
+  assert.doesNotMatch(template, /inputField\('taxRate'[\s\S]*?required=true/);
   assert.doesNotMatch(template, /Unit price is a reusable amount/);
 });
