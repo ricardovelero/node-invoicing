@@ -1,5 +1,6 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import field %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
 
 {% block content %}
   <div class="mx-auto max-w-md">
@@ -17,7 +18,10 @@
         </div>
       {% endif %}
 
-      {{ field('email', t('auth.fields.email'), type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      <div>
+        {{ labelField('email', t('auth.fields.email'), required=true) }}
+        {{ inputField('email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      </div>
 
       <button class="btn btn-full btn-primary" type="submit">{{ t('auth.forgot.submit') }}</button>
 

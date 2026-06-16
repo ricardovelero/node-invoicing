@@ -1,0 +1,8 @@
+{% macro checkboxField(name, checked=false, value='on', error=None, attrs='', inputClass='mt-1 h-4 w-4', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='') %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
+  <div>
+    <input id="{{ name }}" class="{{ inputClass }}" name="{{ name }}" type="checkbox" value="{{ value }}"{% if checked %} checked{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %}>
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
+  </div>
+{% endmacro %}

@@ -1,4 +1,6 @@
 {% extends "layouts/app.njk" %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
 
 {% block content %}
   <div class="mb-8">
@@ -9,33 +11,31 @@
   <form method="post" action="{{ formAction or '/customers' }}" data-unsaved-changes-guard class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
-      <label for="name">{{ t('customers.form.fields.name') }}</label>
-      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="organization">
-      {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
+      {{ labelField('name', t('customers.form.fields.name')) }}
+      {{ inputField('name', value=values.name or '', error=errors.name, autocomplete='organization', describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>
-        <label for="email">{{ t('customers.form.fields.email') }}</label>
-        <input id="email" name="email" type="email" value="{{ values.email or '' }}" autocomplete="email">
-        {% if errors.email %}<p class="mt-1 text-sm text-red-700">{{ errors.email[0] }}</p>{% endif %}
+        {{ labelField('email', t('customers.form.fields.email')) }}
+        {{ inputField('email', type='email', value=values.email or '', error=errors.email, autocomplete='email', describedBy=false, renderHiddenError=false, errorId=false) }}
       </div>
       <div>
-        <label for="taxId">{{ t('customers.form.fields.taxId') }}</label>
-        <input id="taxId" name="taxId" value="{{ values.taxId or '' }}">
+        {{ labelField('taxId', t('customers.form.fields.taxId')) }}
+        {{ inputField('taxId', value=values.taxId or '', describedBy=false, renderHiddenError=false, errorId=false) }}
       </div>
     </div>
     <div>
-      <label for="addressLine1">{{ t('customers.form.fields.address') }}</label>
-      <input id="addressLine1" name="addressLine1" value="{{ values.addressLine1 or '' }}" autocomplete="street-address">
+      {{ labelField('addressLine1', t('customers.form.fields.address')) }}
+      {{ inputField('addressLine1', value=values.addressLine1 or '', autocomplete='street-address', describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>
-        <label for="city">{{ t('customers.form.fields.city') }}</label>
-        <input id="city" name="city" value="{{ values.city or '' }}" autocomplete="address-level2">
+        {{ labelField('city', t('customers.form.fields.city')) }}
+        {{ inputField('city', value=values.city or '', autocomplete='address-level2', describedBy=false, renderHiddenError=false, errorId=false) }}
       </div>
       <div>
-        <label for="country">{{ t('customers.form.fields.country') }}</label>
-        <input id="country" name="country" value="{{ values.country or '' }}" autocomplete="country-name">
+        {{ labelField('country', t('customers.form.fields.country')) }}
+        {{ inputField('country', value=values.country or '', autocomplete='country-name', describedBy=false, renderHiddenError=false, errorId=false) }}
       </div>
     </div>
     <div class="flex items-center justify-end gap-3 pt-2">

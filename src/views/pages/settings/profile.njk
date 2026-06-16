@@ -1,5 +1,7 @@
 {% extends "pages/settings/_layout.njk" %}
-{% from "components/form-field.njk" import field, selectField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/ui/select-field.njk" import selectField %}
 
 {% block settingsContent %}
   <div class="mb-6 max-w-3xl">
@@ -10,11 +12,20 @@
   <form method="post" action="/settings/profile" data-unsaved-changes-guard class="max-w-3xl space-y-6 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
-    {{ field('fullName', t('settings.fields.fullName'), value=values.fullName or '', error=errors.fullName, required=true, autocomplete='name', validate='required', validateLabel=t('settings.fields.fullName')) }}
+    <div>
+      {{ labelField('fullName', t('settings.fields.fullName'), required=true) }}
+      {{ inputField('fullName', value=values.fullName or '', error=errors.fullName, required=true, autocomplete='name', validate='required', validateLabel=t('settings.fields.fullName')) }}
+    </div>
 
-    {{ field('email', t('settings.fields.email'), type='email', value=values.email or '', error=errors.email, required=false, autocomplete='email', help=t('settings.help.emailReadOnly'), attrs='readonly') }}
+    <div>
+      {{ labelField('email', t('settings.fields.email')) }}
+      {{ inputField('email', type='email', value=values.email or '', error=errors.email, required=false, autocomplete='email', help=t('settings.help.emailReadOnly'), attrs='readonly') }}
+    </div>
 
-    {{ selectField('timeZone', t('settings.fields.timeZone'), timeZoneOptions, value=values.timeZone, error=errors.timeZone, required=required, help=t('settings.help.timeZone')) }}
+    <div>
+      {{ labelField('timeZone', t('settings.fields.timeZone'), required=required) }}
+      {{ selectField('timeZone', timeZoneOptions, value=values.timeZone, error=errors.timeZone, required=required, help=t('settings.help.timeZone')) }}
+    </div>
 
     <div class="flex items-center justify-end gap-3 pt-2">
       <a class="btn btn-secondary" href="/settings/profile">{{ t('common.actions.cancel') }}</a>

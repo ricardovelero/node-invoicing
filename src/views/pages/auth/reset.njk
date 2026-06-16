@@ -1,5 +1,6 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import passwordField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/password-field.njk" import passwordField %}
 
 {% block content %}
   <div class="mx-auto max-w-md">
@@ -19,7 +20,10 @@
         <form method="post" action="/auth/reset/{{ token }}" data-validate-form class="space-y-5">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
-          {{ passwordField('password', t('auth.fields.newPassword'), autocomplete='new-password', error=errors.password, validate='password') }}
+          <div>
+            {{ labelField('password', t('auth.fields.newPassword'), required=true) }}
+            {{ passwordField('password', autocomplete='new-password', error=errors.password, required=true, validate='password') }}
+          </div>
 
           <button class="btn btn-full btn-primary" type="submit">{{ t('auth.reset.submit') }}</button>
         </form>

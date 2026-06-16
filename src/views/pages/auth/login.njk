@@ -1,5 +1,7 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import field, passwordField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/ui/password-field.njk" import passwordField %}
 
 {% block content %}
   <div class="mx-auto max-w-md">
@@ -10,8 +12,14 @@
 
     <form method="post" action="/auth/login" data-validate-form class="space-y-5 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-      {{ field('email', t('auth.fields.email'), type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
-      {{ passwordField('password', t('auth.fields.password'), autocomplete='current-password', error=errors.password, validate='password') }}
+      <div>
+        {{ labelField('email', t('auth.fields.email'), required=true) }}
+        {{ inputField('email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      </div>
+      <div>
+        {{ labelField('password', t('auth.fields.password'), required=true) }}
+        {{ passwordField('password', autocomplete='current-password', error=errors.password, required=true, validate='password') }}
+      </div>
 
       <p class="text-right text-sm">
         <a class="font-medium text-action hover:text-action-dark" href="/auth/forgot">{{ t('auth.login.forgotPassword') }}</a>

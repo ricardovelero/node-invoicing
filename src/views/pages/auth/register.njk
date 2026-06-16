@@ -1,5 +1,7 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import field, passwordField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/ui/password-field.njk" import passwordField %}
 
 {% block content %}
   <div class="mx-auto max-w-md">
@@ -10,10 +12,22 @@
 
     <form method="post" action="/auth/register" data-validate-form class="space-y-5 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-      {{ field('name', t('auth.fields.name'), value=values.name, autocomplete='name') }}
-      {{ field('email', t('auth.fields.email'), type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
-      {{ passwordField('password', t('auth.fields.password'), autocomplete='new-password', error=errors.password, validate='password') }}
-      {{ field('organizationName', t('auth.fields.organization'), value=values.organizationName, error=errors.organizationName, required=true, autocomplete='organization', validate='required', validateLabel=t('auth.fields.organizationName')) }}
+      <div>
+        {{ labelField('name', t('auth.fields.name')) }}
+        {{ inputField('name', value=values.name, autocomplete='name') }}
+      </div>
+      <div>
+        {{ labelField('email', t('auth.fields.email'), required=true) }}
+        {{ inputField('email', type='email', value=values.email, error=errors.email, required=true, autocomplete='email', validate='email') }}
+      </div>
+      <div>
+        {{ labelField('password', t('auth.fields.password'), required=true) }}
+        {{ passwordField('password', autocomplete='new-password', error=errors.password, required=true, validate='password') }}
+      </div>
+      <div>
+        {{ labelField('organizationName', t('auth.fields.organization'), required=true) }}
+        {{ inputField('organizationName', value=values.organizationName, error=errors.organizationName, required=true, autocomplete='organization', validate='required', validateLabel=t('auth.fields.organizationName')) }}
+      </div>
       <button class="btn btn-full btn-primary" type="submit">{{ t('auth.register.submit') }}</button>
       <p class="text-center text-sm text-muted">
         {{ t('auth.register.switchPrompt') }}

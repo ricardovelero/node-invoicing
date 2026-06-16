@@ -1,4 +1,6 @@
 {% extends "pages/settings/_layout.njk" %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/select-field.njk" import selectField %}
 
 {% block settingsContent %}
   <div class="mb-6 max-w-3xl">
@@ -10,14 +12,8 @@
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
     <div class="max-w-xs">
-      <label for="locale">{{ t('settings.fields.locale') }} <span aria-hidden="true">*</span></label>
-      <select id="locale" name="locale" required>
-        {% for locale in localeOptions %}
-          <option value="{{ locale }}" {{ 'selected' if values.locale == locale else '' }}>{{ locale }}</option>
-        {% endfor %}
-      </select>
-      {% if errors.locale %}<p class="mt-1 text-sm text-red-700">{{ errors.locale[0] }}</p>{% endif %}
-      <p class="mt-1 text-sm text-muted">{{ t('settings.help.locale') }}</p>
+      {{ labelField('locale', t('settings.fields.locale'), required=true) }}
+      {{ selectField('locale', localeOptions, value=values.locale, error=errors.locale, required=true, help=t('settings.help.locale')) }}
     </div>
 
     <div class="flex items-center justify-end gap-3 pt-2">
