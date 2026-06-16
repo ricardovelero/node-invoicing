@@ -10,12 +10,12 @@
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
       <label for="name">{{ t('items.form.fields.name') }} <span aria-hidden="true">*</span></label>
-      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off" required>
+      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off">
       {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
     </div>
     <div>
       <label for="description">{{ t('items.form.fields.description') }} <span aria-hidden="true">*</span></label>
-      <textarea id="description" name="description" rows="4" required>{{ values.description or '' }}</textarea>
+      <textarea id="description" name="description" rows="4">{{ values.description or '' }}</textarea>
       {% if errors.description %}<p class="mt-1 text-sm text-red-700">{{ errors.description[0] }}</p>{% endif %}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
