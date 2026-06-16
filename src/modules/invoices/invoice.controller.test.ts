@@ -462,6 +462,14 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     },
     errors: {},
     formError: undefined,
+    currencyLabel: "EUR",
+    currencyOptions: [
+      { value: "EUR", label: "EUR" },
+      { value: "USD", label: "USD" },
+      { value: "GBP", label: "GBP" },
+      { value: "CAD", label: "CAD" },
+      { value: "AUD", label: "AUD" },
+    ],
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",
@@ -889,6 +897,14 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
     },
     errors: {},
     formError: undefined,
+    currencyLabel: "GBP",
+    currencyOptions: [
+      { value: "EUR", label: "EUR" },
+      { value: "USD", label: "USD" },
+      { value: "GBP", label: "GBP" },
+      { value: "CAD", label: "CAD" },
+      { value: "AUD", label: "AUD" },
+    ],
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",

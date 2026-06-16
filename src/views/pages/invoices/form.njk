@@ -12,14 +12,6 @@
   </div>
 
   {% if customers.length %}
-    {% set currencyLabel = values.currency or currentOrganization.currency or 'EUR' %}
-    {% set currencyOptions = [
-      { value: 'EUR', label: 'EUR' },
-      { value: 'USD', label: 'USD' },
-      { value: 'GBP', label: 'GBP' },
-      { value: 'CAD', label: 'CAD' },
-      { value: 'AUD', label: 'AUD' }
-    ] %}
     <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-unsaved-changes-guard data-currency="{{ currencyLabel }}" data-locale="{{ currentLocale }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div class="grid gap-5 sm:grid-cols-[1fr_180px]">
@@ -92,7 +84,7 @@
               <label for="invoiceDiscountValue">{{ t('invoices.form.fields.invoiceDiscount') }}</label>
               <div class="mt-2 grid grid-cols-[96px_1fr] gap-2">
                 <select id="invoiceDiscountType" name="invoiceDiscountType" data-invoice-discount-type aria-label="{{ t('invoices.form.fields.invoiceDiscountType') }}">
-                  <option value="amount" {{ 'selected' if values.invoiceDiscountType != 'percent' else '' }} data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
+                  <option value="amount" {{ 'selected' if values.invoiceDiscountType != 'percent' else '' }} data-invoice-currency-option>{{ currencyLabel }}</option>
                   <option value="percent" {{ 'selected' if values.invoiceDiscountType == 'percent' else '' }}>%</option>
                 </select>
                 <input id="invoiceDiscountValue" name="invoiceDiscountValue" type="number" min="0" step="0.01" value="{{ values.invoiceDiscountValue or 0 }}" data-invoice-discount-value>

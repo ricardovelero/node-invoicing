@@ -35,6 +35,7 @@ import {
 } from './invoice.service';
 import {
   createInvoiceDisplay,
+  invoiceFormView,
   invoiceDetailView,
   invoiceIndexView,
   invoicePrintView,
@@ -58,6 +59,7 @@ type InvoiceFormRenderOptions = {
   values: InvoiceFormValues;
   errors: InvoiceFormErrors;
   formError?: string;
+  organizationCurrency?: string | null;
   withholdingOptions: {
     isAvailable: boolean;
     defaultRate: string;
@@ -79,24 +81,29 @@ const renderInvoiceForm = (
     values,
     errors,
     formError,
+    organizationCurrency,
     withholdingOptions,
   }: InvoiceFormRenderOptions,
 ) => {
   const response = status ? res.status(status) : res;
 
-  return response.render('pages/invoices/form.njk', {
-    title,
-    heading,
-    formAction,
-    submitLabel,
-    sendSubmitLabel,
-    cancelHref,
-    customers,
-    values,
-    errors,
-    formError,
-    withholdingOptions,
-  });
+  return response.render(
+    'pages/invoices/form.njk',
+    invoiceFormView({
+      title,
+      heading,
+      formAction,
+      submitLabel,
+      sendSubmitLabel,
+      cancelHref,
+      customers,
+      values,
+      errors,
+      formError,
+      organizationCurrency,
+      withholdingOptions,
+    }),
+  );
 };
 
 const newInvoiceFormOptions = {
@@ -213,6 +220,7 @@ export const renderNewInvoice: RequestHandler = async (req, res) => {
     customers,
     values,
     errors: {},
+    organizationCurrency: req.auth!.organization.currency,
     withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
   });
 };
@@ -236,6 +244,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
+      organizationCurrency: req.auth!.organization.currency,
       withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
@@ -254,6 +263,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
         customers,
         values: normalizeInvoiceFormValues(req.body),
         errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+        organizationCurrency: req.auth!.organization.currency,
         withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
@@ -270,6 +280,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
             req.t('invoices.errors.chooseCustomerWithEmail'),
           ],
         },
+        organizationCurrency: req.auth!.organization.currency,
         withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
@@ -284,6 +295,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
         errors: {},
         formError:
           req.t('invoices.errors.missingBillingEmail'),
+        organizationCurrency: req.auth!.organization.currency,
         withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
     }
@@ -327,6 +339,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+      organizationCurrency: req.auth!.organization.currency,
       withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
@@ -593,6 +606,7 @@ export const renderEditInvoice: RequestHandler = async (req, res) => {
     customers,
     values: invoiceToFormValues(invoice, req.auth!.organization.countryCode),
     errors: {},
+    organizationCurrency: req.auth!.organization.currency,
     withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
   });
 };
@@ -613,6 +627,7 @@ export const editInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: formatInvoiceFormErrors(result.error),
+      organizationCurrency: req.auth!.organization.currency,
       withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }
@@ -645,6 +660,7 @@ export const editInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+      organizationCurrency: req.auth!.organization.currency,
       withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
   }

@@ -40,6 +40,10 @@ test("invoice form uses atomic field macros for non-line-item fields", () => {
   assert.doesNotMatch(template, /from "components\/form-field\.njk"/);
   assert.match(template, /labelField\('currency'[\s\S]*?required=true/);
   assert.match(template, /selectField\('currency', currencyOptions/);
+  assert.doesNotMatch(template, /set currencyOptions/);
+  assert.doesNotMatch(template, /set currencyLabel/);
+  assert.doesNotMatch(template, /currentOrganization\.currency/);
+  assert.match(template, /data-currency="{{ currencyLabel }}"/);
   assert.match(template, /data-invoice-currency-select/);
   assert.match(template, /labelField\('issueDate'[\s\S]*?required=true/);
   assert.match(template, /inputField\('issueDate'[\s\S]*?data-invoice-issue-date/);

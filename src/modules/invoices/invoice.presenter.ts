@@ -1,5 +1,6 @@
 import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
+import { supportedCurrencies } from '../settings/settings.schema';
 import {
   formatRateLabel,
   resolveWithholdingRateType,
@@ -83,6 +84,34 @@ const invoiceWithholdingRateFormValues = (
     withholdingRateType: resolveWithholdingRateType(withholdingRate, countryCode),
     withholdingRate: rate,
   } satisfies Pick<InvoiceFormValues, 'withholdingRateType' | 'withholdingRate'>;
+};
+
+export const createInvoiceCurrencyOptions = () =>
+  supportedCurrencies.map((currency) => ({
+    value: currency,
+    label: currency,
+  }));
+
+export const invoiceFormCurrencyLabel = (
+  values: Pick<InvoiceFormValues, 'currency'>,
+  organizationCurrency?: string | null,
+) => values.currency || organizationCurrency || 'EUR';
+
+export const invoiceFormView = <
+  ViewData extends {
+    values: InvoiceFormValues;
+    organizationCurrency?: string | null;
+  },
+>(
+  viewData: ViewData,
+) => {
+  const { organizationCurrency, ...renderData } = viewData;
+
+  return {
+    ...renderData,
+    currencyLabel: invoiceFormCurrencyLabel(viewData.values, organizationCurrency),
+    currencyOptions: createInvoiceCurrencyOptions(),
+  };
 };
 
 const invoiceStatusBadges: Record<
