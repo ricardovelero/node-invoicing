@@ -1,4 +1,6 @@
 {% extends "layouts/app.njk" %}
+{% from "components/form-field.njk" import field, textareaField, selectField %}
+{% from "pages/invoices/_line-item-row.njk" import invoiceLineRow %}
 
 {% block content %}
   <div class="mb-8">
@@ -7,7 +9,15 @@
   </div>
 
   {% if customers.length %}
-    <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-unsaved-changes-guard data-currency="{{ values.currency or currentOrganization.currency or 'EUR' }}" data-locale="{{ currentLocale }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
+    {% set currencyLabel = values.currency or currentOrganization.currency or 'EUR' %}
+    {% set currencyOptions = [
+      { value: 'EUR', label: 'EUR' },
+      { value: 'USD', label: 'USD' },
+      { value: 'GBP', label: 'GBP' },
+      { value: 'CAD', label: 'CAD' },
+      { value: 'AUD', label: 'AUD' }
+    ] %}
+    <form method="post" action="{{ formAction or '/invoices' }}" data-invoice-form data-unsaved-changes-guard data-currency="{{ currencyLabel }}" data-locale="{{ currentLocale }}" class="max-w-5xl space-y-6 rounded-lg border border-line bg-white p-6">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <div class="grid gap-5 sm:grid-cols-[1fr_180px]">
         <div>
@@ -20,28 +30,12 @@
           </select>
           {% if errors.customerId %}<p class="mt-1 text-sm text-red-700">{{ errors.customerId[0] }}</p>{% endif %}
         </div>
-        <div>
-          <label for="currency">{{ t('invoices.form.fields.currency') }} <span aria-hidden="true">*</span></label>
-          <select id="currency" name="currency" required data-invoice-currency-select>
-            {% for currency in ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] %}
-              <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
-            {% endfor %}
-          </select>
-          {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
-        </div>
+        {{ selectField('currency', t('invoices.form.fields.currency'), currencyOptions, value=values.currency, error=errors.currency, required=true, attrs='data-invoice-currency-select', describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
       </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label for="issueDate">{{ t('invoices.form.fields.issueDate') }} <span aria-hidden="true">*</span></label>
-          <input id="issueDate" name="issueDate" type="date" value="{{ values.issueDate or '' }}" data-invoice-issue-date>
-          {% if errors.issueDate %}<p class="mt-1 text-sm text-red-700">{{ errors.issueDate[0] }}</p>{% endif %}
-        </div>
-        <div>
-          <label for="dueDate">{{ t('invoices.form.fields.dueDate') }} <span aria-hidden="true">*</span></label>
-          <input id="dueDate" name="dueDate" type="date" value="{{ values.dueDate or '' }}" aria-describedby="dueDate-error" data-invoice-due-date>
-          <p id="dueDate-error" data-invoice-due-date-error class="mt-1 {{ 'hidden' if not errors.dueDate }} text-sm text-red-700">{{ errors.dueDate[0] if errors.dueDate }}</p>
-        </div>
+        {{ field('issueDate', t('invoices.form.fields.issueDate'), type='date', value=values.issueDate or '', error=errors.issueDate, attrs='data-invoice-issue-date', describedBy=false, renderHiddenError=false, errorId=false, requiredLabel=true, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
+        {{ field('dueDate', t('invoices.form.fields.dueDate'), type='date', value=values.dueDate or '', error=errors.dueDate, attrs='data-invoice-due-date', describedBy='dueDate-error', errorId='dueDate-error', errorAttrs='data-invoice-due-date-error', requiredLabel=true, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
       </div>
 
       <div class="rounded-md border border-line">
@@ -69,65 +63,7 @@
         <div data-invoice-lines>
           {% for line in lineItems %}
             {% set lineErrors = errors.lines[loop.index0] if errors.lines and errors.lines[loop.index0] else {} %}
-            <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[minmax(180px,1fr)_90px_120px_150px_90px_120px_40px] sm:items-start" data-invoice-line>
-              <div class="relative" data-invoice-catalog-combobox>
-                <label class="sm:sr-only">{{ t('invoices.form.fields.description') }} <span aria-hidden="true">*</span></label>
-                <input name="lineDescription" value="{{ line.description or '' }}" placeholder="{{ t('invoices.form.placeholders.lineDescription') }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
-                <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
-                <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
-                  <div data-invoice-catalog-save-helper class="text-muted">
-                    <span>{{ t('invoices.form.catalog.notInCatalog') }} · </span><button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-open>{{ t('invoices.actions.saveForFutureUse') }}</button>
-                  </div>
-                  <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
-                    <input type="text" maxlength="120" aria-label="{{ t('invoices.form.fields.catalogItemName') }}" data-invoice-catalog-save-name>
-                    <button class="rounded-md bg-action px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>{{ t('invoices.actions.saveCatalogItem') }}</button>
-                    <button class="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>{{ t('common.actions.cancel') }}</button>
-                  </div>
-                  <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>{{ t('invoices.form.catalog.saved') }}</p>
-                  <p class="hidden text-red-700" data-invoice-catalog-save-error>
-                    {{ t('invoices.form.catalog.saveError') }}
-                    <button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-retry>{{ t('invoices.actions.retry') }}</button>
-                  </p>
-                </div>
-                {% if lineErrors.description %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.description[0] }}</p>{% endif %}
-              </div>
-              <div>
-                <label class="sm:sr-only">{{ t('invoices.form.fields.quantity') }} <span aria-hidden="true">*</span></label>
-                <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="{{ line.quantity or 1 }}">
-                {% if lineErrors.quantity %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.quantity[0] }}</p>{% endif %}
-              </div>
-              <div>
-                <label class="sm:sr-only">{{ t('invoices.form.fields.unitPrice') }} <span aria-hidden="true">*</span></label>
-                <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ line.unitPrice if line.unitPrice is defined else 0 }}">
-                {% if lineErrors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.unitPrice[0] }}</p>{% endif %}
-              </div>
-              <div>
-                <label class="sm:sr-only">{{ t('invoices.form.fields.discount') }}</label>
-                <div class="grid grid-cols-[72px_1fr] gap-2">
-                  <select name="lineDiscountType" data-invoice-line-discount-type aria-label="{{ t('invoices.form.fields.lineDiscountType') }}">
-                    <option value="amount" {{ 'selected' if line.discountType != 'percent' else '' }} data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
-                    <option value="percent" {{ 'selected' if line.discountType == 'percent' else '' }}>%</option>
-                  </select>
-                  <input name="lineDiscountValue" type="number" min="0" step="0.01" data-invoice-line-discount-value value="{{ line.discountValue or 0 }}" aria-label="{{ t('invoices.form.fields.lineDiscountValue') }}">
-                </div>
-                {% if lineErrors.discountValue %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.discountValue[0] }}</p>{% endif %}
-              </div>
-              <div>
-                <label class="sm:sr-only">{{ t('invoices.form.fields.taxRate') }}</label>
-                <input name="taxRate" type="number" min="0" max="100" step="0.01" data-invoice-tax-rate value="{{ line.taxRate or 0 }}">
-                {% if lineErrors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ lineErrors.taxRate[0] }}</p>{% endif %}
-              </div>
-              <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
-              <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="{{ t('invoices.form.fields.removeLineItem') }}">
-                <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6h18"></path>
-                  <path d="M8 6V4h8v2"></path>
-                  <path d="M19 6l-1 14H6L5 6"></path>
-                  <path d="M10 11v6"></path>
-                  <path d="M14 11v6"></path>
-                </svg>
-              </button>
-            </div>
+            {{ invoiceLineRow(line, lineErrors, currencyLabel, t) }}
           {% endfor %}
         </div>
         <div class="flex justify-end border-t border-line bg-panel px-4 py-4">
@@ -200,73 +136,12 @@
       </div>
 
       <template data-invoice-line-template>
-        <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[minmax(180px,1fr)_90px_120px_150px_90px_120px_40px] sm:items-start" data-invoice-line>
-          <div class="relative" data-invoice-catalog-combobox>
-            <label class="sm:sr-only">{{ t('invoices.form.fields.description') }} <span aria-hidden="true">*</span></label>
-            <input name="lineDescription" value="" placeholder="{{ t('invoices.form.placeholders.lineDescription') }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
-            <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
-            <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
-              <div data-invoice-catalog-save-helper class="text-muted">
-                <span>{{ t('invoices.form.catalog.notInCatalog') }} · </span><button class="font-medium text-blue-700 hover:text-blue-800 cursor-pointer" type="button" data-invoice-catalog-save-open>{{ t('invoices.actions.saveForFutureUse') }}</button>
-              </div>
-              <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
-                <input type="text" maxlength="120" aria-label="{{ t('invoices.form.fields.catalogItemName') }}" data-invoice-catalog-save-name>
-                <button class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>{{ t('invoices.actions.saveCatalogItem') }}</button>
-                <button class="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>{{ t('common.actions.cancel') }}</button>
-              </div>
-              <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>{{ t('invoices.form.catalog.saved') }}</p>
-              <p class="hidden text-red-700" data-invoice-catalog-save-error>
-                {{ t('invoices.form.catalog.saveError') }}
-                <button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-retry>{{ t('invoices.actions.retry') }}</button>
-              </p>
-            </div>
-          </div>
-          <div>
-            <label class="sm:sr-only">{{ t('invoices.form.fields.quantity') }} <span aria-hidden="true">*</span></label>
-            <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="1">
-          </div>
-          <div>
-            <label class="sm:sr-only">{{ t('invoices.form.fields.unitPrice') }} <span aria-hidden="true">*</span></label>
-            <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="0">
-          </div>
-          <div>
-            <label class="sm:sr-only">{{ t('invoices.form.fields.discount') }}</label>
-            <div class="grid grid-cols-[72px_1fr] gap-2">
-              <select name="lineDiscountType" data-invoice-line-discount-type aria-label="{{ t('invoices.form.fields.lineDiscountType') }}">
-                <option value="amount" data-invoice-currency-option>{{ values.currency or currentOrganization.currency or 'EUR' }}</option>
-                <option value="percent">%</option>
-              </select>
-              <input name="lineDiscountValue" type="number" min="0" step="0.01" data-invoice-line-discount-value value="0" aria-label="{{ t('invoices.form.fields.lineDiscountValue') }}">
-            </div>
-          </div>
-          <div>
-            <label class="sm:sr-only">{{ t('invoices.form.fields.taxRate') }}</label>
-            <input name="taxRate" type="number" min="0" max="100" step="0.01" data-invoice-tax-rate value="0">
-          </div>
-          <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
-          <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="{{ t('invoices.form.fields.removeLineItem') }}">
-            <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"></path>
-              <path d="M8 6V4h8v2"></path>
-              <path d="M19 6l-1 14H6L5 6"></path>
-              <path d="M10 11v6"></path>
-              <path d="M14 11v6"></path>
-            </svg>
-          </button>
-        </div>
+        {{ invoiceLineRow({ description: '', quantity: '1', unitPrice: '0', discountType: 'amount', discountValue: '0', taxRate: '0' }, {}, currencyLabel, t, isTemplate=true) }}
       </template>
 
-      <div>
-        <label for="paymentInstructions">{{ t('invoices.form.fields.paymentInstructions') }}</label>
-        <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.paymentInstructions') }}">{{ values.paymentInstructions or '' }}</textarea>
-        {% if errors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ errors.paymentInstructions[0] }}</p>{% endif %}
-      </div>
+      {{ textareaField('paymentInstructions', t('invoices.form.fields.paymentInstructions'), value=values.paymentInstructions or '', error=errors.paymentInstructions, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.paymentInstructions'), describedBy=false, renderHiddenError=false, errorId=false) }}
 
-      <div>
-        <label for="notes">{{ t('invoices.form.fields.notes') }}</label>
-        <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.notes') }}">{{ values.notes or '' }}</textarea>
-        {% if errors.notes %}<p class="mt-1 text-sm text-red-700">{{ errors.notes[0] }}</p>{% endif %}
-      </div>
+      {{ textareaField('notes', t('invoices.form.fields.notes'), value=values.notes or '', error=errors.notes, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.notes'), describedBy=false, renderHiddenError=false, errorId=false) }}
 
       <div class="space-y-3 pt-2">
         {% if formError %}<p class="text-sm text-red-700">{{ formError }}</p>{% endif %}

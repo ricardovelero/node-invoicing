@@ -13,15 +13,24 @@ test("form-field defines the field and passwordField macros", () => {
 });
 
 test("field macro renders the enhanced error pattern", () => {
-  assert.match(template, /aria-describedby="{{ name }}-error"/);
+  assert.match(template, /resolvedErrorId = name ~ '-error'/);
+  assert.match(template, /aria-describedby="{{ resolvedDescribedBy }}"/);
   assert.match(template, /'border-red-500' if error else 'border-line'/);
-  assert.match(template, /id="{{ name }}-error"/);
+  assert.match(template, /id="{{ resolvedErrorId }}"/);
   assert.match(template, /'hidden' if not error/);
 });
 
 test("field macro supports a data-validate opt-in and attrs passthrough", () => {
   assert.match(template, /data-validate="{{ validate }}"/);
   assert.match(template, /{{ attrs \| safe }}/);
+});
+
+test("field macros can preserve custom aria and error rendering", () => {
+  assert.match(template, /describedBy='__default__'/);
+  assert.match(template, /renderHiddenError=true/);
+  assert.match(template, /errorAttrs=''/);
+  assert.match(template, /requiredLabel=false/);
+  assert.match(template, /requiredMarkerAriaHidden=false/);
 });
 
 test("passwordField keeps the show/hide toggle and strong-password fallback", () => {

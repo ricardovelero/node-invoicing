@@ -1,0 +1,71 @@
+{% macro invoiceLineRow(line, lineErrors, currencyLabel, translate, isTemplate=false) %}
+  {% set rowErrors = lineErrors or {} %}
+  {% set unitPriceValue = 0 %}
+  {% if not isTemplate and line.unitPrice is defined %}
+    {% set unitPriceValue = line.unitPrice %}
+  {% endif %}
+  <div class="grid gap-3 border-b border-line p-4 last:border-b-0 sm:grid-cols-[minmax(180px,1fr)_90px_120px_150px_90px_120px_40px] sm:items-start" data-invoice-line>
+    <div class="relative" data-invoice-catalog-combobox>
+      <label class="sm:sr-only">{{ translate('invoices.form.fields.description') }} <span aria-hidden="true">*</span></label>
+      <input name="lineDescription" value="{{ '' if isTemplate else line.description or '' }}" placeholder="{{ translate('invoices.form.placeholders.lineDescription') }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-invoice-description data-invoice-catalog-input>
+      <div class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-auto rounded-md border border-line bg-white py-1 text-sm shadow-lg" role="listbox" data-invoice-catalog-results></div>
+      <div class="mt-2 hidden text-sm" data-invoice-catalog-save>
+        <div data-invoice-catalog-save-helper class="text-muted">
+          <span>{{ translate('invoices.form.catalog.notInCatalog') }} · </span><button class="font-medium text-blue-700 hover:text-blue-800{% if isTemplate %} cursor-pointer{% endif %}" type="button" data-invoice-catalog-save-open>{{ translate('invoices.actions.saveForFutureUse') }}</button>
+        </div>
+        <div class="mt-2 hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-2" data-invoice-catalog-save-form>
+          <input type="text" maxlength="120" aria-label="{{ translate('invoices.form.fields.catalogItemName') }}" data-invoice-catalog-save-name>
+          {% if isTemplate %}
+            <button class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>{{ translate('invoices.actions.saveCatalogItem') }}</button>
+            <button class="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>{{ translate('common.actions.cancel') }}</button>
+          {% else %}
+            <button class="rounded-md bg-action px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-action-dark disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-submit>{{ translate('invoices.actions.saveCatalogItem') }}</button>
+            <button class="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60" type="button" data-invoice-catalog-save-cancel>{{ translate('common.actions.cancel') }}</button>
+          {% endif %}
+        </div>
+        <p class="hidden font-medium text-green-700" data-invoice-catalog-save-success>{{ translate('invoices.form.catalog.saved') }}</p>
+        <p class="hidden text-red-700" data-invoice-catalog-save-error>
+          {{ translate('invoices.form.catalog.saveError') }}
+          <button class="font-medium text-blue-700 hover:text-blue-800" type="button" data-invoice-catalog-save-retry>{{ translate('invoices.actions.retry') }}</button>
+        </p>
+      </div>
+      {% if rowErrors.description %}<p class="mt-1 text-sm text-red-700">{{ rowErrors.description[0] }}</p>{% endif %}
+    </div>
+    <div>
+      <label class="sm:sr-only">{{ translate('invoices.form.fields.quantity') }} <span aria-hidden="true">*</span></label>
+      <input name="quantity" type="number" min="0.01" step="0.01" data-invoice-quantity value="{{ 1 if isTemplate else line.quantity or 1 }}">
+      {% if rowErrors.quantity %}<p class="mt-1 text-sm text-red-700">{{ rowErrors.quantity[0] }}</p>{% endif %}
+    </div>
+    <div>
+      <label class="sm:sr-only">{{ translate('invoices.form.fields.unitPrice') }} <span aria-hidden="true">*</span></label>
+      <input name="unitPrice" type="number" min="0" step="0.01" data-invoice-unit-price value="{{ unitPriceValue }}">
+      {% if rowErrors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ rowErrors.unitPrice[0] }}</p>{% endif %}
+    </div>
+    <div>
+      <label class="sm:sr-only">{{ translate('invoices.form.fields.discount') }}</label>
+      <div class="grid grid-cols-[72px_1fr] gap-2">
+        <select name="lineDiscountType" data-invoice-line-discount-type aria-label="{{ translate('invoices.form.fields.lineDiscountType') }}">
+          <option value="amount"{% if not isTemplate %} {{ 'selected' if line.discountType != 'percent' else '' }}{% endif %} data-invoice-currency-option>{{ currencyLabel }}</option>
+          <option value="percent"{% if not isTemplate %} {{ 'selected' if line.discountType == 'percent' else '' }}{% endif %}>%</option>
+        </select>
+        <input name="lineDiscountValue" type="number" min="0" step="0.01" data-invoice-line-discount-value value="{{ 0 if isTemplate else line.discountValue or 0 }}" aria-label="{{ translate('invoices.form.fields.lineDiscountValue') }}">
+      </div>
+      {% if rowErrors.discountValue %}<p class="mt-1 text-sm text-red-700">{{ rowErrors.discountValue[0] }}</p>{% endif %}
+    </div>
+    <div>
+      <label class="sm:sr-only">{{ translate('invoices.form.fields.taxRate') }}</label>
+      <input name="taxRate" type="number" min="0" max="100" step="0.01" data-invoice-tax-rate value="{{ 0 if isTemplate else line.taxRate or 0 }}">
+      {% if rowErrors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ rowErrors.taxRate[0] }}</p>{% endif %}
+    </div>
+    <div class="rounded-md bg-panel px-3 py-2 text-right text-sm font-semibold" data-invoice-line-total>€0.00</div>
+    <button class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-panel hover:text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40" type="button" data-invoice-remove-line aria-label="{{ translate('invoices.form.fields.removeLineItem') }}">
+      <svg class="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"></path>
+        <path d="M8 6V4h8v2"></path>
+        <path d="M19 6l-1 14H6L5 6"></path>
+        <path d="M10 11v6"></path>
+        <path d="M14 11v6"></path>
+      </svg>
+    </button>
+  </div>
+{% endmacro %}

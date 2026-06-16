@@ -1,30 +1,36 @@
-{% macro field(name, label, type='text', value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', attrs='') %}
+{% macro field(name, label, type='text', value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', attrs='', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='', requiredLabel=false, requiredMarkerAttrs='class="text-red-600"', requiredMarkerAriaHidden=false) %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
   <div>
-    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
-    <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %} aria-describedby="{{ name }}-error"{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
-    <p id="{{ name }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required or requiredLabel %} <span{% if requiredMarkerAriaHidden %} aria-hidden="true"{% endif %}{% if requiredMarkerAttrs %} {{ requiredMarkerAttrs | safe }}{% endif %}>*</span>{% endif %}</label>
+    <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
     {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
   </div>
 {% endmacro %}
 
-{% macro textareaField(name, label, value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', rows=5, maxlength='', attrs='') %}
+{% macro textareaField(name, label, value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', rows=5, maxlength='', attrs='', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='', requiredLabel=false, requiredMarkerAttrs='class="text-red-600"', requiredMarkerAriaHidden=false) %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
   <div>
-    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
-    <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %} aria-describedby="{{ name }}-error"{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">{{ value }}</textarea>
-    <p id="{{ name }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required or requiredLabel %} <span{% if requiredMarkerAriaHidden %} aria-hidden="true"{% endif %}{% if requiredMarkerAttrs %} {{ requiredMarkerAttrs | safe }}{% endif %}>*</span>{% endif %}</label>
+    <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">{{ value }}</textarea>
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
     {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
   </div>
 {% endmacro %}
 
-{% macro selectField(name, label, options, value='', error=None, required=false, help='', attrs='') %}
+{% macro selectField(name, label, options, value='', error=None, required=false, help='', attrs='', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='', requiredLabel=false, requiredMarkerAttrs='class="text-red-600"', requiredMarkerAriaHidden=false) %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
   <div>
-    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
-    <select id="{{ name }}" name="{{ name }}"{% if required %} required{% endif %} aria-describedby="{{ name }}-error"{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
+    <label class="block text-sm font-medium text-ink" for="{{ name }}">{{ label }}{% if required or requiredLabel %} <span{% if requiredMarkerAriaHidden %} aria-hidden="true"{% endif %}{% if requiredMarkerAttrs %} {{ requiredMarkerAttrs | safe }}{% endif %}>*</span>{% endif %}</label>
+    <select id="{{ name }}" name="{{ name }}"{% if required %} required{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
       {% for option in options %}
         <option value="{{ option.value }}" {{ 'selected' if value == option.value else '' }}>{{ option.label }}</option>
       {% endfor %}
     </select>
-    <p id="{{ name }}-error" class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
     {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
   </div>
 {% endmacro %}
