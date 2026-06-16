@@ -47,6 +47,23 @@ describe("itemFormSchema", () => {
       });
     }
   });
+
+  test("requires a catalog item description", () => {
+    const result = itemFormSchema.safeParse({
+      name: "Consulting",
+      description: "",
+      unitPrice: "",
+      currency: "EUR",
+      taxRate: "",
+    });
+
+    assert.equal(result.success, false);
+    if (!result.success) {
+      assert.deepEqual(formatItemFormErrors(result.error), {
+        description: ["Description is required."],
+      });
+    }
+  });
 });
 
 test("normalizeItemFormValues preserves submitted form strings", () => {

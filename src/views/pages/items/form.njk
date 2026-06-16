@@ -10,22 +10,22 @@
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <div>
       <label for="name">{{ t('items.form.fields.name') }} <span aria-hidden="true">*</span></label>
-      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off">
+      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off" required>
       {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
     </div>
     <div>
-      <label for="description">{{ t('items.form.fields.description') }}</label>
-      <textarea id="description" name="description" rows="4">{{ values.description or '' }}</textarea>
+      <label for="description">{{ t('items.form.fields.description') }} <span aria-hidden="true">*</span></label>
+      <textarea id="description" name="description" rows="4" required>{{ values.description or '' }}</textarea>
       {% if errors.description %}<p class="mt-1 text-sm text-red-700">{{ errors.description[0] }}</p>{% endif %}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>
-        <label for="unitPrice">{{ t('items.form.fields.unitPrice') }} <span aria-hidden="true">*</span></label>
+        <label for="unitPrice">{{ t('items.form.fields.unitPrice') }}</label>
         <input id="unitPrice" name="unitPrice" type="number" min="0" step="0.01" value="{{ values.unitPrice or 0 }}">
         {% if errors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ errors.unitPrice[0] }}</p>{% endif %}
       </div>
       <div>
-        <label for="currency">{{ t('items.form.fields.currency') }} <span aria-hidden="true">*</span></label>
+        <label for="currency">{{ t('items.form.fields.currency') }}</label>
         <select id="currency" name="currency" required>
           {% for currency in currencies %}
             <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
@@ -36,7 +36,7 @@
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
       <div>
-        <label for="taxRate">{{ t('items.form.fields.taxRate') }} <span aria-hidden="true">*</span></label>
+        <label for="taxRate">{{ t('items.form.fields.taxRate') }}</label>
         <input id="taxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="{{ values.taxRate or 0 }}">
         {% if errors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ errors.taxRate[0] }}</p>{% endif %}
       </div>

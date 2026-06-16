@@ -22,5 +22,18 @@ test("item form includes csrf and configurable create/edit fields", () => {
   assert.match(template, /href="{{ cancelHref or '\/items' }}"/);
   assert.match(template, /t\('items\.form\.fields\.unitPrice'\)/);
   assert.match(template, /t\('common\.actions\.cancel'\)/);
+  assert.match(
+    template,
+    /<label for="name">{{ t\('items\.form\.fields\.name'\) }} <span aria-hidden="true">\*<\/span><\/label>/,
+  );
+  assert.match(template, /<input id="name" name="name"[^>]+required>/);
+  assert.match(
+    template,
+    /<label for="description">{{ t\('items\.form\.fields\.description'\) }} <span aria-hidden="true">\*<\/span><\/label>/,
+  );
+  assert.match(template, /<textarea id="description" name="description" rows="4" required>/);
+  assert.match(template, /<label for="unitPrice">{{ t\('items\.form\.fields\.unitPrice'\) }}<\/label>/);
+  assert.match(template, /<label for="currency">{{ t\('items\.form\.fields\.currency'\) }}<\/label>/);
+  assert.match(template, /<label for="taxRate">{{ t\('items\.form\.fields\.taxRate'\) }}<\/label>/);
   assert.doesNotMatch(template, /Unit price is a reusable amount/);
 });

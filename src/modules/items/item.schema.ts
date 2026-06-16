@@ -5,7 +5,11 @@ export { supportedCurrencies };
 
 export const itemFormSchema = z.object({
   name: z.string().trim().min(2, "Item name is required."),
-  description: z.string().trim().max(2000, "Description must be 2,000 characters or fewer.").default(""),
+  description: z
+    .string()
+    .trim()
+    .min(2, "Description is required.")
+    .max(2000, "Description must be 2,000 characters or fewer."),
   unitPrice: z.coerce.number().nonnegative("Unit price cannot be negative."),
   currency: z.enum(supportedCurrencies, { error: "Choose a supported currency." }),
   taxRate: z.coerce

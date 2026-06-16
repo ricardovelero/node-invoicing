@@ -365,6 +365,7 @@ test("createItem renders validation errors with submitted values", async () => {
   const req = createRequest({
     body: {
       name: "",
+      description: "",
       unitPrice: "-1",
       currency: "JPY",
       taxRate: "101",
@@ -391,6 +392,7 @@ test("createItem renders validation errors with submitted values", async () => {
     },
     errors: {
       name: ["Item name is required."],
+      description: ["Description is required."],
       unitPrice: ["Unit price cannot be negative."],
       currency: ["Choose a supported currency."],
       taxRate: ["Tax rate cannot exceed 100%."],
@@ -408,7 +410,7 @@ test("createItem creates valid catalog items and redirects", async () => {
   const req = createRequest({
     body: {
       name: "Consulting",
-      description: "",
+      description: "Consulting services",
       unitPrice: "125.50",
       currency: "GBP",
       taxRate: "21",
@@ -422,7 +424,7 @@ test("createItem creates valid catalog items and redirects", async () => {
     data: {
       organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
       name: "Consulting",
-      description: null,
+      description: "Consulting services",
       unitPriceCents: 12550,
       currency: "GBP",
       taxRateBps: 2100,
