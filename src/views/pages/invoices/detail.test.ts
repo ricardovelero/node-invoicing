@@ -34,7 +34,7 @@ test('invoice detail includes email delivery history', () => {
 
   assert.match(template, /t\('invoices\.detail\.emailDeliveries'\)/);
   assert.match(template, /for delivery in emailDeliveries/);
-  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(template, /delivery\.status/);
   assert.match(
     template,
@@ -52,7 +52,7 @@ test('invoice detail includes email delivery history', () => {
 test('invoice detail renders the invoice status with the badge component', () => {
   const template = readTemplate('detail.njk');
 
-  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(
     template,
     /for statusBadge in invoiceStatusBadges/,
@@ -100,10 +100,10 @@ test('invoice detail includes separate inline metadata editors', () => {
   assert.match(template, /title="{{ t\('invoices\.detail\.editPaymentInstructions'\) }}"/);
   assert.match(template, /name="intent" value="notes"/);
   assert.match(template, /name="intent" value="paymentInstructions"/);
-  assert.match(template, /name="paymentInstructions"/);
+  assert.match(template, /textareaField\('paymentInstructions'/);
   assert.match(template, /metadataValues\.paymentInstructions/);
   assert.match(template, /metadataErrors\.paymentInstructions/);
-  assert.match(template, /name="notes"/);
+  assert.match(template, /textareaField\('notes'/);
   assert.match(template, /t\('invoices\.detail\.internalNotes'\)/);
   assert.match(template, /metadataValues\.notes/);
   assert.match(template, /metadataErrors\.notes/);

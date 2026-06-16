@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 test("badge component exposes semantic pill variants", () => {
   const template = readFileSync(
-    path.join(process.cwd(), "src", "views", "components", "badge.njk"),
+    path.join(process.cwd(), "src", "views", "components", "ui", "badge.njk"),
     "utf8",
   );
 

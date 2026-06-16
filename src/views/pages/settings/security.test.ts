@@ -26,8 +26,8 @@ describe('security settings form', () => {
   });
 
   test('renders session timeout fields with validation bounds', () => {
-    assert.match(securityTemplate, /name="sessionIdleTimeoutMinutes"/);
-    assert.match(securityTemplate, /name="sessionAbsoluteLifetimeDays"/);
+    assert.match(securityTemplate, /inputField\('sessionIdleTimeoutMinutes'/);
+    assert.match(securityTemplate, /inputField\('sessionAbsoluteLifetimeDays'/);
     assert.match(securityTemplate, /min="5" max="1440"/);
     assert.match(securityTemplate, /min="1" max="90"/);
     assert.match(securityTemplate, /errors\.sessionIdleTimeoutMinutes/);
@@ -35,18 +35,19 @@ describe('security settings form', () => {
   });
 
   test('renders password change fields with show hide toggles', () => {
-    assert.match(securityTemplate, /passwordField\('currentPassword', 'currentPassword'/);
-    assert.match(securityTemplate, /passwordField\('newPassword', 'newPassword'/);
-    assert.match(securityTemplate, /passwordField\('confirmPassword', 'confirmPassword'/);
-    assert.match(securityTemplate, /name="{{ name }}" type="password"/);
+    assert.match(securityTemplate, /from "components\/ui\/password-field\.njk" import passwordField/);
+    assert.match(
+      securityTemplate,
+      /labelField\('currentPassword', t\('settings\.fields\.currentPassword'\), required=true\)/,
+    );
+    assert.match(securityTemplate, /passwordField\('currentPassword', autocomplete='current-password'/);
+    assert.match(securityTemplate, /passwordField\('newPassword', autocomplete='new-password'/);
+    assert.match(securityTemplate, /passwordField\('confirmPassword', autocomplete='new-password'/);
     assert.match(securityTemplate, /'current-password'/);
     assert.match(securityTemplate, /'new-password'/);
     assert.match(securityTemplate, /passwordErrors\.currentPassword/);
     assert.match(securityTemplate, /passwordErrors\.newPassword/);
     assert.match(securityTemplate, /passwordErrors\.confirmPassword/);
-    assert.equal(securityTemplate.match(/data-password-toggle/g)?.length, 1);
-    assert.match(securityTemplate, /data-eye-open/);
-    assert.match(securityTemplate, /data-eye-closed/);
   });
 
   test('renders active session management details and actions', () => {

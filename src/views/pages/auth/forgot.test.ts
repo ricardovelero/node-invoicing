@@ -8,8 +8,10 @@ test("forgot password form posts with CSRF and a validated email field", () => {
   assert.match(template, /method="post" action="\/auth\/forgot"/);
   assert.match(template, /name="_csrf" value="{{ csrfToken }}"/);
   assert.match(template, /data-validate-form/);
-  assert.match(template, /from "components\/form-field\.njk" import field/);
-  assert.match(template, /field\('email', t\('auth\.fields\.email'\)/);
+  assert.match(template, /from "components\/ui\/label-field\.njk" import labelField/);
+  assert.match(template, /from "components\/ui\/input-field\.njk" import inputField/);
+  assert.match(template, /labelField\('email', t\('auth\.fields\.email'\), required=true\)/);
+  assert.match(template, /inputField\('email', type='email'/);
   assert.match(template, /validate='email'/);
   assert.match(template, /required=true/);
   assert.match(template, /auth\.forgot\.heading/);

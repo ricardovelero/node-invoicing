@@ -147,7 +147,7 @@ test('customer detail invoice table renders status badges', () => {
     'utf8',
   );
 
-  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(template, /for invoice in invoiceRows/);
   assert.match(
     template,

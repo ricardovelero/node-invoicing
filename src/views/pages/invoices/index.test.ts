@@ -18,7 +18,7 @@ test("invoice index renders status badges from presenter rows", () => {
     "utf8",
   );
 
-  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(template, /for invoice in invoiceRows/);
   assert.match(template, /invoice\.customerName/);
   assert.match(template, /for statusBadge in invoice\.statusBadges/);

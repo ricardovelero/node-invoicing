@@ -31,11 +31,16 @@ describe('profile settings page', () => {
   test('uses the shared select macro for time zones', () => {
     assert.match(
       profileTemplate,
-      /from "components\/form-field\.njk" import field, selectField/,
+      /from "components\/ui\/select-field\.njk" import selectField/,
+    );
+    assert.match(profileTemplate, /from "components\/ui\/label-field\.njk" import labelField/);
+    assert.match(
+      profileTemplate,
+      /labelField\('timeZone', t\('settings\.fields\.timeZone'\), required=required\)/,
     );
     assert.match(
       profileTemplate,
-      /selectField\('timeZone', t\('settings\.fields\.timeZone'\), timeZoneOptions/,
+      /selectField\('timeZone', timeZoneOptions, value=values\.timeZone/,
     );
   });
 

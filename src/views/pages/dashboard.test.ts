@@ -31,7 +31,7 @@ test("dashboard renders quick action shortcuts", () => {
 test("dashboard attention sections render invoice badges", () => {
   const template = readDashboardTemplate();
 
-  assert.match(template, /from "components\/badge\.njk" import badge/);
+  assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(template, /for section in attentionSections/);
   assert.match(template, /for invoice in section\.rows/);
   assert.match(template, /invoice\.customerName/);

@@ -63,29 +63,29 @@ describe('organization settings form', () => {
     assert.match(formPartial, /<section[^>]*data-withholding-settings/);
     assert.match(
       formPartial,
-      /selectField\('legalForm'[^\n]*data-withholding-legal-form/,
+      /selectField\('legalForm', legalFormOptions[^\n]*data-withholding-legal-form/,
     );
     assert.match(formPartial, /data-withholding-enable-row/);
     assert.match(
       formPartial,
-      /id="withholdingEnabled"[^>]*data-withholding-enabled/,
+      /checkboxField\('withholdingEnabled'[^\n]*data-withholding-enabled/,
     );
     assert.match(formPartial, /data-withholding-rate-fields/);
     assert.match(
       formPartial,
-      /selectField\('defaultWithholdingRateType'[^\n]*data-withholding-rate-type/,
+      /selectField\('defaultWithholdingRateType', withholdingRateTypeOptions[^\n]*data-withholding-rate-type/,
     );
     assert.match(formPartial, /<div[^>]*data-withholding-custom-rate>/);
     assert.match(
       formPartial,
-      /field\('defaultWithholdingRate'[^\n]*data-withholding-rate-input/,
+      /inputField\('defaultWithholdingRate'[^\n]*data-withholding-rate-input/,
     );
   });
 
   test('builds the withholding rate options from config', () => {
     assert.match(
       formPartial,
-      /selectField\('defaultWithholdingRateType', t\('settings\.fields\.defaultWithholdingRate'\), withholdingRateTypeOptions/,
+      /selectField\('defaultWithholdingRateType', withholdingRateTypeOptions/,
     );
     assert.doesNotMatch(formPartial, /withholdingRateOptions\.concat/);
   });
@@ -126,7 +126,7 @@ describe('organization settings form', () => {
     assert.doesNotMatch(formPartial, /components\/country-select\.njk/);
     assert.match(
       formPartial,
-      /selectField\('countryCode', t\('settings\.fields\.countryCode'\), countryOptions, value=values\.countryCode, error=errors\.countryCode, required=true\)/,
+      /selectField\('countryCode', countryOptions, value=values\.countryCode, error=errors\.countryCode, required=true\)/,
     );
     assert.doesNotMatch(formPartial, /name="country"/);
     assert.doesNotMatch(formPartial, /id="country"/);
@@ -138,11 +138,11 @@ describe('organization settings form', () => {
     assert.doesNotMatch(formPartial, /{% set withholdingRateTypeOptions/);
     assert.match(
       formPartial,
-      /selectField\('currency', t\('settings\.fields\.defaultCurrency'\), currencyOptions/,
+      /selectField\('currency', currencyOptions/,
     );
     assert.match(
       formPartial,
-      /selectField\('legalForm', t\('settings\.fields\.legalForm'\), legalFormOptions/,
+      /selectField\('legalForm', legalFormOptions/,
     );
   });
 

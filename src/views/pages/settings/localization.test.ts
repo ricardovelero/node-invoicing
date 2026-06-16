@@ -21,8 +21,10 @@ describe("localization settings form", () => {
   });
 
   test("contains the locale field with error display", () => {
+    assert.match(localizationTemplate, /from "components\/ui\/label-field\.njk" import labelField/);
+    assert.match(localizationTemplate, /from "components\/ui\/select-field\.njk" import selectField/);
     assert.match(localizationTemplate, /t\('settings\.fields\.locale'\)/);
-    assert.match(localizationTemplate, /name="locale"/);
-    assert.match(localizationTemplate, /errors\.locale\[0\]/);
+    assert.match(localizationTemplate, /selectField\('locale', localeOptions/);
+    assert.match(localizationTemplate, /error=errors\.locale/);
   });
 });
