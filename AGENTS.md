@@ -32,6 +32,10 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
   - `POST /auth/register`
   - `GET /auth/login`
   - `POST /auth/login`
+  - `GET /auth/forgot-password`
+  - `POST /auth/forgot-password`
+  - `GET /auth/reset-password`
+  - `POST /auth/reset-password`
   - `POST /auth/logout`
 - Protected app routes are mounted after `requireAuth` in `src/app.ts`.
 - Use `loadAuthContext` to populate `req.auth`, `res.locals.currentUser`, and `res.locals.currentOrganization`.
@@ -39,6 +43,10 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
 - Regenerate the session on register/login before assigning authenticated session data.
 - Destroy the session and clear `invoice.sid` on logout.
 - Never render password values back into HTML after validation failures.
+- Password reset and password change flows should reuse existing auth schemas, services, session, flash, and template patterns where possible.
+- Forgot-password responses must avoid leaking whether an email exists.
+- Reset-password and change-password flows must validate password confirmation and never expose reset tokens or password values in rendered HTML.
+- Treat password changes as sensitive auth/session changes; run `pnpm test` after modifying them.
 
 ## Validation
 
@@ -90,6 +98,10 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
 - Keep comments sparse and useful.
 - Do not commit generated `dist/` or `public/assets/` files.
 - Preserve unrelated user changes. Do not revert files outside the current task.
+- Use Context7 whenever library/API documentation, configuration, installation instructions, or framework-specific implementations are needed.
+- Prefer existing project patterns, architecture, and conventions over documentation examples.
+- Documentation should inform implementation, not override established project structure or introduce alternative architectural patterns without a strong reason.
+- Before introducing a new dependency, pattern, or architectural approach, check whether an equivalent solution already exists in the codebase and extend it when appropriate.
 
 ## Code Formatting Rules
 
