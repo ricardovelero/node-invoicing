@@ -33,6 +33,11 @@ test("field macros can preserve custom aria and error rendering", () => {
   assert.match(template, /requiredMarkerAriaHidden=false/);
 });
 
+test("selectField accepts object and string options", () => {
+  assert.match(template, /option\.value if option\.value is defined else option/);
+  assert.match(template, /option\.label if option\.label is defined else option/);
+});
+
 test("passwordField keeps the show/hide toggle and strong-password fallback", () => {
   assert.match(template, /data-password-toggle/);
   assert.match(template, /data-password-input/);

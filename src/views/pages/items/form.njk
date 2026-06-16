@@ -1,4 +1,5 @@
 {% extends "layouts/app.njk" %}
+{% from "components/form-field.njk" import field, textareaField, selectField %}
 
 {% block content %}
   <div class="mb-8">
@@ -8,38 +9,14 @@
 
   <form method="post" action="{{ formAction or '/items' }}" data-unsaved-changes-guard class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-    <div>
-      <label for="name">{{ t('items.form.fields.name') }} <span aria-hidden="true">*</span></label>
-      <input id="name" name="name" value="{{ values.name or '' }}" autocomplete="off">
-      {% if errors.name %}<p class="mt-1 text-sm text-red-700">{{ errors.name[0] }}</p>{% endif %}
-    </div>
-    <div>
-      <label for="description">{{ t('items.form.fields.description') }} <span aria-hidden="true">*</span></label>
-      <textarea id="description" name="description" rows="4">{{ values.description or '' }}</textarea>
-      {% if errors.description %}<p class="mt-1 text-sm text-red-700">{{ errors.description[0] }}</p>{% endif %}
+    {{ field('name', t('items.form.fields.name'), value=values.name or '', error=errors.name, autocomplete='off', describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
+    {{ textareaField('description', t('items.form.fields.description'), value=values.description or '', error=errors.description,  rows=4, describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
+    <div class="grid gap-5 sm:grid-cols-2">
+      {{ field('unitPrice', t('items.form.fields.unitPrice'), type='number', value=values.unitPrice or 0, error=errors.unitPrice, attrs='min="0" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
+      {{ selectField('currency', t('items.form.fields.currency'), currencies, value=values.currency, error=errors.currency, describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label for="unitPrice">{{ t('items.form.fields.unitPrice') }}</label>
-        <input id="unitPrice" name="unitPrice" type="number" min="0" step="0.01" value="{{ values.unitPrice or 0 }}">
-        {% if errors.unitPrice %}<p class="mt-1 text-sm text-red-700">{{ errors.unitPrice[0] }}</p>{% endif %}
-      </div>
-      <div>
-        <label for="currency">{{ t('items.form.fields.currency') }}</label>
-        <select id="currency" name="currency" required>
-          {% for currency in currencies %}
-            <option value="{{ currency }}" {{ 'selected' if values.currency == currency else '' }}>{{ currency }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.currency %}<p class="mt-1 text-sm text-red-700">{{ errors.currency[0] }}</p>{% endif %}
-      </div>
-    </div>
-    <div class="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label for="taxRate">{{ t('items.form.fields.taxRate') }}</label>
-        <input id="taxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="{{ values.taxRate or 0 }}">
-        {% if errors.taxRate %}<p class="mt-1 text-sm text-red-700">{{ errors.taxRate[0] }}</p>{% endif %}
-      </div>
+      {{ field('taxRate', t('items.form.fields.taxRate'), type='number', value=values.taxRate or 0, error=errors.taxRate, attrs='min="0" max="100" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="flex items-center justify-end gap-3 pt-2">
       <a class="btn btn-secondary" href="{{ cancelHref or '/items' }}">{{ t('common.actions.cancel') }}</a>
