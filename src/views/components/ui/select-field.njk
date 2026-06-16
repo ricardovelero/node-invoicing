@@ -1,0 +1,15 @@
+{% macro selectField(name, options, value='', error=None, required=false, help='', attrs='', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='') %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
+  <div>
+    <select id="{{ name }}" name="{{ name }}"{% if required %} required{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">
+      {% for option in options %}
+        {% set optionValue = option.value if option.value is defined else option %}
+        {% set optionLabel = option.label if option.label is defined else option %}
+        <option value="{{ optionValue }}" {{ 'selected' if value == optionValue else '' }}>{{ optionLabel }}</option>
+      {% endfor %}
+    </select>
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
+    {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
+  </div>
+{% endmacro %}

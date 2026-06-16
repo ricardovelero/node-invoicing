@@ -1,5 +1,8 @@
 {% extends "layouts/app.njk" %}
-{% from "components/form-field.njk" import field, textareaField, selectField %}
+{% from "components/ui/select-field.njk" import selectField %}
+{% from "components/ui/textarea-field.njk" import textareaField %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
 
 {% block content %}
   <div class="mb-8">
@@ -9,14 +12,29 @@
 
   <form method="post" action="{{ formAction or '/items' }}" data-unsaved-changes-guard class="max-w-2xl space-y-5 rounded-lg border border-line bg-white p-6">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-    {{ field('name', t('items.form.fields.name'), value=values.name or '', error=errors.name, autocomplete='off', describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
-    {{ textareaField('description', t('items.form.fields.description'), value=values.description or '', error=errors.description,  rows=4, describedBy=false, renderHiddenError=false, errorId=false, requiredMarkerAttrs=false, requiredMarkerAriaHidden=true) }}
-    <div class="grid gap-5 sm:grid-cols-2">
-      {{ field('unitPrice', t('items.form.fields.unitPrice'), type='number', value=values.unitPrice or 0, error=errors.unitPrice, attrs='min="0" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
-      {{ selectField('currency', t('items.form.fields.currency'), currencies, value=values.currency, error=errors.currency, describedBy=false, renderHiddenError=false, errorId=false) }}
+    <div>
+      {{ labelField('name', t('items.form.fields.name')) }}
+      {{ inputField('name', value=values.name or '', error=errors.name, autocomplete='off', describedBy=false, renderHiddenError=false, errorId=false) }}
+    </div>
+    <div>
+      {{ labelField('description', t('items.form.fields.description')) }}
+      {{ textareaField('description', value=values.description or '', error=errors.description, rows=4, describedBy=false, renderHiddenError=false, errorId=false) }}
     </div>
     <div class="grid gap-5 sm:grid-cols-2">
-      {{ field('taxRate', t('items.form.fields.taxRate'), type='number', value=values.taxRate or 0, error=errors.taxRate, attrs='min="0" max="100" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
+      <div>
+        {{ labelField('unitPrice', t('items.form.fields.unitPrice')) }}
+        {{ inputField('unitPrice', type='number', value=values.unitPrice or 0, error=errors.unitPrice, attrs='min="0" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
+      </div>
+      <div>
+        {{ labelField('currency', t('items.form.fields.currency')) }}
+        {{ selectField('currency', currencies, value=values.currency, error=errors.currency, describedBy=false, renderHiddenError=false, errorId=false) }}
+      </div>
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        {{ labelField('taxRate', t('items.form.fields.taxRate')) }}
+        {{ inputField('taxRate', type='number', value=values.taxRate or 0, error=errors.taxRate, attrs='min="0" max="100" step="0.01"', describedBy=false, renderHiddenError=false, errorId=false) }}
+      </div>
     </div>
     <div class="flex items-center justify-end gap-3 pt-2">
       <a class="btn btn-secondary" href="{{ cancelHref or '/items' }}">{{ t('common.actions.cancel') }}</a>

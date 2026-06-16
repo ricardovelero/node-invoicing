@@ -1,0 +1,9 @@
+{% macro textareaField(name, value='', error=None, required=false, autocomplete='', placeholder='', help='', validate='', validateLabel='', rows=5, maxlength='', attrs='', describedBy='__default__', renderHiddenError=true, errorId='__default__', errorAttrs='') %}
+  {% set resolvedErrorId = name ~ '-error' if errorId == '__default__' else errorId %}
+  {% set resolvedDescribedBy = resolvedErrorId if describedBy == '__default__' else describedBy %}
+  <div>
+    <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if validate %} data-validate="{{ validate }}"{% endif %}{% if validateLabel %} data-validate-label="{{ validateLabel }}"{% endif %}{% if resolvedDescribedBy %} aria-describedby="{{ resolvedDescribedBy }}"{% endif %}{% if attrs %} {{ attrs | safe }}{% endif %} class="mt-1 w-full rounded-md border {{ 'border-red-500' if error else 'border-line' }} px-3 py-2 text-sm outline-none focus:border-action">{{ value }}</textarea>
+    {% if renderHiddenError or error %}<p{% if resolvedErrorId %} id="{{ resolvedErrorId }}"{% endif %}{% if errorAttrs %} {{ errorAttrs | safe }}{% endif %} class="mt-1 {{ 'hidden' if not error }} text-sm text-red-700">{{ error[0] if error }}</p>{% endif %}
+    {% if help %}<p class="mt-1 text-sm text-muted">{{ help }}</p>{% endif %}
+  </div>
+{% endmacro %}
