@@ -1,5 +1,8 @@
 {% extends "layouts/app.njk" %}
 {% from "components/ui/badge.njk" import badge %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/ui/textarea-field.njk" import textareaField %}
 {% from "components/confirm-dialog.njk" import confirmDialog %}
 
 {% block content %}
@@ -91,9 +94,10 @@
             <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-3 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
               <input type="hidden" name="_csrf" value="{{ csrfToken }}">
               <input type="hidden" name="intent" value="paymentInstructions">
-              <label class="sr-only" for="paymentInstructions">{{ t('invoices.detail.paymentInstructions') }}</label>
-              <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.paymentInstructions') }}" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
-              {% if metadataErrors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.paymentInstructions[0] }}</p>{% endif %}
+              <div>
+                {{ labelField('paymentInstructions', t('invoices.detail.paymentInstructions'), className='sr-only') }}
+                {{ textareaField('paymentInstructions', value=metadataValues.paymentInstructions or '', error=metadataErrors.paymentInstructions, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.paymentInstructions'), attrs='data-inline-editor-input') }}
+              </div>
               <div class="flex flex-wrap items-center gap-3">
                 <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveInstructions') }}</button>
                 <button class="btn btn-secondary" type="button" data-inline-editor-cancel>{{ t('common.actions.cancel') }}</button>
@@ -123,9 +127,10 @@
           <form method="post" action="/invoices/{{ invoice.id }}/metadata" class="{{ '' if isPaymentInstructionsEditorOpen else 'hidden' }} mt-4 space-y-3" data-inline-editor-panel data-unsaved-changes-guard>
             <input type="hidden" name="_csrf" value="{{ csrfToken }}">
             <input type="hidden" name="intent" value="paymentInstructions">
-            <label class="sr-only" for="paymentInstructions">{{ t('invoices.detail.paymentInstructions') }}</label>
-            <textarea id="paymentInstructions" name="paymentInstructions" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.paymentInstructions') }}" data-inline-editor-input>{{ metadataValues.paymentInstructions or '' }}</textarea>
-            {% if metadataErrors.paymentInstructions %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.paymentInstructions[0] }}</p>{% endif %}
+            <div>
+              {{ labelField('paymentInstructions', t('invoices.detail.paymentInstructions'), className='sr-only') }}
+              {{ textareaField('paymentInstructions', value=metadataValues.paymentInstructions or '', error=metadataErrors.paymentInstructions, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.paymentInstructions'), attrs='data-inline-editor-input') }}
+            </div>
             <div class="flex flex-wrap items-center gap-3">
               <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveInstructions') }}</button>
               <button class="btn btn-secondary" type="button" data-inline-editor-cancel>{{ t('common.actions.cancel') }}</button>
@@ -185,9 +190,8 @@
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
           <input type="hidden" name="intent" value="notes">
           <div>
-            <label for="notes">{{ t('invoices.detail.internalNotes') }}</label>
-            <textarea id="notes" name="notes" rows="4" maxlength="2000" placeholder="{{ t('invoices.form.placeholders.notes') }}" data-inline-editor-input>{{ metadataValues.notes or '' }}</textarea>
-            {% if metadataErrors.notes %}<p class="mt-1 text-sm text-red-700">{{ metadataErrors.notes[0] }}</p>{% endif %}
+            {{ labelField('notes', t('invoices.detail.internalNotes')) }}
+            {{ textareaField('notes', value=metadataValues.notes or '', error=metadataErrors.notes, rows=4, maxlength=2000, placeholder=t('invoices.form.placeholders.notes'), attrs='data-inline-editor-input') }}
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="btn btn-primary" type="submit">{{ t('invoices.actions.saveNote') }}</button>
@@ -314,19 +318,16 @@
           <form method="post" action="/invoices/{{ invoice.id }}/payments" class="mt-4 space-y-3">
             <input type="hidden" name="_csrf" value="{{ csrfToken }}">
             <div>
-              <label for="paymentAmount">{{ t('invoices.detail.amount') }} *</label>
-              <input id="paymentAmount" name="amount" type="number" min="0.01" step="0.01" value="{{ paymentValues.amount }}" required aria-describedby="paymentAmount-error">
-              {% if paymentErrors.amount %}<p id="paymentAmount-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.amount[0] }}</p>{% endif %}
+              {{ labelField('paymentAmount', t('invoices.detail.amount'), required=true) }}
+              {{ inputField('paymentAmount', type='number', value=paymentValues.amount, error=paymentErrors.amount, required=true, attrs='name="amount" min="0.01" step="0.01"') }}
             </div>
             <div>
-              <label for="paidAt">{{ t('invoices.detail.paidDate') }} *</label>
-              <input id="paidAt" name="paidAt" type="date" value="{{ paymentValues.paidAt }}" required aria-describedby="paidAt-error">
-              {% if paymentErrors.paidAt %}<p id="paidAt-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.paidAt[0] }}</p>{% endif %}
+              {{ labelField('paidAt', t('invoices.detail.paidDate'), required=true) }}
+              {{ inputField('paidAt', type='date', value=paymentValues.paidAt, error=paymentErrors.paidAt, required=true) }}
             </div>
             <div>
-              <label for="reference">{{ t('invoices.detail.reference') }}</label>
-              <input id="reference" name="reference" value="{{ paymentValues.reference }}" maxlength="200" aria-describedby="reference-error">
-              {% if paymentErrors.reference %}<p id="reference-error" class="mt-1 text-sm text-red-700">{{ paymentErrors.reference[0] }}</p>{% endif %}
+              {{ labelField('reference', t('invoices.detail.reference')) }}
+              {{ inputField('reference', value=paymentValues.reference, error=paymentErrors.reference, attrs='maxlength="200"') }}
             </div>
             <button class="btn btn-full btn-primary" type="submit">{{ t('invoices.actions.recordPayment') }}</button>
           </form>
