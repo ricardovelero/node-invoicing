@@ -1,6 +1,5 @@
 import { defaultLocale } from './locales';
-
-const defaultCurrency = 'EUR';
+import { defaultCurrency } from './currencies';
 
 export const formatMoney = (
   amountMinorUnits: number,

@@ -5,10 +5,10 @@ import {
   itemFormSchema,
   itemListQuerySchema,
   normalizeItemFormValues,
-  supportedCurrencies,
   type ItemFormErrors,
   type ItemFormValues,
 } from "./item.schema";
+import { supportedCurrencies } from "../../lib/currencies";
 import {
   archiveCatalogItemRecord,
   createCatalogItemRecord,

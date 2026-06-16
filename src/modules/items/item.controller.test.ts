@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { supportedCurrencies } from "../../lib/currencies";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   archiveItem,
@@ -51,7 +52,7 @@ const originalDeleteMany = prismaMock.catalogItem.deleteMany;
 const originalFindFirst = prismaMock.catalogItem.findFirst;
 const originalFindMany = prismaMock.catalogItem.findMany;
 const originalUpdateMany = prismaMock.catalogItem.updateMany;
-const currencies = ["EUR", "USD", "GBP", "CAD", "AUD"];
+const currencies = supportedCurrencies;
 const t = createTranslator("en-GB", loadTranslations(), {
   environment: "test",
 });

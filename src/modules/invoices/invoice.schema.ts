@@ -6,7 +6,7 @@ import {
   lineTotalCents,
   type DiscountType,
 } from "../../lib/money";
-import { supportedCurrencies } from "../settings/settings.schema";
+import { defaultCurrency, supportedCurrencies } from "../../lib/currencies";
 import {
   customRateType,
   resolveWithholdingRateType,
@@ -552,7 +552,7 @@ export type InvoiceFormErrors = Partial<
 
 export const createInvoiceFormValues = (
   paymentInstructions = "",
-  currency = "EUR",
+  currency = defaultCurrency,
   defaultWithholdingRate = "15",
   countryCode?: string | null,
 ): InvoiceFormValues => ({
@@ -600,7 +600,7 @@ export const normalizeInvoiceFormValues = (value: unknown): InvoiceFormValues =>
 
   return {
     customerId: stringValue(form.customerId),
-    currency: stringValue(form.currency, "EUR"),
+    currency: stringValue(form.currency, defaultCurrency),
     issueDate: stringValue(form.issueDate),
     dueDate: stringValue(form.dueDate),
     invoiceDiscountType:

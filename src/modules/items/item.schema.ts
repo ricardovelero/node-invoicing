@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { supportedCurrencies } from "../settings/settings.schema";
-
-export { supportedCurrencies };
+import { defaultCurrency, supportedCurrencies } from "../../lib/currencies";
 
 export const itemFormSchema = z.object({
   name: z.string().trim().min(2, "Item name is required."),
@@ -134,7 +132,7 @@ export const createItemFormValues = (
   name: values.name ?? "",
   description: values.description ?? "",
   unitPrice: values.unitPrice ?? "0",
-  currency: values.currency ?? "EUR",
+  currency: values.currency ?? defaultCurrency,
   taxRate: values.taxRate ?? "0",
 });
 
@@ -144,7 +142,7 @@ export const normalizeItemFormValues = (
   name: stringValue(form.name),
   description: stringValue(form.description),
   unitPrice: stringValue(form.unitPrice, "0"),
-  currency: stringValue(form.currency, "EUR"),
+  currency: stringValue(form.currency, defaultCurrency),
   taxRate: stringValue(form.taxRate, "0"),
 });
 

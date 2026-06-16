@@ -14,14 +14,13 @@ import {
   defaultTimeZone,
   isSupportedTimeZone,
 } from '../../lib/time-zones';
+import { defaultCurrency, supportedCurrencies } from '../../lib/currencies';
 import {
   customRateType,
   legalForms,
   rateToNumber,
   resolveWithholdingRateType,
 } from '../../lib/withholding';
-
-export const supportedCurrencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'] as const;
 
 const optionalText = (maxLength: number, message: string) =>
   z.string().trim().max(maxLength, message).optional().default('');
@@ -252,7 +251,7 @@ export const createOrganizationSettingsValues = (
     city: sourceText(organization.city),
     countryCode: sourceText(organization.countryCode),
     legalForm: sourceText(organization.legalForm, 'other'),
-    currency: sourceText(organization.currency, 'EUR'),
+    currency: sourceText(organization.currency, defaultCurrency),
     withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
     defaultWithholdingType: sourceText(organization.defaultWithholdingType),
     defaultWithholdingRateType,

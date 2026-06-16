@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createCurrencyOptions } from "../../lib/currencies";
 import {
   createTranslator,
   loadTranslations,
@@ -631,13 +632,7 @@ test("renderOrganizationSettings renders current organization values", () => {
       { value: "GB", label: "United Kingdom" },
       { value: "US", label: "United States of America" },
     ],
-    currencyOptions: [
-      { value: "EUR", label: "EUR" },
-      { value: "USD", label: "USD" },
-      { value: "GBP", label: "GBP" },
-      { value: "CAD", label: "CAD" },
-      { value: "AUD", label: "AUD" },
-    ],
+    currencyOptions: createCurrencyOptions(),
     legalFormOptions: [
       { value: "sole_trader", label: "Sole trader" },
       { value: "company", label: "Company" },

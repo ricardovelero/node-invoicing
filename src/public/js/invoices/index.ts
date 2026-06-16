@@ -1,4 +1,5 @@
 import { setupCatalogEvents } from './catalog-events';
+import { defaultCurrency } from '../../../lib/currencies';
 import type { CatalogSearchState } from './catalog.types';
 import { validateDateOrder } from './dates';
 import { addLine, getRows, updateRemoveButtons } from './lines';
@@ -12,7 +13,7 @@ export const setupInvoiceForms = () => {
       const locale = form.dataset.locale || 'en-GB';
       let currencyFormatter = new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: form.dataset.currency || 'EUR',
+        currency: form.dataset.currency || defaultCurrency,
       });
       const formatCents = (amountCents: number) =>
         currencyFormatter.format(amountCents / 100);

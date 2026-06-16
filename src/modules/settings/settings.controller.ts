@@ -17,9 +17,9 @@ import {
   profileSettingsSchema,
   securitySettingsSchema,
   switchOrganizationSchema,
-  supportedCurrencies,
 } from "./settings.schema";
 import { supportedOrganizationCountryCodes } from "../../lib/countries";
+import { createCurrencyOptions } from "../../lib/currencies";
 import { defaultLocale, supportedLocales } from "../../lib/i18n";
 import { daysToMs } from "../../lib/session-policy";
 import { createTimeZoneOptions } from "../../lib/time-zones";
@@ -76,12 +76,6 @@ const getCountryOptions = (_req: Request): SelectOption[] =>
     label: countryLabels[countryCode],
   }));
 
-const getCurrencyOptions = (): SelectOption[] =>
-  supportedCurrencies.map((currency) => ({
-    value: currency,
-    label: currency,
-  }));
-
 const getLegalFormOptions = (req: Request): SelectOption[] =>
   legalForms.map((legalForm) => ({
     value: legalForm,
@@ -128,7 +122,7 @@ const createOrganizationSettingsViewModel = (
     req,
   ),
   countryOptions: getCountryOptions(req),
-  currencyOptions: getCurrencyOptions(),
+  currencyOptions: createCurrencyOptions(),
   legalFormOptions: getLegalFormOptions(req),
   errors,
 });

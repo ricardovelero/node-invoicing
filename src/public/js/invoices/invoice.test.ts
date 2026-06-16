@@ -49,6 +49,10 @@ const totalsSource = readFileSync(
 );
 
 test("invoice frontend includes catalog autocomplete behavior", () => {
+  assert.match(source, /from ['"]\.\.\/\.\.\/\.\.\/lib\/currencies['"]/);
+  assert.match(totalsSource, /from ['"]\.\.\/\.\.\/\.\.\/lib\/currencies['"]/);
+  assert.doesNotMatch(source, /form\.dataset\.currency \|\| ['"]EUR['"]/);
+  assert.doesNotMatch(totalsSource, /currencySelect\.value \|\| ['"]EUR['"]/);
   assert.match(catalogSearchSource, /catalogSearchDebounceMs = 250/);
   assert.match(catalogSearchSource, /AbortController/);
   assert.match(catalogSearchSource, /\/items\/search/);

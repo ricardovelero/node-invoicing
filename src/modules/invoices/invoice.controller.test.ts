@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
+import { createCurrencyOptions } from "../../lib/currencies";
 import { createTranslator, loadTranslations, type Translate } from "../../lib/i18n";
 import {
   createInvoice,
@@ -463,13 +464,7 @@ test("renderNewInvoice defaults payment instructions from organization settings 
     errors: {},
     formError: undefined,
     currencyLabel: "EUR",
-    currencyOptions: [
-      { value: "EUR", label: "EUR" },
-      { value: "USD", label: "USD" },
-      { value: "GBP", label: "GBP" },
-      { value: "CAD", label: "CAD" },
-      { value: "AUD", label: "AUD" },
-    ],
+    currencyOptions: createCurrencyOptions(),
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",
@@ -898,13 +893,7 @@ test("renderEditInvoice renders draft invoices with edit form values", async () 
     errors: {},
     formError: undefined,
     currencyLabel: "GBP",
-    currencyOptions: [
-      { value: "EUR", label: "EUR" },
-      { value: "USD", label: "USD" },
-      { value: "GBP", label: "GBP" },
-      { value: "CAD", label: "CAD" },
-      { value: "AUD", label: "AUD" },
-    ],
+    currencyOptions: createCurrencyOptions(),
     withholdingOptions: {
       isAvailable: false,
       defaultRate: "15",

@@ -1,3 +1,4 @@
+import { defaultCurrency } from '../../../lib/currencies';
 import { calculateInvoiceTotals, type DiscountType } from '../../../lib/money';
 import { updateRemoveButtons } from './lines';
 
@@ -19,7 +20,7 @@ export const updateCurrency = ({
   form: HTMLFormElement;
   locale: string;
 }) => {
-  const currency = currencySelect.value || 'EUR';
+  const currency = currencySelect.value || defaultCurrency;
   form.dataset.currency = currency;
   const currencyFormatter = new Intl.NumberFormat(locale, {
     style: 'currency',
