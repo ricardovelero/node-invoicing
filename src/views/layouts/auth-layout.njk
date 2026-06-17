@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="{{ currentLanguage or 'en-gb' }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | {{ t('common.app.name') }}</title>
+    <link rel="icon" href="/assets/favicon.ico" sizes="any">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:200,400,600" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/app.css">
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body>
+    <main class="grid min-h-dvh lg:grid-cols-2">
+      {% include "components/flash.njk" %}
+
+      {# Left: the auth form #}
+      <div class="flex min-h-dvh flex-col justify-center px-6 py-12 sm:px-12 lg:px-16">
+        {% block content %}{% endblock %}
+      </div>
+
+      {# Right: decorative invoicing illustration (hidden on small screens) #}
+      <aside aria-hidden="true" class="auth-art-panel relative hidden overflow-hidden lg:flex lg:items-center lg:justify-center">
+        <div class="auth-art-grid"></div>
+        <svg class="relative w-[78%] max-w-md" viewBox="0 0 480 560" fill="none" xmlns="http://www.w3.org/2000/svg" role="presentation">
+          <defs>
+            <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="20" stdDeviation="26" flood-color="#07140f" flood-opacity="0.40"/>
+            </filter>
+            <filter id="softShadow" x="-60%" y="-60%" width="220%" height="220%">
+              <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#07140f" flood-opacity="0.28"/>
+            </filter>
+          </defs>
+
+          {# Atmospheric glows #}
+          <circle cx="372" cy="108" r="150" fill="#5bbd97" opacity="0.10"/>
+          <circle cx="108" cy="468" r="132" fill="#5bbd97" opacity="0.08"/>
+
+          {# Invoice card #}
+          <g transform="translate(92 76) rotate(-5)">
+            <rect x="0" y="0" width="296" height="388" rx="22" fill="#ffffff" filter="url(#cardShadow)"/>
+
+            {# Brand mark + heading #}
+            <rect x="28" y="30" width="26" height="26" rx="8" fill="#1f7a5c"/>
+            <path d="M35 43 l4 5 l9 -12" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="64" y="48" font-family="Inter, sans-serif" font-size="15" font-weight="800" letter-spacing="2" fill="#17211d">INVOICE</text>
+            <text x="268" y="48" text-anchor="end" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#66706b">#00142</text>
+
+            {# Address / meta placeholders #}
+            <rect x="28" y="70" width="120" height="7" rx="3.5" fill="#eef1ea"/>
+            <rect x="28" y="84" width="86" height="7" rx="3.5" fill="#eef1ea"/>
+            <text x="268" y="86" text-anchor="end" font-family="Inter, sans-serif" font-size="10.5" font-weight="500" fill="#66706b">Due 30 Jun</text>
+
+            <line x1="28" y1="108" x2="268" y2="108" stroke="#e8ece4" stroke-width="1"/>
+
+            {# Line items #}
+            <g class="auth-line auth-delay-2">
+              <text x="28" y="146" font-family="Inter, sans-serif" font-size="13" fill="#17211d">Brand identity</text>
+              <text x="268" y="146" text-anchor="end" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#17211d">980</text>
+            </g>
+            <line x1="28" y1="164" x2="268" y2="164" stroke="#f0f2ec" stroke-width="1"/>
+            <g class="auth-line auth-delay-3">
+              <text x="28" y="190" font-family="Inter, sans-serif" font-size="13" fill="#17211d">Hosting (12 mo)</text>
+              <text x="268" y="190" text-anchor="end" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#17211d">320</text>
+            </g>
+            <line x1="28" y1="208" x2="268" y2="208" stroke="#f0f2ec" stroke-width="1"/>
+            <g class="auth-line auth-delay-4">
+              <text x="28" y="234" font-family="Inter, sans-serif" font-size="13" fill="#17211d">Domain</text>
+              <text x="268" y="234" text-anchor="end" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#17211d">40</text>
+            </g>
+            <line x1="28" y1="252" x2="268" y2="252" stroke="#f0f2ec" stroke-width="1"/>
+            <g class="auth-line auth-delay-5">
+              <text x="28" y="278" font-family="Inter, sans-serif" font-size="13" fill="#17211d">Support</text>
+              <text x="268" y="278" text-anchor="end" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#17211d">180</text>
+            </g>
+
+            {# Total #}
+            <line x1="28" y1="312" x2="268" y2="312" stroke="#d9ddd3" stroke-width="1.5"/>
+            <g class="auth-line auth-delay-6">
+              <text x="28" y="344" font-family="Inter, sans-serif" font-size="14" font-weight="700" fill="#17211d">Total due</text>
+              <text x="268" y="346" text-anchor="end" font-family="Inter, sans-serif" font-size="22" font-weight="800" fill="#1f7a5c">€1,520</text>
+            </g>
+
+            {# Payment chip #}
+            <rect x="28" y="360" width="142" height="22" rx="11" fill="#eaf5ef"/>
+            <text x="40" y="375" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#165c45">Paid · Bank transfer</text>
+          </g>
+
+          {# PAID stamp #}
+          <g transform="translate(384 100) rotate(-16)">
+            <g class="auth-stamp">
+              <circle r="46" fill="#ffffff" stroke="#1f7a5c" stroke-width="2.5" filter="url(#softShadow)"/>
+              <circle r="37" fill="none" stroke="#1f7a5c" stroke-width="1" stroke-dasharray="2 5" opacity="0.7"/>
+              <path class="auth-check" d="M-16 -10 l8 9 l16 -20" fill="none" stroke="#1f7a5c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="0" y="18" text-anchor="middle" font-family="Inter, sans-serif" font-size="17" font-weight="800" letter-spacing="3" fill="#165c45">PAID</text>
+            </g>
+          </g>
+
+          {# Floating coins #}
+          <g class="auth-coin auth-delay-3">
+            <circle cx="70" cy="470" r="23" fill="#eaf5ef" stroke="#1f7a5c" stroke-width="2.5" filter="url(#softShadow)"/>
+            <circle cx="70" cy="470" r="17" fill="none" stroke="#1f7a5c" stroke-width="1" opacity="0.5"/>
+            <text x="70" y="478" text-anchor="middle" font-family="Inter, sans-serif" font-size="20" font-weight="800" fill="#165c45">€</text>
+          </g>
+          <g class="auth-coin auth-delay-1">
+            <circle cx="112" cy="486" r="20" fill="#eaf5ef" stroke="#1f7a5c" stroke-width="2.5" filter="url(#softShadow)"/>
+            <circle cx="112" cy="486" r="14.5" fill="none" stroke="#1f7a5c" stroke-width="1" opacity="0.5"/>
+            <text x="112" y="493" text-anchor="middle" font-family="Inter, sans-serif" font-size="17" font-weight="800" fill="#165c45">€</text>
+          </g>
+          <g class="auth-coin auth-delay-5">
+            <circle cx="96" cy="436" r="18" fill="#eaf5ef" stroke="#1f7a5c" stroke-width="2.5" filter="url(#softShadow)"/>
+            <circle cx="96" cy="436" r="12.5" fill="none" stroke="#1f7a5c" stroke-width="1" opacity="0.5"/>
+            <text x="96" y="442" text-anchor="middle" font-family="Inter, sans-serif" font-size="15" font-weight="800" fill="#165c45">€</text>
+          </g>
+
+          {# Growth bar chart #}
+          <line x1="344" y1="487" x2="458" y2="487" stroke="#ffffff" stroke-width="1.5" opacity="0.25"/>
+          <rect class="auth-bar auth-delay-3" x="348" y="457" width="20" height="30" rx="4" fill="#ffffff" opacity="0.35"/>
+          <rect class="auth-bar auth-delay-4" x="377" y="441" width="20" height="46" rx="4" fill="#5bbd97"/>
+          <rect class="auth-bar auth-delay-5" x="406" y="447" width="20" height="40" rx="4" fill="#ffffff" opacity="0.55"/>
+          <rect class="auth-bar auth-delay-6" x="435" y="419" width="20" height="68" rx="4" fill="#5bbd97"/>
+        </svg>
+      </aside>
+    </main>
+  </body>
+</html>

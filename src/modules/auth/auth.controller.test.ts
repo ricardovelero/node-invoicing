@@ -324,7 +324,7 @@ test("renderLoginRateLimited re-renders the login page with a 429 and a flash er
   assert.equal(next.error, undefined);
   assert.equal(res.statusCode, 429);
   assert.equal(res.renderedView, "pages/auth/login.njk");
-  assert.deepEqual(res.renderedData, { title: "Log in", values: {}, errors: {} });
+  assert.deepEqual(res.renderedData, { title: "Log in to your account", values: {}, errors: {} });
   assert.deepEqual((res.locals.flash as { error: string[] }).error, [
     "Too many attempts. Please wait a moment and try again.",
   ]);
@@ -609,7 +609,7 @@ test("loginUser rejects invalid credentials without creating a session", async (
   assert.equal(res.statusCode, 401);
   assert.equal(res.renderedView, "pages/auth/login.njk");
   assert.deepEqual(res.renderedData, {
-    title: "Log in",
+    title: "Log in to your account",
     values: { email: "ada@example.com" },
     errors: {},
   });
@@ -653,7 +653,7 @@ test("loginUser rejects accounts without an organization membership", async () =
   assert.equal(res.statusCode, 401);
   assert.equal(res.renderedView, "pages/auth/login.njk");
   assert.deepEqual(res.renderedData, {
-    title: "Log in",
+    title: "Log in to your account",
     values: { email: "ada@example.com" },
     errors: {},
   });
