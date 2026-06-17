@@ -90,12 +90,11 @@
     "status": "Estado",
     "invoiceStatus": "Estado de factura",
     "paymentStatus": "Estado de pago",
-    "derivedStatus": "Estado derivado",
+    "overdueOnly": "Solo vencidas",
     "rows": "Filas",
     "allStatuses": "Todos los estados",
     "allInvoiceStatuses": "Todos los estados de factura",
-    "allPaymentStatuses": "Todos los estados de pago",
-    "allDerivedStatuses": "Todos los estados derivados"
+    "allPaymentStatuses": "Todos los estados de pago"
   },
   "table": {
     "number": "Número",

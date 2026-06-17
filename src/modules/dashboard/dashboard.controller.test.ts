@@ -402,12 +402,30 @@ test("getDashboardData scopes queries, groups currencies, and subtracts payments
   );
   assert.equal(data.attentionSections[0].rows[0].id, "usd_overdue");
   assert.equal(data.attentionSections[0].count, 2);
+  assert.deepEqual(data.attentionSections[0].rows[0].statusBadges, [
+    {
+      label: "Partially paid",
+      labelKey: "invoices.paymentStatuses.partially_paid",
+      variant: "warning",
+    },
+  ]);
+  assert.deepEqual(data.attentionSections[0].rows[1].statusBadges, []);
   assert.equal(data.attentionSections[1].rows[0].id, "partial_invoice");
   assert.equal(data.attentionSections[1].count, 1);
+  assert.deepEqual(data.attentionSections[1].rows[0].statusBadges, []);
   assert.equal(data.attentionSections[2].rows[0].id, "draft_invoice");
   assert.equal(data.attentionSections[2].count, 1);
+  assert.deepEqual(data.attentionSections[2].rows[0].statusBadges, []);
   assert.equal(data.attentionSections[3].rows[0].id, "usd_overdue");
   assert.equal(data.attentionSections[3].count, 2);
+  assert.deepEqual(data.attentionSections[3].rows[0].statusBadges, [
+    {
+      label: "Overdue",
+      labelKey: "invoices.statuses.overdue",
+      variant: "danger",
+    },
+  ]);
+  assert.deepEqual(data.attentionSections[3].rows[1].statusBadges, []);
   assert.equal("statusCards" in data, false);
   assert.equal(data.monthlySeries.length, 6);
   assert.ok(data.recentActivity.some((activity) => activity.type === "payment"));

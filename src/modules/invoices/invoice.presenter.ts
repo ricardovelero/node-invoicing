@@ -155,6 +155,8 @@ export const createInvoiceStatusBadge = (status: InvoiceStatus) =>
 export const createInvoicePaymentStatusBadge = (status: PaymentStatus) =>
   paymentStatusBadges[status];
 
+export const createInvoiceOverdueBadge = () => overdueBadge;
+
 export const createInvoiceStatusBadges = (invoice: {
   status: InvoiceStatus;
   paymentStatus: PaymentStatus;
@@ -363,18 +365,6 @@ export const invoiceIndexView = (
           createInvoicePaymentStatusBadge(status).label,
         selected: status === invoiceList.query.paymentStatus,
       })),
-    ],
-    overdueOptions: [
-      {
-        value: '',
-        label: t?.('invoices.filters.allDerivedStatuses') ?? 'All derived statuses',
-        selected: !invoiceList.query.overdue,
-      },
-      {
-        value: 'overdue',
-        label: t?.('invoices.statuses.overdue') ?? overdueBadge.label,
-        selected: invoiceList.query.overdue,
-      },
     ],
     sortLinks: createSortLinks(invoiceList.query),
     pagination: {

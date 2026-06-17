@@ -1,6 +1,9 @@
 import type { InvoiceStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
-import { createInvoiceStatusBadges } from "../invoices/invoice.presenter";
+import {
+  createInvoiceOverdueBadge,
+  createInvoicePaymentStatusBadge,
+} from "../invoices/invoice.presenter";
 import { isInvoiceOverdue } from "../invoices/invoice.service";
 
 type MoneyTotal = {
@@ -87,14 +90,21 @@ const customerNameForInvoice = (
     ? invoice.snapshot.customerName
     : invoice.customer.name;
 
-const createAttentionInvoiceRow = (invoice: InvoiceWithPayments) => ({
+type AttentionBadge = ReturnType<
+  typeof createInvoiceOverdueBadge | typeof createInvoicePaymentStatusBadge
+>;
+
+const createAttentionInvoiceRow = (
+  invoice: InvoiceWithPayments,
+  statusBadges: AttentionBadge[] = [],
+) => ({
   id: invoice.id,
   number: invoice.number,
   customerName: customerNameForInvoice(invoice),
   dueDate: invoice.dueDate,
   status: invoice.status,
-  statusBadge: createInvoiceStatusBadges(invoice)[0],
-  statusBadges: createInvoiceStatusBadges(invoice),
+  statusBadge: statusBadges[0],
+  statusBadges,
   currency: invoice.currency,
   outstandingCents:
     invoice.status === "DRAFT"
@@ -462,19 +472,31 @@ export const getDashboardData = async (
   const overdueInvoices = overdueInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) =>
+      createAttentionInvoiceRow(
+        invoice,
+        invoice.paymentStatus === "PARTIALLY_PAID"
+          ? [createInvoicePaymentStatusBadge("PARTIALLY_PAID")]
+          : [],
+      ),
+    );
   const dueSoonInvoices = dueSoonInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) => createAttentionInvoiceRow(invoice));
   const partiallyPaidInvoices = partiallyPaidInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) =>
+      createAttentionInvoiceRow(
+        invoice,
+        isInvoiceOverdue(invoice, today) ? [createInvoiceOverdueBadge()] : [],
+      ),
+    );
   const draftRows = draftInvoices
     .sort(byCreatedAtDescending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) => createAttentionInvoiceRow(invoice));
 
   const paymentTarget = openInvoices.find(
     (invoice) => outstandingCentsForInvoice(invoice) > 0,

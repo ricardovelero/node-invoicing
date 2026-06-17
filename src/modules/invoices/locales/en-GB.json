@@ -90,12 +90,11 @@
     "status": "Status",
     "invoiceStatus": "Invoice status",
     "paymentStatus": "Payment status",
-    "derivedStatus": "Derived status",
+    "overdueOnly": "Overdue only",
     "rows": "Rows",
     "allStatuses": "All statuses",
     "allInvoiceStatuses": "All invoice statuses",
-    "allPaymentStatuses": "All payment statuses",
-    "allDerivedStatuses": "All derived statuses"
+    "allPaymentStatuses": "All payment statuses"
   },
   "table": {
     "number": "Number",
