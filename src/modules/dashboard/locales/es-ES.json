@@ -14,16 +14,6 @@
     "outstandingBalance": "Saldo pendiente",
     "overdueAmount": "Importe vencido"
   },
-  "statusCards": {
-    "ariaLabel": "Recuento de estados de factura",
-    "draft": "Facturas en borrador",
-    "issued": "Facturas emitidas",
-    "unpaid": "No pagadas",
-    "partiallyPaid": "Parcialmente pagadas",
-    "paid": "Pagadas",
-    "overdue": "Vencidas",
-    "void": "Anuladas"
-  },
   "quickActions": {
     "section": "Atajos",
     "title": "Acciones rápidas",

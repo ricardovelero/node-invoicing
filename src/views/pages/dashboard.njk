@@ -37,15 +37,6 @@
     </div>
   </section>
 
-  <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7" aria-label="{{ t('dashboard.statusCards.ariaLabel') }}">
-    {% for card in statusCards %}
-      <a class="rounded-md border border-line bg-white p-4 transition hover:border-action hover:shadow-sm" href="{{ card.href }}">
-        <span class="block text-sm font-medium text-muted">{{ t(card.labelKey) }}</span>
-        <span class="mt-2 block text-2xl font-semibold text-ink">{{ card.count }}</span>
-      </a>
-    {% endfor %}
-  </section>
-
   <section class="mt-6 card card-body">
     <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -78,7 +69,7 @@
         {% for section in attentionSections %}
           <div class="rounded-md border border-line">
             <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
-              <h3 class="text-sm font-semibold">{{ t(section.titleKey) }}</h3>
+              <h3 class="text-sm font-semibold">{{ t(section.titleKey) }} ({{ section.count }})</h3>
               <a class="text-xs font-medium text-action hover:text-action-dark" href="{{ section.href }}">{{ t('dashboard.actions.view') }}</a>
             </div>
             <div class="divide-y divide-line">

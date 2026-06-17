@@ -246,11 +246,7 @@ export const getDashboardData = async (
 
   const [
     draftInvoiceCount,
-    issuedInvoiceCount,
-    voidInvoiceCount,
-    unpaidInvoiceCount,
     partiallyPaidInvoiceCount,
-    paidInvoiceCount,
     overdueInvoiceCount,
     recentInvoices,
     recentPayments,
@@ -271,30 +267,7 @@ export const getDashboardData = async (
       where: {
         organizationId,
         status: "ISSUED",
-      },
-    }),
-    prisma.invoice.count({
-      where: {
-        organizationId,
-        status: "VOID",
-      },
-    }),
-    prisma.invoice.count({
-      where: {
-        organizationId,
-        paymentStatus: "UNPAID",
-      },
-    }),
-    prisma.invoice.count({
-      where: {
-        organizationId,
         paymentStatus: "PARTIALLY_PAID",
-      },
-    }),
-    prisma.invoice.count({
-      where: {
-        organizationId,
-        paymentStatus: "PAID",
       },
     }),
     prisma.invoice.count({
@@ -463,35 +436,38 @@ export const getDashboardData = async (
     }
   }
 
-  const overdueInvoices = openInvoices
-    .filter((invoice) => isInvoiceOverdue(invoice, today))
+  const overdueInvoiceRows = openInvoices.filter((invoice) =>
+    isInvoiceOverdue(invoice, today),
+  );
+  const dueSoonInvoiceRows = openInvoices.filter((invoice) => {
+    const dueTime = toDateOnlyTime(invoice.dueDate);
+
+    return (
+      !isInvoiceOverdue(invoice, today) &&
+      dueTime >= toDateOnlyTime(today) &&
+      dueTime < toDateOnlyTime(dueSoonEnd)
+    );
+  });
+  const partiallyPaidInvoiceRows = openInvoices.filter((invoice) => {
+    const paidCents = paidCentsForInvoice(invoice);
+    const outstandingCents = outstandingCentsForInvoice(invoice);
+
+    return (
+      invoice.paymentStatus === "PARTIALLY_PAID" &&
+      paidCents > 0 &&
+      outstandingCents > 0
+    );
+  });
+
+  const overdueInvoices = overdueInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
     .map(createAttentionInvoiceRow);
-  const dueSoonInvoices = openInvoices
-    .filter((invoice) => {
-      const dueTime = toDateOnlyTime(invoice.dueDate);
-
-      return (
-        !isInvoiceOverdue(invoice, today) &&
-        dueTime >= toDateOnlyTime(today) &&
-        dueTime < toDateOnlyTime(dueSoonEnd)
-      );
-    })
+  const dueSoonInvoices = dueSoonInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
     .map(createAttentionInvoiceRow);
-  const partiallyPaidInvoices = openInvoices
-    .filter((invoice) => {
-      const paidCents = paidCentsForInvoice(invoice);
-      const outstandingCents = outstandingCentsForInvoice(invoice);
-
-      return (
-        invoice.paymentStatus === "PARTIALLY_PAID" &&
-        paidCents > 0 &&
-        outstandingCents > 0
-      );
-    })
+  const partiallyPaidInvoices = partiallyPaidInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
     .map(createAttentionInvoiceRow);
@@ -598,66 +574,33 @@ export const getDashboardData = async (
         variant: "secondary",
       },
     ],
-    statusCards: [
-      {
-        labelKey: "dashboard.statusCards.draft",
-        count: draftInvoiceCount,
-        href: "/invoices?status=draft",
-      },
-      {
-        labelKey: "dashboard.statusCards.issued",
-        count: issuedInvoiceCount,
-        href: "/invoices?status=issued",
-      },
-      {
-        labelKey: "dashboard.statusCards.unpaid",
-        count: unpaidInvoiceCount,
-        href: "/invoices?paymentStatus=unpaid",
-      },
-      {
-        labelKey: "dashboard.statusCards.partiallyPaid",
-        count: partiallyPaidInvoiceCount,
-        href: "/invoices?paymentStatus=partially_paid",
-      },
-      {
-        labelKey: "dashboard.statusCards.paid",
-        count: paidInvoiceCount,
-        href: "/invoices?paymentStatus=paid",
-      },
-      {
-        labelKey: "dashboard.statusCards.overdue",
-        count: overdueInvoiceCount,
-        href: "/invoices?overdue=overdue",
-      },
-      {
-        labelKey: "dashboard.statusCards.void",
-        count: voidInvoiceCount,
-        href: "/invoices?status=void",
-      },
-    ],
     attentionSections: [
       {
         titleKey: "dashboard.attention.overdue.title",
         emptyMessageKey: "dashboard.attention.overdue.empty",
         href: "/invoices?overdue=overdue",
+        count: overdueInvoiceCount,
         rows: overdueInvoices,
       },
       {
         titleKey: "dashboard.attention.dueSoon.title",
         emptyMessageKey: "dashboard.attention.dueSoon.empty",
         href: "/invoices?status=issued&paymentStatus=unpaid",
+        count: dueSoonInvoiceRows.length,
         rows: dueSoonInvoices,
       },
       {
         titleKey: "dashboard.attention.drafts.title",
         emptyMessageKey: "dashboard.attention.drafts.empty",
         href: "/invoices?status=draft",
+        count: draftInvoiceCount,
         rows: draftRows,
       },
       {
         titleKey: "dashboard.attention.partiallyPaid.title",
         emptyMessageKey: "dashboard.attention.partiallyPaid.empty",
         href: "/invoices?paymentStatus=partially_paid",
+        count: partiallyPaidInvoiceCount,
         rows: partiallyPaidInvoices,
       },
     ],

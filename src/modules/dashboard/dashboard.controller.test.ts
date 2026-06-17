@@ -116,12 +116,12 @@ const createMockDashboardQueries = () => {
       return 1;
     }
 
-    if (where.status === "ISSUED") {
-      return 4;
+    if (where.status === "ISSUED" && paymentStatus === "PARTIALLY_PAID") {
+      return 2;
     }
 
-    if (where.status === "VOID") {
-      return 1;
+    if (where.status === "ISSUED") {
+      return 4;
     }
 
     if (paymentStatus === "UNPAID") {
@@ -332,6 +332,7 @@ test("renderDashboard exposes practical dashboard sections", async () => {
   assert.ok(res.renderedData?.attentionSections);
   assert.ok(res.renderedData?.monthlySeries);
   assert.ok(res.renderedData?.recentActivity);
+  assert.equal("statusCards" in res.renderedData!, false);
 });
 
 test("getDashboardData scopes queries, groups currencies, and subtracts payments", async () => {
@@ -400,9 +401,14 @@ test("getDashboardData scopes queries, groups currencies, and subtracts payments
     "dashboard.attention.overdue.title",
   );
   assert.equal(data.attentionSections[0].rows[0].id, "usd_overdue");
+  assert.equal(data.attentionSections[0].count, 2);
   assert.equal(data.attentionSections[1].rows[0].id, "partial_invoice");
+  assert.equal(data.attentionSections[1].count, 1);
   assert.equal(data.attentionSections[2].rows[0].id, "draft_invoice");
+  assert.equal(data.attentionSections[2].count, 1);
   assert.equal(data.attentionSections[3].rows[0].id, "usd_overdue");
+  assert.equal(data.attentionSections[3].count, 2);
+  assert.equal("statusCards" in data, false);
   assert.equal(data.monthlySeries.length, 6);
   assert.ok(data.recentActivity.some((activity) => activity.type === "payment"));
 });
