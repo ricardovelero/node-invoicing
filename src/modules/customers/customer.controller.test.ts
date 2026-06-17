@@ -118,7 +118,8 @@ test("showCustomer renders customer invoice and payment history", async () => {
       {
         id: "invoice_1",
         number: "INV-2026-0001",
-        status: "SENT",
+        status: "ISSUED",
+        paymentStatus: "PAID",
         dueDate: new Date("2026-06-29T00:00:00.000Z"),
         totalCents: 10000,
         currency: "EUR",
@@ -127,7 +128,8 @@ test("showCustomer renders customer invoice and payment history", async () => {
       {
         id: "invoice_2",
         number: "INV-2026-0002",
-        status: "PAID",
+        status: "ISSUED",
+        paymentStatus: "PAID",
         dueDate: new Date("2026-06-30T00:00:00.000Z"),
         totalCents: 15000,
         currency: "EUR",
@@ -149,29 +151,39 @@ test("showCustomer renders customer invoice and payment history", async () => {
       {
         ...customer.invoices[0],
         statusBadge: {
-          label: "Sent",
-          labelKey: "invoices.statuses.sent",
+          label: "Issued",
+          labelKey: "invoices.statuses.issued",
           variant: "info",
         },
         statusBadges: [
           {
-            label: "Sent",
-            labelKey: "invoices.statuses.sent",
+            label: "Issued",
+            labelKey: "invoices.statuses.issued",
             variant: "info",
+          },
+          {
+            label: "Paid",
+            labelKey: "invoices.paymentStatuses.paid",
+            variant: "success",
           },
         ],
       },
       {
         ...customer.invoices[1],
         statusBadge: {
-          label: "Paid",
-          labelKey: "invoices.statuses.paid",
-          variant: "success",
+          label: "Issued",
+          labelKey: "invoices.statuses.issued",
+          variant: "info",
         },
         statusBadges: [
           {
+            label: "Issued",
+            labelKey: "invoices.statuses.issued",
+            variant: "info",
+          },
+          {
             label: "Paid",
-            labelKey: "invoices.statuses.paid",
+            labelKey: "invoices.paymentStatuses.paid",
             variant: "success",
           },
         ],

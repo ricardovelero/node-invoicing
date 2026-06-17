@@ -16,8 +16,7 @@
     "sendEmail": "Enviar factura por correo",
     "downloadPdf": "Descargar PDF",
     "print": "Imprimir factura",
-    "markSent": "Marcar como enviada",
-    "markOverdue": "Marcar como vencida",
+    "issueInvoice": "Emitir factura",
     "voidInvoice": "Anular factura",
     "recordPayment": "Registrar pago",
     "retry": "Reintentar",
@@ -89,8 +88,14 @@
     "search": "Buscar",
     "searchPlaceholder": "Número de factura o cliente",
     "status": "Estado",
+    "invoiceStatus": "Estado de factura",
+    "paymentStatus": "Estado de pago",
+    "derivedStatus": "Estado derivado",
     "rows": "Filas",
-    "allStatuses": "Todos los estados"
+    "allStatuses": "Todos los estados",
+    "allInvoiceStatuses": "Todos los estados de factura",
+    "allPaymentStatuses": "Todos los estados de pago",
+    "allDerivedStatuses": "Todos los estados derivados"
   },
   "table": {
     "number": "Número",
@@ -114,11 +119,14 @@
   },
   "statuses": {
     "draft": "Borrador",
-    "sent": "Enviada",
-    "partially_paid": "Parcialmente pagada",
-    "paid": "Pagada",
+    "issued": "Emitida",
     "overdue": "Vencida",
     "void": "Anulada"
+  },
+  "paymentStatuses": {
+    "unpaid": "No pagada",
+    "partially_paid": "Parcialmente pagada",
+    "paid": "Pagada"
   },
   "emailStatuses": {
     "pending": "Pendiente",
@@ -176,7 +184,7 @@
   "flash": {
     "created": "Factura creada.",
     "updated": "Factura actualizada.",
-    "savedAndSent": "Factura guardada y enviada al correo del cliente.",
+    "savedAndSent": "Factura emitida y enviada al correo del cliente.",
     "statusUpdated": "Estado de la factura actualizado.",
     "detailsUpdated": "Detalles de la factura actualizados.",
     "paymentRecorded": "Pago registrado."
@@ -187,8 +195,8 @@
     "missingBillingEmail": "Añade un correo de facturación en los ajustes de la organización antes de enviar facturas por correo.",
     "emailProviderFailure": "No se pudo enviar el correo de la factura: {message}",
     "emailSendFailed": "No se pudo enviar el correo de la factura.",
-    "markSentBeforePrinting": "Marca la factura como enviada antes de imprimirla.",
-    "markSentBeforePdf": "Marca la factura como enviada antes de descargar un PDF.",
+    "issueBeforePrinting": "Emite la factura antes de imprimirla.",
+    "issueBeforePdf": "Emite la factura antes de descargar un PDF.",
     "invalidStatusAction": "Elige una acción de estado de factura válida.",
     "statusChangeNotAllowed": "Ese cambio de estado no está permitido para esta factura.",
     "snapshotRequiredForPaymentInstructions": "Las instrucciones de pago solo pueden editarse cuando ya existe la instantánea de la factura.",

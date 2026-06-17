@@ -346,19 +346,11 @@
         {% endif %}
         {% if allowedActions.length %}
           <div class="{{ 'mt-3' if invoiceDisplay.isPrintable or canEditInvoice else 'mt-4' }} space-y-3">
-            {% if 'send' in allowedActions %}
+            {% if 'issue' in allowedActions %}
               <form method="post" action="/invoices/{{ invoice.id }}/status">
                 <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                <input type="hidden" name="action" value="send">
-                <button class="btn btn-full btn-secondary" type="submit">{{ t('invoices.actions.markSent') }}</button>
-              </form>
-            {% endif %}
-
-            {% if 'markOverdue' in allowedActions %}
-              <form method="post" action="/invoices/{{ invoice.id }}/status">
-                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                <input type="hidden" name="action" value="markOverdue">
-                <button class="btn btn-full btn-secondary" type="submit">{{ t('invoices.actions.markOverdue') }}</button>
+                <input type="hidden" name="action" value="issue">
+                <button class="btn btn-full btn-secondary" type="submit">{{ t('invoices.actions.issueInvoice') }}</button>
               </form>
             {% endif %}
 

@@ -21,6 +21,7 @@ const otherOrganizationId = "66e224e7-cd7a-4ea8-b095-78022090af69";
 
 const prismaMock = prisma as unknown as {
   invoice: {
+    count: unknown;
     findMany: unknown;
   };
   payment: {
@@ -31,6 +32,7 @@ const prismaMock = prisma as unknown as {
   };
 };
 
+const originalInvoiceCount = prismaMock.invoice.count;
 const originalInvoiceFindMany = prismaMock.invoice.findMany;
 const originalPaymentFindMany = prismaMock.payment.findMany;
 const originalInvoiceEmailDeliveryFindMany =
@@ -40,6 +42,7 @@ const t = createTranslator("en-GB", loadTranslations(), {
 });
 
 afterEach(() => {
+  prismaMock.invoice.count = originalInvoiceCount;
   prismaMock.invoice.findMany = originalInvoiceFindMany;
   prismaMock.payment.findMany = originalPaymentFindMany;
   prismaMock.invoiceEmailDelivery.findMany =
@@ -94,9 +97,47 @@ const invoiceBase = {
 };
 
 const createMockDashboardQueries = () => {
+  const invoiceCountArgs: unknown[] = [];
   const invoiceFindManyArgs: unknown[] = [];
   const paymentFindManyArgs: unknown[] = [];
   const deliveryFindManyArgs: unknown[] = [];
+
+  prismaMock.invoice.count = async (args: Record<string, unknown>) => {
+    invoiceCountArgs.push(args);
+
+    const where = args.where as Record<string, unknown>;
+    const paymentStatus = where.paymentStatus;
+
+    if ("dueDate" in where) {
+      return 2;
+    }
+
+    if (where.status === "DRAFT") {
+      return 1;
+    }
+
+    if (where.status === "ISSUED") {
+      return 4;
+    }
+
+    if (where.status === "VOID") {
+      return 1;
+    }
+
+    if (paymentStatus === "UNPAID") {
+      return 3;
+    }
+
+    if (paymentStatus === "PARTIALLY_PAID") {
+      return 2;
+    }
+
+    if (paymentStatus === "PAID") {
+      return 1;
+    }
+
+    return 0;
+  };
 
   prismaMock.invoice.findMany = async (args: Record<string, unknown>) => {
     invoiceFindManyArgs.push(args);
@@ -123,14 +164,16 @@ const createMockDashboardQueries = () => {
 
     const where = args.where as Record<string, unknown>;
     const status = where.status;
+    const paymentStatus = where.paymentStatus;
 
-    if (typeof status === "object" && status && "in" in status) {
+    if (status === "ISSUED" && typeof paymentStatus === "object") {
       return [
         {
           ...invoiceBase,
           id: "overdue_effective",
           number: "INV-2026-0001",
-          status: "SENT",
+          status: "ISSUED",
+          paymentStatus: "UNPAID",
           dueDate: new Date("2026-06-01T00:00:00.000Z"),
           totalCents: 10000,
           currency: "EUR",
@@ -140,7 +183,8 @@ const createMockDashboardQueries = () => {
           ...invoiceBase,
           id: "partial_invoice",
           number: "INV-2026-0002",
-          status: "PARTIALLY_PAID",
+          status: "ISSUED",
+          paymentStatus: "PARTIALLY_PAID",
           dueDate: new Date("2026-06-12T00:00:00.000Z"),
           totalCents: 15000,
           currency: "EUR",
@@ -150,7 +194,8 @@ const createMockDashboardQueries = () => {
           ...invoiceBase,
           id: "usd_overdue",
           number: "INV-2026-0003",
-          status: "OVERDUE",
+          status: "ISSUED",
+          paymentStatus: "PARTIALLY_PAID",
           dueDate: new Date("2026-05-20T00:00:00.000Z"),
           totalCents: 20000,
           currency: "USD",
@@ -167,6 +212,7 @@ const createMockDashboardQueries = () => {
           id: "draft_invoice",
           number: "INV-2026-0004",
           status: "DRAFT",
+          paymentStatus: "UNPAID",
           dueDate: new Date("2026-06-20T00:00:00.000Z"),
           createdAt: new Date("2026-06-08T00:00:00.000Z"),
           totalCents: 9000,
@@ -183,6 +229,7 @@ const createMockDashboardQueries = () => {
           id: "void_invoice",
           number: "INV-2026-0005",
           status: "VOID",
+          paymentStatus: "UNPAID",
           updatedAt: new Date("2026-06-07T00:00:00.000Z"),
           totalCents: 11000,
           currency: "EUR",
@@ -196,7 +243,8 @@ const createMockDashboardQueries = () => {
         snapshot: null,
         id: "created_invoice",
         number: "INV-2026-0006",
-        status: "SENT",
+        status: "ISSUED",
+        paymentStatus: "UNPAID",
         createdAt: new Date("2026-06-06T00:00:00.000Z"),
         totalCents: 13000,
         currency: "EUR",
@@ -231,7 +279,8 @@ const createMockDashboardQueries = () => {
           snapshot: null,
           id: "payment_invoice",
           number: "INV-2026-0007",
-          status: "PARTIALLY_PAID",
+          status: "ISSUED",
+          paymentStatus: "PARTIALLY_PAID",
           totalCents: 16000,
           currency: "EUR",
         },
@@ -253,7 +302,8 @@ const createMockDashboardQueries = () => {
           snapshot: null,
           id: "sent_invoice",
           number: "INV-2026-0008",
-          status: "SENT",
+          status: "ISSUED",
+          paymentStatus: "UNPAID",
           totalCents: 17000,
           currency: "EUR",
         },
@@ -261,7 +311,12 @@ const createMockDashboardQueries = () => {
     ];
   };
 
-  return { invoiceFindManyArgs, paymentFindManyArgs, deliveryFindManyArgs };
+  return {
+    invoiceCountArgs,
+    invoiceFindManyArgs,
+    paymentFindManyArgs,
+    deliveryFindManyArgs,
+  };
 };
 
 test("renderDashboard exposes practical dashboard sections", async () => {
@@ -280,8 +335,12 @@ test("renderDashboard exposes practical dashboard sections", async () => {
 });
 
 test("getDashboardData scopes queries, groups currencies, and subtracts payments", async () => {
-  const { invoiceFindManyArgs, paymentFindManyArgs, deliveryFindManyArgs } =
-    createMockDashboardQueries();
+  const {
+    invoiceCountArgs,
+    invoiceFindManyArgs,
+    paymentFindManyArgs,
+    deliveryFindManyArgs,
+  } = createMockDashboardQueries();
 
   const data = await getDashboardData(
     organizationId,
@@ -289,6 +348,12 @@ test("getDashboardData scopes queries, groups currencies, and subtracts payments
     "en-GB",
     new Date("2026-06-08T12:00:00.000Z"),
   );
+
+  for (const args of invoiceCountArgs) {
+    const where = (args as { where: Record<string, unknown> }).where;
+    assert.equal(where.organizationId, organizationId);
+    assert.notEqual(where.organizationId, otherOrganizationId);
+  }
 
   for (const args of invoiceFindManyArgs) {
     const where = (args as { where: Record<string, unknown> }).where;
@@ -337,11 +402,13 @@ test("getDashboardData scopes queries, groups currencies, and subtracts payments
   assert.equal(data.attentionSections[0].rows[0].id, "usd_overdue");
   assert.equal(data.attentionSections[1].rows[0].id, "partial_invoice");
   assert.equal(data.attentionSections[2].rows[0].id, "draft_invoice");
+  assert.equal(data.attentionSections[3].rows[0].id, "usd_overdue");
   assert.equal(data.monthlySeries.length, 6);
   assert.ok(data.recentActivity.some((activity) => activity.type === "payment"));
 });
 
 test("getDashboardData falls back to organization currency for empty totals", async () => {
+  prismaMock.invoice.count = async () => 0;
   prismaMock.invoice.findMany = async () => [];
   prismaMock.payment.findMany = async () => [];
   prismaMock.invoiceEmailDelivery.findMany = async () => [];

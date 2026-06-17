@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import type { InvoiceStatus } from "@prisma/client";
+import type { InvoiceStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import {
+  calculateInvoicePaymentStatus,
   calculateInvoicePaymentSummary,
+  createIssuedInvoiceRecord,
   createInvoiceRecord,
-  createSentInvoiceRecord,
   getAllowedInvoiceStatusActions,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
-  markOverdueInvoices,
+  isInvoiceOverdue,
   recordInvoicePayment,
+  recalculateInvoicePaymentStatus,
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
   updateInvoiceStatus,
@@ -63,7 +65,7 @@ type InvoiceCreateTransactionMock = {
   };
 };
 
-type SentInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
+type IssuedInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
   organization: {
     findFirst: (args: unknown) => Promise<unknown>;
   };
@@ -228,6 +230,8 @@ test("createInvoiceRecord creates multiple lines and sums invoice totals", async
   assert.deepEqual(createdInvoiceData, {
     organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     number: `INV-${year}-0001`,
+    status: "DRAFT",
+    paymentStatus: "UNPAID",
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     issueDate,
     dueDate,
@@ -397,7 +401,7 @@ test("createInvoiceRecord ignores withholding input for organizations that canno
   assert.equal((createdInvoiceData as { totalCents: number }).totalCents, 121000);
 });
 
-test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", async () => {
+test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a snapshot", async () => {
   let createdInvoiceData: unknown;
   let createdInvoiceInclude: unknown;
   let snapshotCreateArgs: unknown;
@@ -437,7 +441,7 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
   };
 
   prismaMock.$transaction = async (
-    callback: (tx: SentInvoiceCreateTransactionMock) => Promise<unknown>,
+    callback: (tx: IssuedInvoiceCreateTransactionMock) => Promise<unknown>,
   ) =>
     callback({
       $queryRaw: async (_strings, organizationId) => {
@@ -471,7 +475,7 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
       },
     });
 
-  const result = await createSentInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
+  const result = await createIssuedInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     currency: "EUR",
     issueDate,
@@ -522,7 +526,8 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
   assert.deepEqual(createdInvoiceData, {
     organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     number: `INV-${year}-0003`,
-    status: "SENT",
+    status: "ISSUED",
+    paymentStatus: "UNPAID",
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     issueDate,
     dueDate,
@@ -605,7 +610,7 @@ test("createSentInvoiceRecord creates a sent invoice and captures a snapshot", a
   });
 });
 
-test("createSentInvoiceRecord rejects send preconditions before creating invoices", async () => {
+test("createIssuedInvoiceRecord rejects email preconditions before creating invoices", async () => {
   const form = {
     customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
     currency: "EUR" as const,
@@ -657,7 +662,7 @@ test("createSentInvoiceRecord rejects send preconditions before creating invoice
     let snapshotCreateCalls = 0;
 
     prismaMock.$transaction = async (
-      callback: (tx: SentInvoiceCreateTransactionMock) => Promise<unknown>,
+      callback: (tx: IssuedInvoiceCreateTransactionMock) => Promise<unknown>,
     ) =>
       callback({
         $queryRaw: async () => {
@@ -689,7 +694,7 @@ test("createSentInvoiceRecord rejects send preconditions before creating invoice
         },
       });
 
-    const result = await createSentInvoiceRecord(
+    const result = await createIssuedInvoiceRecord(
       "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
       form,
     );
@@ -908,7 +913,7 @@ test("updateDraftInvoiceRecord rejects missing, non-draft, and invalid customer 
     },
     {
       name: "non-draft invoice",
-      invoice: { id: "invoice_1", status: "SENT" },
+      invoice: { id: "invoice_1", status: "ISSUED" },
       customer: { id: "customer_1" },
       expected: { ok: false, reason: "notEditable" },
       expectedCustomerLookups: 0,
@@ -1116,7 +1121,7 @@ test("updateInvoiceMetadata updates draft invoice payment instructions only", as
   assert.equal(snapshotUpdateCalls, 0);
 });
 
-test("updateInvoiceMetadata updates sent invoice snapshot payment instructions only", async () => {
+test("updateInvoiceMetadata updates issued invoice snapshot payment instructions only", async () => {
   let invoiceUpdateArgs: unknown;
   let snapshotUpdateArgs: unknown;
   prismaMock.$transaction = async (
@@ -1127,7 +1132,7 @@ test("updateInvoiceMetadata updates sent invoice snapshot payment instructions o
         async findFirst() {
           return {
             id: "invoice_1",
-            status: "SENT",
+            status: "ISSUED",
             snapshot: { invoiceId: "invoice_1" },
           };
         },
@@ -1170,7 +1175,7 @@ test("updateInvoiceMetadata allows note-only updates for issued invoices without
     callback({
       invoice: {
         async findFirst() {
-          return { id: "invoice_1", status: "SENT", snapshot: null };
+          return { id: "invoice_1", status: "ISSUED", snapshot: null };
         },
         async update(args) {
           invoiceUpdateArgs = args;
@@ -1211,7 +1216,7 @@ test("updateInvoiceMetadata rejects missing invoices and issued invoices without
     },
     {
       name: "issued invoice without snapshot",
-      invoice: { id: "invoice_1", status: "SENT", snapshot: null },
+      invoice: { id: "invoice_1", status: "ISSUED", snapshot: null },
       expected: { ok: false, reason: "missingSnapshot" },
     },
   ];
@@ -1328,29 +1333,18 @@ const mockStatusTransaction = ({
 
 const invoiceStatuses: InvoiceStatus[] = [
   "DRAFT",
-  "SENT",
-  "PARTIALLY_PAID",
-  "OVERDUE",
-  "PAID",
+  "ISSUED",
   "VOID",
 ];
-const statusActions = ["send", "markOverdue", "void"] as const;
+const statusActions = ["issue", "void"] as const;
 const validStatusTransitions: Partial<
   Record<InvoiceStatus, Partial<Record<(typeof statusActions)[number], InvoiceStatus>>>
 > = {
   DRAFT: {
-    send: "SENT",
+    issue: "ISSUED",
     void: "VOID",
   },
-  SENT: {
-    markOverdue: "OVERDUE",
-    void: "VOID",
-  },
-  PARTIALLY_PAID: {
-    markOverdue: "OVERDUE",
-    void: "VOID",
-  },
-  OVERDUE: {
+  ISSUED: {
     void: "VOID",
   },
 };
@@ -1361,11 +1355,8 @@ test("getAllowedInvoiceStatusActions returns the full status action matrix", () 
       invoiceStatuses.map((status) => [status, getAllowedInvoiceStatusActions(status)]),
     ),
     {
-      DRAFT: ["send", "void"],
-      SENT: ["markOverdue", "void"],
-      PARTIALLY_PAID: ["markOverdue", "void"],
-      OVERDUE: ["void"],
-      PAID: [],
+      DRAFT: ["issue", "void"],
+      ISSUED: ["void"],
       VOID: [],
     },
   );
@@ -1417,7 +1408,7 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
         },
         `${status} ${action}`,
       );
-      assert.equal(snapshotCreateCalls, status === "DRAFT" && action === "send" ? 1 : 0);
+      assert.equal(snapshotCreateCalls, status === "DRAFT" && action === "issue" ? 1 : 0);
     }
   }
 });
@@ -1447,7 +1438,7 @@ test("updateInvoiceStatus rejects impossible status actions without updating", a
   assert.equal(snapshotCreateCalls, 0);
 });
 
-test("updateInvoiceStatus captures a snapshot and sends draft invoices in one transaction", async () => {
+test("updateInvoiceStatus captures a snapshot and issues draft invoices in one transaction", async () => {
   let findFirstArgs: unknown;
   let updateArgs: unknown;
   let snapshotCreateArgs: unknown;
@@ -1468,10 +1459,10 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "send" },
+    { action: "issue" },
   );
 
-  assert.deepEqual(result, { ok: true, status: "SENT" });
+  assert.deepEqual(result, { ok: true, status: "ISSUED" });
   assert.deepEqual(findFirstArgs, {
     where: {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
@@ -1542,7 +1533,7 @@ test("updateInvoiceStatus captures a snapshot and sends draft invoices in one tr
   });
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
-    data: { status: "SENT" },
+    data: { status: "ISSUED" },
   });
 });
 
@@ -1566,18 +1557,18 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "send" },
+    { action: "issue" },
   );
 
-  assert.deepEqual(result, { ok: true, status: "SENT" });
+  assert.deepEqual(result, { ok: true, status: "ISSUED" });
   assert.equal(snapshotCreateCalls, 0);
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
-    data: { status: "SENT" },
+    data: { status: "ISSUED" },
   });
 });
 
-test("updateInvoiceStatus allows missing optional billing fields when sending invoices", async () => {
+test("updateInvoiceStatus allows missing optional billing fields when issuing invoices", async () => {
   let snapshotCreateArgs: unknown;
 
   mockStatusTransaction({
@@ -1610,7 +1601,7 @@ test("updateInvoiceStatus allows missing optional billing fields when sending in
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "send" },
+    { action: "issue" },
   );
 
   assert.equal(result.ok, true);
@@ -1648,7 +1639,7 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
   mockStatusTransaction({
     invoice: {
       ...invoiceForStatusUpdate,
-      status: "SENT",
+      status: "ISSUED",
       snapshot: { invoiceId: "invoice_1" },
     },
     onInvoiceUpdate: (args) => {
@@ -1662,14 +1653,14 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "markOverdue" },
+    { action: "void" },
   );
 
-  assert.deepEqual(result, { ok: true, status: "OVERDUE" });
+  assert.deepEqual(result, { ok: true, status: "VOID" });
   assert.equal(snapshotCreateCalls, 0);
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
-    data: { status: "OVERDUE" },
+    data: { status: "VOID" },
   });
 });
 
@@ -1690,7 +1681,7 @@ test("updateInvoiceStatus rejects missing invoices", async () => {
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "send" },
+    { action: "issue" },
   );
 
   assert.deepEqual(result, { ok: false, reason: "notFound" });
@@ -1705,7 +1696,7 @@ test("updateInvoiceStatus rejects invalid and terminal transitions without snaps
   mockStatusTransaction({
     invoice: {
       ...invoiceForStatusUpdate,
-      status: "PAID",
+      status: "VOID",
     },
     onInvoiceUpdate: () => {
       updateCalls += 1;
@@ -1744,6 +1735,8 @@ test("getInvoices applies scoped pagination and default sorting", async () => {
     limit: 20,
     q: "",
     status: undefined,
+    paymentStatus: undefined,
+    overdue: false,
     sort: "createdAt",
     direction: "desc",
   });
@@ -1770,7 +1763,7 @@ test("getInvoices applies scoped pagination and default sorting", async () => {
   });
 });
 
-test("getInvoices composes search and status filters under the current organization", async () => {
+test("getInvoices composes search, invoice status, and payment status filters", async () => {
   let countArgs: unknown;
   let findManyArgs: unknown;
 
@@ -1787,14 +1780,17 @@ test("getInvoices composes search and status filters under the current organizat
     page: 1,
     limit: 10,
     q: "acme",
-    status: "PAID",
+    status: "ISSUED",
+    paymentStatus: "PAID",
+    overdue: false,
     sort: "dueDate",
     direction: "asc",
   });
 
   const expectedWhere = {
     organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-    status: "PAID",
+    status: "ISSUED",
+    paymentStatus: "PAID",
     OR: [
       { number: { contains: "acme", mode: "insensitive" } },
       {
@@ -1831,45 +1827,21 @@ test("getInvoices composes search and status filters under the current organizat
   });
 });
 
-test("getInvoices filters partially paid invoices by payment state", async () => {
-  const invoiceFindManyArgs: unknown[] = [];
+test("getInvoices filters partially paid invoices by persisted payment status", async () => {
+  let countArgs: unknown;
+  let findManyArgs: unknown;
 
   prismaMock.invoice.count = async (args: unknown) => {
-    assert.deepEqual(args, {
-      where: {
-        organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-        id: { in: ["partially_paid_overdue"] },
-      },
-    });
+    countArgs = args;
     return 1;
   };
   prismaMock.invoice.findMany = async (args: unknown) => {
-    invoiceFindManyArgs.push(args);
-
-    if (invoiceFindManyArgs.length === 1) {
-      return [
-        {
-          id: "partially_paid_overdue",
-          totalCents: 10000,
-          payments: [{ amountCents: 3000 }],
-        },
-        {
-          id: "unpaid_overdue",
-          totalCents: 10000,
-          payments: [],
-        },
-        {
-          id: "fully_paid_sent",
-          totalCents: 10000,
-          payments: [{ amountCents: 10000 }],
-        },
-      ];
-    }
-
+    findManyArgs = args;
     return [
       {
-        id: "partially_paid_overdue",
-        status: "OVERDUE",
+        id: "partially_paid",
+        status: "ISSUED",
+        paymentStatus: "PARTIALLY_PAID",
         totalCents: 10000,
         payments: [{ amountCents: 3000 }],
       },
@@ -1880,33 +1852,23 @@ test("getInvoices filters partially paid invoices by payment state", async () =>
     page: 1,
     limit: 10,
     q: "",
-    status: "PARTIALLY_PAID",
+    status: undefined,
+    paymentStatus: "PARTIALLY_PAID",
+    overdue: false,
     sort: "dueDate",
     direction: "asc",
   });
 
-  assert.deepEqual(invoiceFindManyArgs[0], {
-    where: {
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      status: {
-        in: ["SENT", "PARTIALLY_PAID", "OVERDUE"],
-      },
-    },
-    select: {
-      id: true,
-      totalCents: true,
-      payments: {
-        select: {
-          amountCents: true,
-        },
-      },
-    },
+  const expectedWhere = {
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    paymentStatus: "PARTIALLY_PAID",
+  };
+
+  assert.deepEqual(countArgs, {
+    where: expectedWhere,
   });
-  assert.deepEqual(invoiceFindManyArgs[1], {
-    where: {
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      id: { in: ["partially_paid_overdue"] },
-    },
+  assert.deepEqual(findManyArgs, {
+    where: expectedWhere,
     include: { customer: true, snapshot: true, payments: true },
     orderBy: { dueDate: "asc" },
     skip: 0,
@@ -1914,8 +1876,9 @@ test("getInvoices filters partially paid invoices by payment state", async () =>
   });
   assert.deepEqual(result.invoices, [
     {
-      id: "partially_paid_overdue",
-      status: "OVERDUE",
+      id: "partially_paid",
+      status: "ISSUED",
+      paymentStatus: "PARTIALLY_PAID",
       totalCents: 10000,
       payments: [{ amountCents: 3000 }],
     },
@@ -1923,78 +1886,18 @@ test("getInvoices filters partially paid invoices by payment state", async () =>
   assert.equal(result.totalCount, 1);
 });
 
-test("getInvoices filters overdue invoices by due date and outstanding balance", async () => {
+test("getInvoices filters overdue invoices by derived due date and payment state", async () => {
   const now = new Date(2026, 5, 15);
-  const pastDue = new Date(2026, 5, 1);
-  const futureDue = new Date(2026, 5, 20);
-  const invoiceFindManyArgs: unknown[] = [];
+  let countArgs: unknown;
+  let findManyArgs: unknown;
 
   prismaMock.invoice.count = async (args: unknown) => {
-    assert.deepEqual(args, {
-      where: {
-        organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-        id: { in: ["overdue_unpaid_sent", "overdue_partial"] },
-      },
-    });
+    countArgs = args;
     return 2;
   };
   prismaMock.invoice.findMany = async (args: unknown) => {
-    invoiceFindManyArgs.push(args);
-
-    if (invoiceFindManyArgs.length === 1) {
-      return [
-        // Past due, never marked OVERDUE, no payments. The old stored-status
-        // filter missed this; it is the core of the reported bug.
-        {
-          id: "overdue_unpaid_sent",
-          status: "SENT",
-          dueDate: pastDue,
-          totalCents: 10000,
-          payments: [],
-        },
-        // Past due with a partial payment — still owes money, so overdue.
-        {
-          id: "overdue_partial",
-          status: "OVERDUE",
-          dueDate: pastDue,
-          totalCents: 10000,
-          payments: [{ amountCents: 3000 }],
-        },
-        // Past due but fully paid (no balance) — excluded.
-        {
-          id: "settled_no_balance",
-          status: "OVERDUE",
-          dueDate: pastDue,
-          totalCents: 10000,
-          payments: [{ amountCents: 10000 }],
-        },
-        // Not past due — excluded even though it has a balance.
-        {
-          id: "future_partial",
-          status: "PARTIALLY_PAID",
-          dueDate: futureDue,
-          totalCents: 10000,
-          payments: [{ amountCents: 3000 }],
-        },
-      ];
-    }
-
-    return [
-      {
-        id: "overdue_unpaid_sent",
-        status: "SENT",
-        dueDate: pastDue,
-        totalCents: 10000,
-        payments: [],
-      },
-      {
-        id: "overdue_partial",
-        status: "OVERDUE",
-        dueDate: pastDue,
-        totalCents: 10000,
-        payments: [{ amountCents: 3000 }],
-      },
-    ];
+    findManyArgs = args;
+    return [];
   };
 
   const result = await getInvoices(
@@ -2003,67 +1906,39 @@ test("getInvoices filters overdue invoices by due date and outstanding balance",
       page: 1,
       limit: 10,
       q: "",
-      status: "OVERDUE",
+      status: undefined,
+      paymentStatus: undefined,
+      overdue: true,
       sort: "dueDate",
       direction: "asc",
     },
     now,
   );
 
-  assert.deepEqual(invoiceFindManyArgs[0], {
-    where: {
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      status: {
-        in: ["SENT", "PARTIALLY_PAID", "OVERDUE"],
+  const expectedWhere = {
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    AND: [
+      {
+        status: "ISSUED",
+        paymentStatus: { not: "PAID" },
+        dueDate: { lt: new Date(2026, 5, 15) },
       },
-    },
-    select: {
-      id: true,
-      dueDate: true,
-      totalCents: true,
-      payments: {
-        select: {
-          amountCents: true,
-        },
-      },
-    },
+    ],
+  };
+
+  assert.deepEqual(countArgs, {
+    where: expectedWhere,
   });
-  assert.deepEqual(invoiceFindManyArgs[1], {
+  assert.deepEqual(findManyArgs, {
     where: {
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      id: { in: ["overdue_unpaid_sent", "overdue_partial"] },
+      ...expectedWhere,
     },
     include: { customer: true, snapshot: true, payments: true },
     orderBy: { dueDate: "asc" },
     skip: 0,
     take: 10,
   });
-  assert.deepEqual(
-    result.invoices.map((invoice) => invoice.id),
-    ["overdue_unpaid_sent", "overdue_partial"],
-  );
   assert.equal(result.totalCount, 2);
-});
-
-test("markOverdueInvoices flips past-due open invoices via a single bulk update", async () => {
-  const now = new Date(2026, 5, 15);
-  let updateManyArgs: unknown;
-
-  prismaMock.invoice.updateMany = async (args: unknown) => {
-    updateManyArgs = args;
-    return { count: 3 };
-  };
-
-  const count = await markOverdueInvoices(now);
-
-  assert.deepEqual(updateManyArgs, {
-    where: {
-      status: { in: ["SENT", "PARTIALLY_PAID"] },
-      dueDate: { lt: new Date(2026, 5, 15) },
-    },
-    data: { status: "OVERDUE" },
-  });
-  assert.equal(count, 3);
 });
 
 test("calculateInvoicePaymentSummary handles partial, exact, overpaid, and zero totals", () => {
@@ -2100,6 +1975,86 @@ test("calculateInvoicePaymentSummary handles partial, exact, overpaid, and zero 
   });
 });
 
+test("calculateInvoicePaymentStatus maps paid totals to payment status", () => {
+  const cases: Array<{
+    name: string;
+    totalCents: number;
+    paidCents: number;
+    expected: PaymentStatus;
+  }> = [
+    {
+      name: "no payments",
+      totalCents: 10000,
+      paidCents: 0,
+      expected: "UNPAID",
+    },
+    {
+      name: "partial payment",
+      totalCents: 10000,
+      paidCents: 3000,
+      expected: "PARTIALLY_PAID",
+    },
+    {
+      name: "full payment",
+      totalCents: 10000,
+      paidCents: 10000,
+      expected: "PAID",
+    },
+    {
+      name: "zero total",
+      totalCents: 0,
+      paidCents: 0,
+      expected: "UNPAID",
+    },
+  ];
+
+  for (const testCase of cases) {
+    assert.equal(
+      calculateInvoicePaymentStatus(testCase),
+      testCase.expected,
+      testCase.name,
+    );
+  }
+});
+
+test("isInvoiceOverdue derives overdue state from lifecycle, payment, and due date", () => {
+  const today = new Date(2026, 5, 15);
+  const pastDue = new Date(2026, 5, 1);
+
+  assert.equal(
+    isInvoiceOverdue({
+      status: "ISSUED",
+      paymentStatus: "UNPAID",
+      dueDate: pastDue,
+    }, today),
+    true,
+  );
+  assert.equal(
+    isInvoiceOverdue({
+      status: "ISSUED",
+      paymentStatus: "PARTIALLY_PAID",
+      dueDate: pastDue,
+    }, today),
+    true,
+  );
+  assert.equal(
+    isInvoiceOverdue({
+      status: "ISSUED",
+      paymentStatus: "PAID",
+      dueDate: pastDue,
+    }, today),
+    false,
+  );
+  assert.equal(
+    isInvoiceOverdue({
+      status: "VOID",
+      paymentStatus: "UNPAID",
+      dueDate: pastDue,
+    }, today),
+    false,
+  );
+});
+
 type PaymentTransactionMock = {
   $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;
   payment: {
@@ -2124,17 +2079,21 @@ const mockPaymentTransaction = ({
   onPaymentCreate?: (args: { data: unknown }) => void;
   onInvoiceUpdate?: (args: unknown) => void;
 }) => {
-  prismaMock.$transaction = async (callback: (tx: PaymentTransactionMock) => Promise<unknown>) =>
-    callback({
+  prismaMock.$transaction = async (callback: (tx: PaymentTransactionMock) => Promise<unknown>) => {
+    let createdAmountCents = 0;
+
+    return callback({
       $queryRaw: async (strings, ...values) => {
         onLockQuery?.(strings, values);
         return invoice ? [invoice] : [];
       },
       payment: {
         async aggregate() {
-          return { _sum: { amountCents: paidCents } };
+          return { _sum: { amountCents: paidCents + createdAmountCents } };
         },
         async create(args) {
+          const data = args.data as { amountCents?: number };
+          createdAmountCents = data.amountCents ?? 0;
           onPaymentCreate?.(args);
           return { id: "payment_1" };
         },
@@ -2146,9 +2105,10 @@ const mockPaymentTransaction = ({
         },
       },
     });
+  };
 };
 
-test("recordInvoicePayment creates a partial payment and sets partially paid", async () => {
+test("recordInvoicePayment creates a partial payment and sets partially paid payment status", async () => {
   let createdPaymentData: unknown;
   let updatedInvoiceData: unknown;
   const paidAt = new Date("2026-05-29T00:00:00.000Z");
@@ -2156,9 +2116,8 @@ test("recordInvoicePayment creates a partial payment and sets partially paid", a
   mockPaymentTransaction({
     invoice: {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-      status: "SENT",
+      status: "ISSUED",
       totalCents: 10000,
-      dueDate: new Date("2099-06-27T00:00:00.000Z"),
     },
     paidCents: 2500,
     onPaymentCreate: (args) => {
@@ -2178,7 +2137,7 @@ test("recordInvoicePayment creates a partial payment and sets partially paid", a
   assert.deepEqual(result, {
     ok: true,
     payment: { id: "payment_1" },
-    status: "PARTIALLY_PAID",
+    paymentStatus: "PARTIALLY_PAID",
     outstandingCents: 4500,
   });
   assert.deepEqual(createdPaymentData, {
@@ -2189,19 +2148,18 @@ test("recordInvoicePayment creates a partial payment and sets partially paid", a
   });
   assert.deepEqual(updatedInvoiceData, {
     where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
-    data: { status: "PARTIALLY_PAID" },
+    data: { paymentStatus: "PARTIALLY_PAID" },
   });
 });
 
-test("recordInvoicePayment marks an invoice paid when the balance is covered", async () => {
+test("recordInvoicePayment marks payment status paid when the balance is covered", async () => {
   let updatedInvoiceData: unknown;
 
   mockPaymentTransaction({
     invoice: {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-      status: "PARTIALLY_PAID",
+      status: "ISSUED",
       totalCents: 10000,
-      dueDate: new Date("2099-06-27T00:00:00.000Z"),
     },
     paidCents: 7000,
     onInvoiceUpdate: (args) => {
@@ -2222,19 +2180,86 @@ test("recordInvoicePayment marks an invoice paid when the balance is covered", a
   assert.equal(result.ok, true);
   assert.deepEqual(updatedInvoiceData, {
     where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
-    data: { status: "PAID" },
+    data: { paymentStatus: "PAID" },
   });
 });
 
-test("recordInvoicePayment keeps overdue invoices overdue when not fully paid", async () => {
+test("recalculateInvoicePaymentStatus updates payment status after payment totals change", async () => {
+  const cases: Array<{
+    name: string;
+    paidCents: number;
+    expectedPaymentStatus: PaymentStatus;
+    expectedOutstandingCents: number;
+  }> = [
+    {
+      name: "payment removed",
+      paidCents: 0,
+      expectedPaymentStatus: "UNPAID",
+      expectedOutstandingCents: 10000,
+    },
+    {
+      name: "payment reduced",
+      paidCents: 4000,
+      expectedPaymentStatus: "PARTIALLY_PAID",
+      expectedOutstandingCents: 6000,
+    },
+    {
+      name: "full payment remains",
+      paidCents: 10000,
+      expectedPaymentStatus: "PAID",
+      expectedOutstandingCents: 0,
+    },
+  ];
+
+  for (const testCase of cases) {
+    let updatedInvoiceData: unknown;
+
+    mockPaymentTransaction({
+      invoice: {
+        id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+        status: "ISSUED",
+        totalCents: 10000,
+      },
+      paidCents: testCase.paidCents,
+      onInvoiceUpdate: (args) => {
+        updatedInvoiceData = args;
+      },
+    });
+
+    const result = await recalculateInvoicePaymentStatus(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    );
+
+    assert.deepEqual(
+      result,
+      {
+        ok: true,
+        paidCents: testCase.paidCents,
+        outstandingCents: testCase.expectedOutstandingCents,
+        paymentStatus: testCase.expectedPaymentStatus,
+      },
+      testCase.name,
+    );
+    assert.deepEqual(
+      updatedInvoiceData,
+      {
+        where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
+        data: { paymentStatus: testCase.expectedPaymentStatus },
+      },
+      testCase.name,
+    );
+  }
+});
+
+test("recordInvoicePayment does not change invoice document status for past-due partial payments", async () => {
   let updatedInvoiceData: unknown;
 
   mockPaymentTransaction({
     invoice: {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-      status: "SENT",
+      status: "ISSUED",
       totalCents: 10000,
-      dueDate: new Date("2000-06-27T00:00:00.000Z"),
     },
     paidCents: 0,
     onInvoiceUpdate: (args) => {
@@ -2255,7 +2280,7 @@ test("recordInvoicePayment keeps overdue invoices overdue when not fully paid", 
   assert.equal(result.ok, true);
   assert.deepEqual(updatedInvoiceData, {
     where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
-    data: { status: "OVERDUE" },
+    data: { paymentStatus: "PARTIALLY_PAID" },
   });
 });
 
@@ -2266,9 +2291,8 @@ test("recordInvoicePayment rejects overpayments without creating a payment", asy
   mockPaymentTransaction({
     invoice: {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-      status: "SENT",
+      status: "ISSUED",
       totalCents: 10000,
-      dueDate: new Date("2099-06-27T00:00:00.000Z"),
     },
     paidCents: 9000,
     onPaymentCreate: () => {
@@ -2306,9 +2330,8 @@ test("recordInvoicePayment rejects invoices whose existing payments already cove
     mockPaymentTransaction({
       invoice: {
         id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-        status: "SENT",
+        status: "ISSUED",
         totalCents: 10000,
-        dueDate: new Date("2099-06-27T00:00:00.000Z"),
       },
       paidCents,
       onPaymentCreate: () => {
@@ -2343,7 +2366,6 @@ test("recordInvoicePayment rejects invoices that cannot accept payments", async 
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
       status: "DRAFT",
       totalCents: 10000,
-      dueDate: new Date("2099-06-27T00:00:00.000Z"),
     },
     onPaymentCreate: () => {
       paymentCreateCalls += 1;
@@ -2389,9 +2411,8 @@ test("recordInvoicePayment locks the invoice row scoped by organization", async 
   mockPaymentTransaction({
     invoice: {
       id: invoiceId,
-      status: "SENT",
+      status: "ISSUED",
       totalCents: 10000,
-      dueDate: new Date("2099-06-27T00:00:00.000Z"),
     },
     onLockQuery: (strings, values) => {
       query = strings.join("?");

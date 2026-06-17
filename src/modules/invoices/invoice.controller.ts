@@ -23,8 +23,8 @@ import {
 } from '../../lib/withholding';
 import {
   canEditInvoice,
+  createIssuedInvoiceRecord,
   createInvoiceRecord,
-  createSentInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
@@ -250,7 +250,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
   }
 
   if (intent === 'saveAndSend') {
-    const createResult = await createSentInvoiceRecord(
+    const createResult = await createIssuedInvoiceRecord(
       organizationId,
       result.data,
     );
@@ -376,7 +376,7 @@ export const printInvoice: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', req.t('invoices.errors.markSentBeforePrinting'));
+    req.flash('error', req.t('invoices.errors.issueBeforePrinting'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -397,7 +397,7 @@ export const downloadInvoicePdf: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', req.t('invoices.errors.markSentBeforePdf'));
+    req.flash('error', req.t('invoices.errors.issueBeforePdf'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 

@@ -8,11 +8,14 @@ datasource db {
 
 enum InvoiceStatus {
   DRAFT
-  SENT
+  ISSUED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
   PARTIALLY_PAID
   PAID
-  OVERDUE
-  VOID
 }
 
 enum OrganizationRole {
@@ -214,6 +217,7 @@ model Invoice {
   organizationId String        @db.Uuid
   number         String
   status         InvoiceStatus @default(DRAFT)
+  paymentStatus  PaymentStatus @default(UNPAID)
   customerId     String        @db.Uuid
   issueDate      DateTime
   dueDate        DateTime
@@ -241,6 +245,7 @@ model Invoice {
   @@index([organizationId])
   @@index([customerId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([dueDate])
 }
 

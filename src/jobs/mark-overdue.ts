@@ -1,12 +1,9 @@
 import { prisma } from '../db/prisma';
-import { markOverdueInvoices } from '../modules/invoices/invoice.service';
 
-// Standalone entrypoint for the daily overdue reconciliation.
-// Run with `pnpm job:mark-overdue` (after `pnpm build`). Wire it to an
-// external scheduler (platform cron, system crontab, CI schedule, etc.).
+// Overdue is derived from invoice status, payment status, and due date.
+// This entrypoint is kept as a no-op for existing deploy scripts.
 const run = async () => {
-  const count = await markOverdueInvoices();
-  console.log(`Marked ${count} invoice(s) as overdue.`);
+  console.log('Overdue invoices are derived at read time. No rows updated.');
 };
 
 run()

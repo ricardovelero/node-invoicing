@@ -25,7 +25,7 @@ export const renderInvoiceEmailForm: RequestHandler = async (req, res) => {
   }
 
   if (!isInvoiceEmailReady(invoice)) {
-    req.flash('error', 'Mark the invoice sent before emailing it.');
+    req.flash('error', 'Issue the invoice before emailing it.');
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -48,7 +48,7 @@ export const sendInvoiceEmailController: RequestHandler = async (req, res) => {
   }
 
   if (!isInvoiceEmailReady(invoice)) {
-    req.flash('error', 'Mark the invoice sent before emailing it.');
+    req.flash('error', 'Issue the invoice before emailing it.');
     return res.redirect(`/invoices/${invoiceId}`);
   }
 

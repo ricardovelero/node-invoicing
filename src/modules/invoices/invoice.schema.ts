@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { InvoiceStatus } from "@prisma/client";
+import type { InvoiceStatus, PaymentStatus } from "@prisma/client";
 import {
   amountToCents,
   calculateDiscountCents,
@@ -75,20 +75,38 @@ export type InvoiceListDirection = "asc" | "desc";
 
 export const invoiceListStatusOptions = [
   "DRAFT",
-  "SENT",
-  "PARTIALLY_PAID",
-  "PAID",
-  "OVERDUE",
+  "ISSUED",
   "VOID",
 ] as const satisfies readonly InvoiceStatus[];
 
+export const invoiceListPaymentStatusOptions = [
+  "UNPAID",
+  "PARTIALLY_PAID",
+  "PAID",
+] as const satisfies readonly PaymentStatus[];
+
 const statusQueryValues = new Map(
   invoiceListStatusOptions.map((status) => [status.toLowerCase(), status]),
+);
+const paymentStatusQueryValues = new Map(
+  invoiceListPaymentStatusOptions.map((status) => [
+    status.toLowerCase(),
+    status,
+  ]),
 );
 const sortableColumns = new Set<string>(invoiceListSortableColumns);
 
 const normalizeInvoiceStatusFilter = (value: unknown) =>
   statusQueryValues.get(firstQueryValue(value).trim().toLowerCase());
+
+const normalizeInvoicePaymentStatusFilter = (value: unknown) =>
+  paymentStatusQueryValues.get(firstQueryValue(value).trim().toLowerCase());
+
+const normalizeInvoiceOverdueFilter = (value: unknown) => {
+  const queryValue = firstQueryValue(value).trim().toLowerCase();
+
+  return queryValue === "overdue" || queryValue === "true";
+};
 
 const normalizeInvoiceSort = (value: unknown): InvoiceListSort => {
   const sort = firstQueryValue(value);
@@ -116,6 +134,8 @@ export const invoiceListQuerySchema = z.preprocess((value) => {
     limit: normalizeInvoiceLimit(form.limit),
     q: firstQueryValue(form.q).trim(),
     status: normalizeInvoiceStatusFilter(form.status),
+    paymentStatus: normalizeInvoicePaymentStatusFilter(form.paymentStatus),
+    overdue: normalizeInvoiceOverdueFilter(form.overdue),
     sort: normalizeInvoiceSort(form.sort),
     direction: normalizeInvoiceDirection(form.direction),
   };
@@ -124,6 +144,8 @@ export const invoiceListQuerySchema = z.preprocess((value) => {
   limit: z.union([z.literal(10), z.literal(20), z.literal(50)]),
   q: z.string(),
   status: z.enum(invoiceListStatusOptions).optional(),
+  paymentStatus: z.enum(invoiceListPaymentStatusOptions).optional(),
+  overdue: z.boolean(),
   sort: z.enum(invoiceListSortableColumns),
   direction: z.enum(["asc", "desc"]),
 }));
@@ -176,7 +198,7 @@ const unitPriceSchema = z.preprocess(
     })
     .refine((amount) => amount >= 0, "Unit price cannot be negative."),
 );
-const statusActionSchema = z.enum(["send", "markOverdue", "void"], {
+const statusActionSchema = z.enum(["issue", "void"], {
   error: "Choose a valid invoice status action.",
 });
 

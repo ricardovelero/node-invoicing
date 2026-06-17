@@ -1,4 +1,4 @@
-import type { InvoiceStatus, Prisma } from '@prisma/client';
+import type { InvoiceStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
@@ -17,36 +17,21 @@ export type InvoiceStatusAction = InvoiceStatusActionForm['action'];
 
 const statusActionTargets: Partial<Record<InvoiceStatusAction, InvoiceStatus>> =
   {
-    send: 'SENT',
-    markOverdue: 'OVERDUE',
+    issue: 'ISSUED',
     void: 'VOID',
   };
 
 const allowedStatusActions: Record<InvoiceStatus, InvoiceStatusAction[]> = {
-  DRAFT: ['send', 'void'],
-  SENT: ['markOverdue', 'void'],
-  PARTIALLY_PAID: ['markOverdue', 'void'],
-  OVERDUE: ['void'],
-  PAID: [],
+  DRAFT: ['issue', 'void'],
+  ISSUED: ['void'],
   VOID: [],
 };
 
 export const getAllowedInvoiceStatusActions = (status: InvoiceStatus) =>
   allowedStatusActions[status];
 
-const paymentEligibleStatuses: InvoiceStatus[] = [
-  'SENT',
-  'PARTIALLY_PAID',
-  'OVERDUE',
-];
-
 export const canRecordInvoicePayment = (status: InvoiceStatus) =>
-  paymentEligibleStatuses.includes(status);
-
-// Issued invoices that may still carry an outstanding balance. Used by the
-// "partially paid" and "overdue" list filters, which both depend on the
-// payment sum rather than the stored status column.
-const openInvoiceStatuses: InvoiceStatus[] = ['SENT', 'PARTIALLY_PAID', 'OVERDUE'];
+  status === 'ISSUED';
 
 export const calculateInvoicePaymentSummary = (invoice: {
   totalCents: number;
@@ -65,6 +50,21 @@ export const calculateInvoicePaymentSummary = (invoice: {
   };
 };
 
+export const calculateInvoicePaymentStatus = (invoice: {
+  totalCents: number;
+  paidCents: number;
+}): PaymentStatus => {
+  if (invoice.paidCents === 0) {
+    return 'UNPAID';
+  }
+
+  if (invoice.paidCents >= invoice.totalCents && invoice.totalCents > 0) {
+    return 'PAID';
+  }
+
+  return 'PARTIALLY_PAID';
+};
+
 const isPastDueDate = (dueDate: Date, now = new Date()) => {
   const todayDate = new Date(
     now.getFullYear(),
@@ -80,44 +80,22 @@ const isPastDueDate = (dueDate: Date, now = new Date()) => {
   return dueDateOnly < todayDate;
 };
 
-export const isInvoiceEffectivelyOverdue = (invoice: {
+export const isInvoiceOverdue = (invoice: {
   status: InvoiceStatus;
+  paymentStatus: PaymentStatus;
   dueDate: Date;
-}) => {
-  if (invoice.status !== 'SENT' && invoice.status !== 'PARTIALLY_PAID') {
+}, now = new Date()) => {
+  if (invoice.status !== 'ISSUED' || invoice.paymentStatus === 'PAID') {
     return false;
   }
 
-  return isPastDueDate(invoice.dueDate);
+  return isPastDueDate(invoice.dueDate, now);
 };
+
+export const isInvoiceEffectivelyOverdue = isInvoiceOverdue;
 
 export const canEditInvoice = (status: InvoiceStatus) => {
   return status === 'DRAFT';
-};
-
-// Reconciles the stored status of issued invoices whose due date has passed.
-// Intended to run on a daily schedule (not yet wired up). The live UI already
-// derives "overdue" from due date + balance, so this only keeps the persisted
-// status column truthful for status-column sorting and future reporting/
-// reminder flows. SENT and PARTIALLY_PAID both still carry a balance (a full
-// payment transitions to PAID), so a plain status + due-date filter is enough,
-// and the update is idempotent because already-OVERDUE rows are excluded.
-export const markOverdueInvoices = async (now = new Date()) => {
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-
-  const { count } = await prisma.invoice.updateMany({
-    where: {
-      status: { in: ['SENT', 'PARTIALLY_PAID'] },
-      dueDate: { lt: startOfToday },
-    },
-    data: { status: 'OVERDUE' },
-  });
-
-  return count;
 };
 
 type OrganizationInvoiceSettings = {
@@ -315,18 +293,33 @@ const invoiceListOrderBy: Record<
 const createInvoiceListWhere = (
   organizationId: string,
   query: InvoiceListQuery,
+  now: Date,
 ): Prisma.InvoiceWhereInput => {
   const where: Prisma.InvoiceWhereInput = { organizationId };
 
-  // PARTIALLY_PAID and OVERDUE are derived from the payment sum (and, for
-  // overdue, the due date), so they are resolved to a set of ids in
-  // getInvoices rather than matched against the stored status column.
-  if (
-    query.status &&
-    query.status !== 'PARTIALLY_PAID' &&
-    query.status !== 'OVERDUE'
-  ) {
+  if (query.status) {
     where.status = query.status;
+  }
+
+  if (query.paymentStatus) {
+    where.paymentStatus = query.paymentStatus;
+  }
+
+  if (query.overdue) {
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      {
+        status: 'ISSUED',
+        paymentStatus: { not: 'PAID' },
+        dueDate: { lt: startOfToday },
+      },
+    ];
   }
 
   if (query.q) {
@@ -350,110 +343,12 @@ const createInvoiceListWhere = (
   return where;
 };
 
-const paidCentsForInvoice = (invoice: {
-  payments: Array<{ amountCents: number }>;
-}) => invoice.payments.reduce((total, payment) => total + payment.amountCents, 0);
-
-const invoiceHasPartialPayment = (invoice: {
-  totalCents: number;
-  payments: Array<{ amountCents: number }>;
-}) => {
-  const paidCents = paidCentsForInvoice(invoice);
-
-  return paidCents > 0 && paidCents < invoice.totalCents;
-};
-
-const invoiceHasOutstandingBalance = (invoice: {
-  totalCents: number;
-  payments: Array<{ amountCents: number }>;
-}) => paidCentsForInvoice(invoice) < invoice.totalCents;
-
-const findPartiallyPaidInvoiceIds = async (
-  organizationId: string,
-  baseWhere: Prisma.InvoiceWhereInput,
-) => {
-  // This is intentionally Prisma fetch-plus-filter for now. If invoice volume
-  // grows, revisit this as a raw SQL aggregate so the database filters by
-  // payment sum before pagination/counting.
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      ...baseWhere,
-      organizationId,
-      status: {
-        in: openInvoiceStatuses,
-      },
-    },
-    select: {
-      id: true,
-      totalCents: true,
-      payments: {
-        select: {
-          amountCents: true,
-        },
-      },
-    },
-  });
-
-  return invoices
-    .filter(invoiceHasPartialPayment)
-    .map((invoice) => invoice.id);
-};
-
-const findOverdueInvoiceIds = async (
-  organizationId: string,
-  baseWhere: Prisma.InvoiceWhereInput,
-  now: Date,
-) => {
-  // Like findPartiallyPaidInvoiceIds, overdue depends on the payment sum, so it
-  // cannot be a plain status match: an invoice is overdue when it is open, past
-  // its due date, and still has a balance. The stored OVERDUE status is not
-  // reliable on its own (a past-due SENT invoice is never auto-flipped), so we
-  // compute it the same way the dashboard and row badges do.
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      ...baseWhere,
-      organizationId,
-      status: {
-        in: openInvoiceStatuses,
-      },
-    },
-    select: {
-      id: true,
-      dueDate: true,
-      totalCents: true,
-      payments: {
-        select: {
-          amountCents: true,
-        },
-      },
-    },
-  });
-
-  return invoices
-    .filter(
-      (invoice) =>
-        isPastDueDate(invoice.dueDate, now) &&
-        invoiceHasOutstandingBalance(invoice),
-    )
-    .map((invoice) => invoice.id);
-};
-
 export const getInvoices = async (
   organizationId: string,
   query: InvoiceListQuery,
   now = new Date(),
 ) => {
-  const where = createInvoiceListWhere(organizationId, query);
-
-  if (query.status === 'PARTIALLY_PAID') {
-    where.id = {
-      in: await findPartiallyPaidInvoiceIds(organizationId, where),
-    };
-  } else if (query.status === 'OVERDUE') {
-    where.id = {
-      in: await findOverdueInvoiceIds(organizationId, where, now),
-    };
-  }
+  const where = createInvoiceListWhere(organizationId, query, now);
 
   const skip = (query.page - 1) * query.limit;
   const orderBy = invoiceListOrderBy[query.sort](query.direction);
@@ -549,6 +444,8 @@ export const createInvoiceRecord = async (
       data: {
         organizationId,
         number,
+        status: 'DRAFT',
+        paymentStatus: 'UNPAID',
         customerId: data.customerId,
         issueDate: data.issueDate,
         dueDate: data.dueDate,
@@ -570,7 +467,7 @@ export const createInvoiceRecord = async (
   });
 };
 
-export const createSentInvoiceRecord = async (
+export const createIssuedInvoiceRecord = async (
   organizationId: string,
   data: InvoiceForm,
 ) => {
@@ -608,7 +505,8 @@ export const createSentInvoiceRecord = async (
       data: {
         organizationId,
         number,
-        status: 'SENT',
+        status: 'ISSUED',
+        paymentStatus: 'UNPAID',
         customerId: data.customerId,
         issueDate: data.issueDate,
         dueDate: data.dueDate,
@@ -848,7 +746,7 @@ export const updateInvoiceStatus = async (
       return { ok: false as const, reason: 'invalidTransition' as const };
     }
 
-    if (invoice.status === 'DRAFT' && status === 'SENT') {
+    if (invoice.status === 'DRAFT' && status === 'ISSUED') {
       await captureInvoiceSnapshot(tx, invoice);
     }
 
@@ -927,8 +825,57 @@ type LockedInvoiceRow = {
   id: string;
   status: InvoiceStatus;
   totalCents: number;
-  dueDate: Date;
 };
+
+const updateInvoicePaymentStatusFromPayments = async (
+  tx: Prisma.TransactionClient,
+  invoice: Pick<LockedInvoiceRow, 'id' | 'totalCents'>,
+) => {
+  const payments = await tx.payment.aggregate({
+    where: { invoiceId: invoice.id },
+    _sum: { amountCents: true },
+  });
+  const paidCents = payments._sum.amountCents ?? 0;
+  const outstandingCents = Math.max(invoice.totalCents - paidCents, 0);
+  const paymentStatus = calculateInvoicePaymentStatus({
+    totalCents: invoice.totalCents,
+    paidCents,
+  });
+
+  await tx.invoice.update({
+    where: { id: invoice.id },
+    data: { paymentStatus },
+  });
+
+  return {
+    paidCents,
+    outstandingCents,
+    paymentStatus,
+  };
+};
+
+export const recalculateInvoicePaymentStatus = (
+  organizationId: string,
+  invoiceId: string,
+) =>
+  prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const invoices = await tx.$queryRaw<LockedInvoiceRow[]>`
+      SELECT "id", "status", "totalCents"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId}::uuid
+        AND "organizationId" = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+    const invoice = invoices[0];
+
+    if (!invoice) {
+      return { ok: false as const, reason: 'notFound' as const };
+    }
+
+    const summary = await updateInvoicePaymentStatusFromPayments(tx, invoice);
+
+    return { ok: true as const, ...summary };
+  });
 
 export const recordInvoicePayment = (
   organizationId: string,
@@ -937,7 +884,7 @@ export const recordInvoicePayment = (
 ) =>
   prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const invoices = await tx.$queryRaw<LockedInvoiceRow[]>`
-      SELECT "id", "status", "totalCents", "dueDate"
+      SELECT "id", "status", "totalCents"
       FROM "Invoice"
       WHERE "id" = ${invoiceId}::uuid
         AND "organizationId" = ${organizationId}::uuid
@@ -972,13 +919,6 @@ export const recordInvoicePayment = (
       };
     }
 
-    const nextOutstandingCents = outstandingCents - data.amountCents;
-    const status: InvoiceStatus =
-      nextOutstandingCents === 0 ? 'PAID'
-      : invoice.status === 'OVERDUE' || isPastDueDate(invoice.dueDate) ?
-        'OVERDUE'
-      : 'PARTIALLY_PAID';
-
     const payment = await tx.payment.create({
       data: {
         invoiceId: invoice.id,
@@ -988,15 +928,12 @@ export const recordInvoicePayment = (
       },
     });
 
-    await tx.invoice.update({
-      where: { id: invoice.id },
-      data: { status },
-    });
+    const summary = await updateInvoicePaymentStatusFromPayments(tx, invoice);
 
     return {
       ok: true as const,
       payment,
-      status,
-      outstandingCents: nextOutstandingCents,
+      paymentStatus: summary.paymentStatus,
+      outstandingCents: summary.outstandingCents,
     };
   });

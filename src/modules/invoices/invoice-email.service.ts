@@ -10,7 +10,7 @@ import type { InvoiceEmailForm } from './invoice-email.schema';
 import { createInvoiceDisplay } from './invoice.presenter';
 import {
   calculateInvoicePaymentSummary,
-  isInvoiceEffectivelyOverdue,
+  isInvoiceOverdue,
 } from './invoice.service';
 
 type EmailInvoice = NonNullable<Awaited<ReturnType<typeof getEmailInvoice>>>;
@@ -234,7 +234,7 @@ const renderInvoiceEmailBodies = (data: {
   const templateData = {
     invoice: data.invoice,
     invoiceDisplay,
-    isEffectivelyOverdue: isInvoiceEffectivelyOverdue(data.invoice),
+    isEffectivelyOverdue: isInvoiceOverdue(data.invoice),
     paymentSummary,
     publicInvoiceUrl: data.publicInvoiceUrl,
     sellerName: sellerName(data.invoice),
