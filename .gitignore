@@ -68,3 +68,6 @@ public/assets/
 # Playwright
 playwright-report/
 test-results/
+
+# Claude
+.claude/
