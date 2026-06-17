@@ -1,12 +1,12 @@
-{% extends "layouts/app.njk" %}
+{% extends "layouts/auth-layout.njk" %}
 {% from "components/ui/label-field.njk" import labelField %}
 {% from "components/ui/input-field.njk" import inputField %}
 
 {% block content %}
   <div class="mx-auto max-w-md">
     <div class="mb-8">
-      <p class="text-sm font-medium text-muted">{{ t('auth.forgot.section') }}</p>
-      <h1 class="mt-1 text-3xl font-semibold text-ink">{{ t('auth.forgot.heading') }}</h1>
+      <img class="h-9 w-auto" src="/assets/asienta-logo-horizontal.webp" alt="{{ t('common.app.name') }}">
+      <h1 class="mt-4 text-2xl/8 font-semibold text-ink">{{ t('auth.forgot.heading') }}</h1>
     </div>
 
     <form method="post" action="/auth/forgot" data-validate-form class="space-y-5 rounded-lg border border-line bg-white p-6">
