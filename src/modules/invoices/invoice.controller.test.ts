@@ -296,6 +296,10 @@ const mockStatusTransaction = ({
 }) => {
   prismaMock.$transaction = async (
     callback: (tx: {
+      $queryRaw: (
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) => Promise<Array<{ id?: string; status?: string; reservedValue?: number }>>;
       invoice: {
         findFirst: () => Promise<unknown>;
         update: (args: unknown) => Promise<unknown>;
@@ -303,9 +307,30 @@ const mockStatusTransaction = ({
       invoiceSnapshot: {
         create: () => Promise<unknown>;
       };
+      invoiceFiscalRecord: {
+        create: () => Promise<unknown>;
+      };
     }) => Promise<unknown>,
-  ) =>
-    callback({
+  ) => {
+    let queryCalls = 0;
+    const lockedInvoice =
+      invoice && typeof invoice === "object"
+        ? {
+            id: (invoice as { id: string }).id,
+            status: (invoice as { status: string }).status,
+          }
+        : null;
+
+    return callback({
+      $queryRaw: async () => {
+        queryCalls += 1;
+
+        if (queryCalls === 1) {
+          return lockedInvoice ? [lockedInvoice] : [];
+        }
+
+        return [{ reservedValue: queryCalls }];
+      },
       invoice: {
         async findFirst() {
           return invoice;
@@ -320,7 +345,13 @@ const mockStatusTransaction = ({
           return { invoiceId: "invoice_1" };
         },
       },
+      invoiceFiscalRecord: {
+        async create() {
+          return { id: "fiscal_record_1" };
+        },
+      },
     });
+  };
 };
 
 const validCreateInvoiceBody = {
@@ -371,10 +402,18 @@ const mockCreateInvoiceTransaction = ({
       invoiceSnapshot: {
         create: (args: unknown) => Promise<unknown>;
       };
+      invoiceFiscalRecord: {
+        create: (args: unknown) => Promise<unknown>;
+      };
     }) => Promise<unknown>,
-  ) =>
-    callback({
-      $queryRaw: async () => [{ reservedValue: 1 }],
+  ) => {
+    let queryCalls = 0;
+
+    return callback({
+      $queryRaw: async () => {
+        queryCalls += 1;
+        return [{ reservedValue: queryCalls }];
+      },
       customer: {
         async findFirst() {
           return customer;
@@ -421,7 +460,13 @@ const mockCreateInvoiceTransaction = ({
           return { invoiceId: createdInvoiceId };
         },
       },
+      invoiceFiscalRecord: {
+        async create() {
+          return { id: "fiscal_record_1" };
+        },
+      },
     });
+  };
 };
 
 test("renderNewInvoice defaults payment instructions from organization settings and leaves notes empty", async () => {

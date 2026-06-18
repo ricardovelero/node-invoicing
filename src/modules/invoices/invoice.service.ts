@@ -3,6 +3,7 @@ import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
+import { createInvoiceFiscalRecord } from './invoice-fiscal-records';
 import { nextInvoiceNumber } from './invoice-numbering';
 import type {
   InvoiceForm,
@@ -104,6 +105,10 @@ type OrganizationInvoiceSettings = {
   withholdingEnabled: boolean;
   defaultWithholdingType: string | null;
   defaultWithholdingRate: Prisma.Decimal | null;
+};
+
+type CreateInvoiceRecordOptions = {
+  replacesInvoiceId?: string;
 };
 
 const calculateTotalsFromInvoiceForm = (
@@ -233,6 +238,46 @@ const findOrganizationInvoiceSettings = (
       defaultWithholdingRate: true,
     },
   });
+
+const validateInvoiceReplacement = async (
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  replacesInvoiceId?: string,
+) => {
+  if (!replacesInvoiceId) {
+    return { ok: true as const, data: {} };
+  }
+
+  const originalInvoice = await tx.invoice.findFirst({
+    where: {
+      id: replacesInvoiceId,
+      organizationId,
+    },
+    select: {
+      id: true,
+      status: true,
+      replacementInvoice: {
+        select: { id: true },
+      },
+    },
+  });
+
+  if (
+    !originalInvoice ||
+    originalInvoice.status !== 'VOID' ||
+    originalInvoice.replacementInvoice
+  ) {
+    return {
+      ok: false as const,
+      reason: 'invalidReplacementInvoice' as const,
+    };
+  }
+
+  return {
+    ok: true as const,
+    data: { replacesInvoiceId: originalInvoice.id },
+  };
+};
 
 const findEditableDraftInvoice = async (
   tx: Prisma.TransactionClient,
@@ -414,6 +459,7 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
 export const createInvoiceRecord = async (
   organizationId: string,
   data: InvoiceForm,
+  options: CreateInvoiceRecordOptions = {},
 ) => {
   return prisma.$transaction(async (tx) => {
     const customer = await findActiveCustomer(
@@ -424,6 +470,16 @@ export const createInvoiceRecord = async (
 
     if (!customer) {
       return { ok: false as const, reason: 'invalidCustomer' as const };
+    }
+
+    const replacement = await validateInvoiceReplacement(
+      tx,
+      organizationId,
+      options.replacesInvoiceId,
+    );
+
+    if (!replacement.ok) {
+      return replacement;
     }
 
     const organization = await findOrganizationInvoiceSettings(
@@ -447,6 +503,7 @@ export const createInvoiceRecord = async (
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
         customerId: data.customerId,
+        ...replacement.data,
         issueDate: data.issueDate,
         dueDate: data.dueDate,
         subtotalCents: totals.subtotalCents,
@@ -469,7 +526,9 @@ export const createInvoiceRecord = async (
 
 export const createIssuedInvoiceRecord = async (
   organizationId: string,
+  createdByUserId: string | null,
   data: InvoiceForm,
+  options: CreateInvoiceRecordOptions = {},
 ) => {
   return prisma.$transaction(async (tx) => {
     const customer = await findActiveCustomerForSending(
@@ -497,6 +556,16 @@ export const createIssuedInvoiceRecord = async (
       return { ok: false as const, reason: 'missingBillingEmail' as const };
     }
 
+    const replacement = await validateInvoiceReplacement(
+      tx,
+      organizationId,
+      options.replacesInvoiceId,
+    );
+
+    if (!replacement.ok) {
+      return replacement;
+    }
+
     const totals = calculateTotalsFromInvoiceForm(data, organization);
     const withholding = invoiceWithholdingData(data, organization, totals);
     const number = await nextInvoiceNumber(tx, organizationId);
@@ -508,6 +577,7 @@ export const createIssuedInvoiceRecord = async (
         status: 'ISSUED',
         paymentStatus: 'UNPAID',
         customerId: data.customerId,
+        ...replacement.data,
         issueDate: data.issueDate,
         dueDate: data.dueDate,
         subtotalCents: totals.subtotalCents,
@@ -552,6 +622,12 @@ export const createIssuedInvoiceRecord = async (
     });
 
     await captureInvoiceSnapshot(tx, invoice);
+    await createInvoiceFiscalRecord(tx, {
+      invoiceId: invoice.id,
+      organizationId,
+      type: 'ALTA',
+      createdByUserId,
+    });
 
     return { ok: true as const, invoice, customerEmail };
   });
@@ -682,61 +758,32 @@ const captureInvoiceSnapshot = (
   });
 };
 
+type LockedInvoiceStatusRow = {
+  id: string;
+  status: InvoiceStatus;
+};
+
 export const updateInvoiceStatus = async (
   organizationId: string,
   invoiceId: string,
+  createdByUserId: string | null,
   data: InvoiceStatusActionForm,
 ) => {
   return prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.findFirst({
-      where: {
-        id: invoiceId,
-        organizationId,
-      },
-      select: {
-        id: true,
-        status: true,
-        subtotalCents: true,
-        discountCents: true,
-        taxCents: true,
-        withholdingType: true,
-        withholdingRate: true,
-        withholdingAmountCents: true,
-        totalCents: true,
-        paymentInstructions: true,
-        customer: {
-          select: {
-            name: true,
-            email: true,
-            taxId: true,
-            addressLine1: true,
-            city: true,
-            country: true,
-          },
-        },
-        organization: {
-          select: {
-            name: true,
-            legalName: true,
-            taxId: true,
-            addressLine1: true,
-            city: true,
-            countryCode: true,
-          },
-        },
-        snapshot: {
-          select: {
-            invoiceId: true,
-          },
-        },
-      },
-    });
+    const lockedInvoices = await tx.$queryRaw<LockedInvoiceStatusRow[]>`
+      SELECT "id", "status"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId}::uuid
+        AND "organizationId" = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+    const lockedInvoice = lockedInvoices[0];
 
-    if (!invoice) {
+    if (!lockedInvoice) {
       return { ok: false as const, reason: 'notFound' as const };
     }
 
-    if (!getAllowedInvoiceStatusActions(invoice.status).includes(data.action)) {
+    if (!getAllowedInvoiceStatusActions(lockedInvoice.status).includes(data.action)) {
       return { ok: false as const, reason: 'invalidTransition' as const };
     }
 
@@ -746,14 +793,80 @@ export const updateInvoiceStatus = async (
       return { ok: false as const, reason: 'invalidTransition' as const };
     }
 
-    if (invoice.status === 'DRAFT' && status === 'ISSUED') {
+    if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
+      const invoice = await tx.invoice.findFirst({
+        where: {
+          id: lockedInvoice.id,
+          organizationId,
+        },
+        select: {
+          id: true,
+          status: true,
+          subtotalCents: true,
+          discountCents: true,
+          taxCents: true,
+          withholdingType: true,
+          withholdingRate: true,
+          withholdingAmountCents: true,
+          totalCents: true,
+          paymentInstructions: true,
+          customer: {
+            select: {
+              name: true,
+              email: true,
+              taxId: true,
+              addressLine1: true,
+              city: true,
+              country: true,
+            },
+          },
+          organization: {
+            select: {
+              name: true,
+              legalName: true,
+              taxId: true,
+              addressLine1: true,
+              city: true,
+              countryCode: true,
+            },
+          },
+          snapshot: {
+            select: {
+              invoiceId: true,
+            },
+          },
+        },
+      });
+
+      if (!invoice) {
+        return { ok: false as const, reason: 'notFound' as const };
+      }
+
       await captureInvoiceSnapshot(tx, invoice);
     }
 
     await tx.invoice.update({
-      where: { id: invoice.id },
+      where: { id: lockedInvoice.id },
       data: { status },
     });
+
+    if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
+      await createInvoiceFiscalRecord(tx, {
+        invoiceId: lockedInvoice.id,
+        organizationId,
+        type: 'ALTA',
+        createdByUserId,
+      });
+    }
+
+    if (lockedInvoice.status === 'ISSUED' && status === 'VOID') {
+      await createInvoiceFiscalRecord(tx, {
+        invoiceId: lockedInvoice.id,
+        organizationId,
+        type: 'ANULACION',
+        createdByUserId,
+      });
+    }
 
     return { ok: true as const, status };
   });

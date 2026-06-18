@@ -191,6 +191,7 @@
   "errors": {
     "chooseCustomer": "Choose a customer.",
     "chooseCustomerWithEmail": "Choose a customer with an email address before sending.",
+    "invalidReplacementInvoice": "Choose a void invoice that has not already been replaced.",
     "missingBillingEmail": "Please, add a billing email in your organization settings before sending invoice emails.",
     "emailProviderFailure": "Invoice email could not be sent: {message}",
     "emailSendFailed": "Invoice email could not be sent.",

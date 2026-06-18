@@ -61,6 +61,7 @@ type InvoiceCreateTransactionMock = {
     findFirst: (args: unknown) => Promise<unknown>;
   };
   invoice: {
+    findFirst?: (args: unknown) => Promise<unknown>;
     create: (args: { data: unknown; include?: unknown }) => Promise<unknown>;
   };
 };
@@ -70,6 +71,9 @@ type IssuedInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
     findFirst: (args: unknown) => Promise<unknown>;
   };
   invoiceSnapshot: {
+    create: (args: unknown) => Promise<unknown>;
+  };
+  invoiceFiscalRecord?: {
     create: (args: unknown) => Promise<unknown>;
   };
 };
@@ -405,9 +409,11 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
   let createdInvoiceData: unknown;
   let createdInvoiceInclude: unknown;
   let snapshotCreateArgs: unknown;
+  let fiscalRecordCreateArgs: unknown;
   let customerFindFirstArgs: unknown;
   let organizationFindFirstArgs: unknown;
   let reservedNumberOrganizationId: unknown;
+  let queryCalls = 0;
 
   const issueDate = new Date("2026-05-27T00:00:00.000Z");
   const dueDate = new Date("2026-06-27T00:00:00.000Z");
@@ -445,8 +451,9 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
   ) =>
     callback({
       $queryRaw: async (_strings, organizationId) => {
+        queryCalls += 1;
         reservedNumberOrganizationId = organizationId;
-        return [{ reservedValue: 3 }];
+        return [{ reservedValue: queryCalls === 1 ? 3 : 4 }];
       },
       customer: {
         async findFirst(args) {
@@ -473,28 +480,38 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
           return { invoiceId: "invoice_1" };
         },
       },
+      invoiceFiscalRecord: {
+        async create(args) {
+          fiscalRecordCreateArgs = args;
+          return { id: "fiscal_record_1" };
+        },
+      },
     });
 
-  const result = await createIssuedInvoiceRecord("5a87c29e-7f69-4ee0-b1c0-1478690fe5ab", {
-    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
-    currency: "EUR",
-    issueDate,
-    dueDate,
-    invoiceDiscountType: "amount",
-    invoiceDiscountValue: 0,
-    paymentInstructions: "Pay this invoice by bank transfer.",
-    notes: "",
-    lines: [
-      {
-        description: "Consulting services",
-        quantity: 1,
-        unitPrice: 100,
-        discountType: "amount",
-        discountValue: 0,
-        taxRate: 21,
-      },
-    ],
-  });
+  const result = await createIssuedInvoiceRecord(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "user_1",
+    {
+      customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      currency: "EUR",
+      issueDate,
+      dueDate,
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: 0,
+      paymentInstructions: "Pay this invoice by bank transfer.",
+      notes: "",
+      lines: [
+        {
+          description: "Consulting services",
+          quantity: 1,
+          unitPrice: 100,
+          discountType: "amount",
+          discountValue: 0,
+          taxRate: 21,
+        },
+      ],
+    },
+  );
 
   const year = new Date().getFullYear();
 
@@ -608,6 +625,15 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       totalCents: 12100,
     },
   });
+  assert.deepEqual(fiscalRecordCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      type: "ALTA",
+      sequenceNumber: 4,
+      createdByUserId: "user_1",
+    },
+  });
 });
 
 test("createIssuedInvoiceRecord rejects email preconditions before creating invoices", async () => {
@@ -696,6 +722,7 @@ test("createIssuedInvoiceRecord rejects email preconditions before creating invo
 
     const result = await createIssuedInvoiceRecord(
       "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "user_1",
       form,
     );
 
@@ -761,6 +788,182 @@ test("createInvoiceRecord rejects archived customers", async () => {
   assert.deepEqual(result, { ok: false, reason: "invalidCustomer" });
   assert.equal(invoiceCreateCalls, 0);
   assert.equal(invoiceNumberReservationCalls, 0);
+});
+
+test("createInvoiceRecord links valid replacement invoices", async () => {
+  let originalInvoiceFindFirstArgs: unknown;
+  let createdInvoiceData: unknown;
+
+  prismaMock.$transaction = async (
+    callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+  ) =>
+    callback({
+      $queryRaw: async () => [{ reservedValue: 1 }],
+      customer: {
+        async findFirst() {
+          return { id: "customer_1" };
+        },
+      },
+      organization: {
+        async findFirst() {
+          return defaultOrganizationInvoiceSettings;
+        },
+      },
+      invoice: {
+        async findFirst(args) {
+          originalInvoiceFindFirstArgs = args;
+          return {
+            id: "8a1274d0-c8df-4df3-bb35-b808e0e598ea",
+            status: "VOID",
+            replacementInvoice: null,
+          };
+        },
+        async create(args) {
+          createdInvoiceData = args.data;
+          return { id: "replacement_invoice_1" };
+        },
+      },
+    });
+
+  const result = await createInvoiceRecord(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    {
+      customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+      currency: "EUR",
+      issueDate: new Date("2026-05-27T00:00:00.000Z"),
+      dueDate: new Date("2026-06-27T00:00:00.000Z"),
+      invoiceDiscountType: "amount",
+      invoiceDiscountValue: 0,
+      paymentInstructions: "",
+      notes: "",
+      lines: [
+        {
+          description: "Replacement consulting",
+          quantity: 1,
+          unitPrice: 100,
+          discountType: "amount",
+          discountValue: 0,
+          taxRate: 0,
+        },
+      ],
+    },
+    { replacesInvoiceId: "8a1274d0-c8df-4df3-bb35-b808e0e598ea" },
+  );
+
+  assert.deepEqual(result, { ok: true, invoice: { id: "replacement_invoice_1" } });
+  assert.deepEqual(originalInvoiceFindFirstArgs, {
+    where: {
+      id: "8a1274d0-c8df-4df3-bb35-b808e0e598ea",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    },
+    select: {
+      id: true,
+      status: true,
+      replacementInvoice: {
+        select: { id: true },
+      },
+    },
+  });
+  assert.equal(
+    (createdInvoiceData as { replacesInvoiceId: string }).replacesInvoiceId,
+    "8a1274d0-c8df-4df3-bb35-b808e0e598ea",
+  );
+});
+
+test("createInvoiceRecord rejects invalid replacement relationships", async () => {
+  const form = {
+    customerId: "59cad9c9-16c1-4c85-83e1-6630514781a0",
+    currency: "EUR" as const,
+    issueDate: new Date("2026-05-27T00:00:00.000Z"),
+    dueDate: new Date("2026-06-27T00:00:00.000Z"),
+    invoiceDiscountType: "amount" as const,
+    invoiceDiscountValue: 0,
+    paymentInstructions: "",
+    notes: "",
+    lines: [
+      {
+        description: "Replacement consulting",
+        quantity: 1,
+        unitPrice: 100,
+        discountType: "amount" as const,
+        discountValue: 0,
+        taxRate: 0,
+      },
+    ],
+  };
+  const cases = [
+    {
+      name: "missing or cross-organization original",
+      originalInvoice: null,
+    },
+    {
+      name: "non-void original",
+      originalInvoice: {
+        id: "original_invoice_1",
+        status: "ISSUED",
+        replacementInvoice: null,
+      },
+    },
+    {
+      name: "already replaced original",
+      originalInvoice: {
+        id: "original_invoice_1",
+        status: "VOID",
+        replacementInvoice: { id: "replacement_invoice_1" },
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    let invoiceNumberReservationCalls = 0;
+    let organizationLookups = 0;
+    let invoiceCreateCalls = 0;
+
+    prismaMock.$transaction = async (
+      callback: (tx: InvoiceCreateTransactionMock) => Promise<unknown>,
+    ) =>
+      callback({
+        $queryRaw: async () => {
+          invoiceNumberReservationCalls += 1;
+          return [{ reservedValue: 1 }];
+        },
+        customer: {
+          async findFirst() {
+            return { id: "customer_1" };
+          },
+        },
+        organization: {
+          async findFirst() {
+            organizationLookups += 1;
+            return defaultOrganizationInvoiceSettings;
+          },
+        },
+        invoice: {
+          async findFirst() {
+            return testCase.originalInvoice;
+          },
+          async create() {
+            invoiceCreateCalls += 1;
+            return { id: "replacement_invoice_1" };
+          },
+        },
+      });
+
+    const result = await createInvoiceRecord(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      form,
+      { replacesInvoiceId: "8a1274d0-c8df-4df3-bb35-b808e0e598ea" },
+    );
+
+    assert.deepEqual(
+      result,
+      { ok: false, reason: "invalidReplacementInvoice" },
+      testCase.name,
+    );
+    assert.equal(organizationLookups, 0, testCase.name);
+    assert.equal(invoiceNumberReservationCalls, 0, testCase.name);
+    assert.equal(invoiceCreateCalls, 0, testCase.name);
+  }
 });
 
 test("updateDraftInvoiceRecord replaces lines and recalculates draft invoice totals", async () => {
@@ -1261,11 +1464,18 @@ test("updateInvoiceMetadata rejects missing invoices and issued invoices without
 });
 
 type StatusTransactionMock = {
+  $queryRaw: (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Array<{ id?: string; status?: InvoiceStatus; reservedValue?: number }>>;
   invoice: {
     findFirst: (args: unknown) => Promise<unknown>;
     update: (args: unknown) => Promise<unknown>;
   };
   invoiceSnapshot: {
+    create: (args: { data: unknown }) => Promise<unknown>;
+  };
+  invoiceFiscalRecord: {
     create: (args: { data: unknown }) => Promise<unknown>;
   };
 };
@@ -1304,14 +1514,35 @@ const mockStatusTransaction = ({
   onInvoiceFindFirst,
   onInvoiceUpdate,
   onSnapshotCreate,
+  onFiscalRecordCreate,
 }: {
   invoice: unknown;
   onInvoiceFindFirst?: (args: unknown) => void;
   onInvoiceUpdate?: (args: unknown) => void;
   onSnapshotCreate?: (args: { data: unknown }) => void;
+  onFiscalRecordCreate?: (args: { data: unknown }) => void;
 }) => {
   prismaMock.$transaction = async (callback: (tx: StatusTransactionMock) => Promise<unknown>) =>
-    callback({
+    {
+      let queryCalls = 0;
+      const lockedInvoice =
+        invoice && typeof invoice === "object"
+          ? {
+              id: (invoice as { id: string }).id,
+              status: (invoice as { status: InvoiceStatus }).status,
+            }
+          : null;
+
+      return callback({
+        $queryRaw: async () => {
+          queryCalls += 1;
+
+          if (queryCalls === 1) {
+            return lockedInvoice ? [lockedInvoice] : [];
+          }
+
+          return [{ reservedValue: queryCalls }];
+        },
       invoice: {
         async findFirst(args) {
           onInvoiceFindFirst?.(args);
@@ -1328,7 +1559,14 @@ const mockStatusTransaction = ({
           return { invoiceId: "invoice_1" };
         },
       },
-    });
+        invoiceFiscalRecord: {
+          async create(args) {
+            onFiscalRecordCreate?.(args);
+            return { id: "fiscal_record_1" };
+          },
+        },
+      });
+    };
 };
 
 const invoiceStatuses: InvoiceStatus[] = [
@@ -1368,6 +1606,7 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
       let updateArgs: unknown;
       let updateCalls = 0;
       let snapshotCreateCalls = 0;
+      let fiscalRecordCreateCalls = 0;
       const expectedStatus = validStatusTransitions[status]?.[action];
 
       mockStatusTransaction({
@@ -1383,11 +1622,15 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
         onSnapshotCreate: () => {
           snapshotCreateCalls += 1;
         },
+        onFiscalRecordCreate: () => {
+          fiscalRecordCreateCalls += 1;
+        },
       });
 
       const result = await updateInvoiceStatus(
         "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
         "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+        "user_1",
         { action },
       );
 
@@ -1395,6 +1638,7 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
         assert.deepEqual(result, { ok: false, reason: "invalidTransition" }, `${status} ${action}`);
         assert.equal(updateCalls, 0, `${status} ${action}`);
         assert.equal(snapshotCreateCalls, 0, `${status} ${action}`);
+        assert.equal(fiscalRecordCreateCalls, 0, `${status} ${action}`);
         continue;
       }
 
@@ -1409,6 +1653,11 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
         `${status} ${action}`,
       );
       assert.equal(snapshotCreateCalls, status === "DRAFT" && action === "issue" ? 1 : 0);
+      assert.equal(
+        fiscalRecordCreateCalls,
+        status === "DRAFT" && action === "issue" ? 1 : status === "ISSUED" ? 1 : 0,
+        `${status} ${action}`,
+      );
     }
   }
 });
@@ -1416,6 +1665,7 @@ test("updateInvoiceStatus applies the full status transition matrix", async () =
 test("updateInvoiceStatus rejects impossible status actions without updating", async () => {
   let updateCalls = 0;
   let snapshotCreateCalls = 0;
+  let fiscalRecordCreateCalls = 0;
 
   mockStatusTransaction({
     invoice: invoiceForStatusUpdate,
@@ -1425,23 +1675,29 @@ test("updateInvoiceStatus rejects impossible status actions without updating", a
     onSnapshotCreate: () => {
       snapshotCreateCalls += 1;
     },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-    { action: "pay" } as unknown as Parameters<typeof updateInvoiceStatus>[2],
+    "user_1",
+    { action: "pay" } as unknown as Parameters<typeof updateInvoiceStatus>[3],
   );
 
   assert.deepEqual(result, { ok: false, reason: "invalidTransition" });
   assert.equal(updateCalls, 0);
   assert.equal(snapshotCreateCalls, 0);
+  assert.equal(fiscalRecordCreateCalls, 0);
 });
 
 test("updateInvoiceStatus captures a snapshot and issues draft invoices in one transaction", async () => {
   let findFirstArgs: unknown;
   let updateArgs: unknown;
   let snapshotCreateArgs: unknown;
+  let fiscalRecordCreateArgs: unknown;
 
   mockStatusTransaction({
     invoice: invoiceForStatusUpdate,
@@ -1454,18 +1710,22 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
     onSnapshotCreate: (args) => {
       snapshotCreateArgs = args;
     },
+    onFiscalRecordCreate: (args) => {
+      fiscalRecordCreateArgs = args;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "issue" },
   );
 
   assert.deepEqual(result, { ok: true, status: "ISSUED" });
   assert.deepEqual(findFirstArgs, {
     where: {
-      id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      id: "invoice_1",
       organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     },
     select: {
@@ -1535,11 +1795,21 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
     where: { id: "invoice_1" },
     data: { status: "ISSUED" },
   });
+  assert.deepEqual(fiscalRecordCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      type: "ALTA",
+      sequenceNumber: 2,
+      createdByUserId: "user_1",
+    },
+  });
 });
 
 test("updateInvoiceStatus does not duplicate an existing invoice snapshot", async () => {
   let snapshotCreateCalls = 0;
   let updateArgs: unknown;
+  let fiscalRecordCreateArgs: unknown;
 
   mockStatusTransaction({
     invoice: {
@@ -1552,11 +1822,15 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
     onSnapshotCreate: () => {
       snapshotCreateCalls += 1;
     },
+    onFiscalRecordCreate: (args) => {
+      fiscalRecordCreateArgs = args;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "issue" },
   );
 
@@ -1565,6 +1839,15 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
     data: { status: "ISSUED" },
+  });
+  assert.deepEqual(fiscalRecordCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      type: "ALTA",
+      sequenceNumber: 2,
+      createdByUserId: "user_1",
+    },
   });
 });
 
@@ -1601,6 +1884,7 @@ test("updateInvoiceStatus allows missing optional billing fields when issuing in
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "issue" },
   );
 
@@ -1635,6 +1919,7 @@ test("updateInvoiceStatus allows missing optional billing fields when issuing in
 test("updateInvoiceStatus applies non-issuing status transitions without snapshots", async () => {
   let updateArgs: unknown;
   let snapshotCreateCalls = 0;
+  let fiscalRecordCreateArgs: unknown;
 
   mockStatusTransaction({
     invoice: {
@@ -1648,11 +1933,15 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
     onSnapshotCreate: () => {
       snapshotCreateCalls += 1;
     },
+    onFiscalRecordCreate: (args) => {
+      fiscalRecordCreateArgs = args;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "void" },
   );
 
@@ -1662,11 +1951,21 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
     where: { id: "invoice_1" },
     data: { status: "VOID" },
   });
+  assert.deepEqual(fiscalRecordCreateArgs, {
+    data: {
+      invoiceId: "invoice_1",
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      type: "ANULACION",
+      sequenceNumber: 2,
+      createdByUserId: "user_1",
+    },
+  });
 });
 
 test("updateInvoiceStatus rejects missing invoices", async () => {
   let updateCalls = 0;
   let snapshotCreateCalls = 0;
+  let fiscalRecordCreateCalls = 0;
 
   mockStatusTransaction({
     invoice: null,
@@ -1676,22 +1975,28 @@ test("updateInvoiceStatus rejects missing invoices", async () => {
     onSnapshotCreate: () => {
       snapshotCreateCalls += 1;
     },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "issue" },
   );
 
   assert.deepEqual(result, { ok: false, reason: "notFound" });
   assert.equal(updateCalls, 0);
   assert.equal(snapshotCreateCalls, 0);
+  assert.equal(fiscalRecordCreateCalls, 0);
 });
 
 test("updateInvoiceStatus rejects invalid and terminal transitions without snapshots", async () => {
   let updateCalls = 0;
   let snapshotCreateCalls = 0;
+  let fiscalRecordCreateCalls = 0;
 
   mockStatusTransaction({
     invoice: {
@@ -1704,17 +2009,22 @@ test("updateInvoiceStatus rejects invalid and terminal transitions without snaps
     onSnapshotCreate: () => {
       snapshotCreateCalls += 1;
     },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
   });
 
   const result = await updateInvoiceStatus(
     "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
     "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
     { action: "void" },
   );
 
   assert.deepEqual(result, { ok: false, reason: "invalidTransition" });
   assert.equal(updateCalls, 0);
   assert.equal(snapshotCreateCalls, 0);
+  assert.equal(fiscalRecordCreateCalls, 0);
 });
 
 test("getInvoices applies scoped pagination and default sorting", async () => {

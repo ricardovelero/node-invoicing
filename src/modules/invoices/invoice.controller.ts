@@ -252,6 +252,7 @@ export const createInvoice: RequestHandler = async (req, res) => {
   if (intent === 'saveAndSend') {
     const createResult = await createIssuedInvoiceRecord(
       organizationId,
+      req.auth!.user.id,
       result.data,
     );
 
@@ -300,6 +301,20 @@ export const createInvoice: RequestHandler = async (req, res) => {
       });
     }
 
+    if (!createResult.ok && createResult.reason === 'invalidReplacementInvoice') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: {},
+        formError: req.t('invoices.errors.invalidReplacementInvoice'),
+        organizationCurrency: req.auth!.organization.currency,
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
+      });
+    }
+
     const sendResult = await sendInvoiceEmail(
       organizationId,
       createResult.invoice.id,
@@ -339,6 +354,20 @@ export const createInvoice: RequestHandler = async (req, res) => {
       customers,
       values: normalizeInvoiceFormValues(req.body),
       errors: { customerId: [req.t('invoices.errors.chooseCustomer')] },
+      organizationCurrency: req.auth!.organization.currency,
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
+    });
+  }
+
+  if (!createResult.ok && createResult.reason === 'invalidReplacementInvoice') {
+    return renderInvoiceForm(res, {
+      status: 422,
+      ...newInvoiceFormOptions,
+      ...newInvoiceLabels,
+      customers,
+      values: normalizeInvoiceFormValues(req.body),
+      errors: {},
+      formError: req.t('invoices.errors.invalidReplacementInvoice'),
       organizationCurrency: req.auth!.organization.currency,
       withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
     });
@@ -428,6 +457,7 @@ export const updateInvoiceStatusController: RequestHandler = async (
   const updateResult = await updateInvoiceStatus(
     req.auth!.organization.id,
     invoiceId,
+    req.auth!.user.id,
     result.data,
   );
 

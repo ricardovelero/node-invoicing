@@ -191,6 +191,7 @@
   "errors": {
     "chooseCustomer": "Elige un cliente.",
     "chooseCustomerWithEmail": "Elige un cliente con dirección de correo antes de enviar.",
+    "invalidReplacementInvoice": "Elige una factura anulada que aún no haya sido reemplazada.",
     "missingBillingEmail": "Añade un correo de facturación en los ajustes de la organización antes de enviar facturas por correo.",
     "emailProviderFailure": "No se pudo enviar el correo de la factura: {message}",
     "emailSendFailed": "No se pudo enviar el correo de la factura.",
