@@ -15,19 +15,33 @@
     <input type="hidden" name="page" value="1">
     <input type="hidden" name="sort" value="{{ filters.sort }}">
     <input type="hidden" name="direction" value="{{ filters.direction }}">
-    <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] md:items-end">
+    <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_11rem_12rem_auto_8rem_auto] md:items-end">
       <label class="block">
         <span class="text-sm font-medium text-ink">{{ t('invoices.filters.search') }}</span>
         <input class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" type="search" name="q" value="{{ filters.q }}" placeholder="{{ t('invoices.filters.searchPlaceholder') }}">
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.status') }}</span>
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.invoiceStatus') }}</span>
         <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="status">
           {% for option in statusOptions %}
             <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
           {% endfor %}
         </select>
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.paymentStatus') }}</span>
+        <select class="mt-1 block w-full rounded-md border border-line px-3 py-2 text-sm shadow-sm focus:border-action focus:outline-none focus:ring-1 focus:ring-action" name="paymentStatus">
+          {% for option in paymentStatusOptions %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="flex items-center gap-2 pb-2.5">
+        <input class="h-4 w-4 rounded border-line text-action focus:ring-action" type="checkbox" name="overdue" value="overdue" {% if filters.overdue %}checked{% endif %}>
+        <span class="text-sm font-medium text-ink">{{ t('invoices.filters.overdueOnly') }}</span>
       </label>
 
       <label class="block">

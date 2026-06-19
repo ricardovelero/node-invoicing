@@ -1,6 +1,10 @@
-import type { InvoiceStatus } from "@prisma/client";
+import type { InvoiceStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
-import { createInvoiceStatusBadges } from "../invoices/invoice.presenter";
+import {
+  createInvoiceOverdueBadge,
+  createInvoicePaymentStatusBadge,
+} from "../invoices/invoice.presenter";
+import { isInvoiceOverdue } from "../invoices/invoice.service";
 
 type MoneyTotal = {
   currency: string;
@@ -11,6 +15,7 @@ type InvoiceWithPayments = {
   id: string;
   number: string;
   status: InvoiceStatus;
+  paymentStatus: PaymentStatus;
   dueDate: Date;
   totalCents: number;
   currency: string;
@@ -24,19 +29,6 @@ type InvoiceWithPayments = {
     amountCents: number;
   }>;
 };
-
-const issuedInvoiceStatuses: InvoiceStatus[] = [
-  "SENT",
-  "PARTIALLY_PAID",
-  "PAID",
-  "OVERDUE",
-];
-
-const openInvoiceStatuses: InvoiceStatus[] = [
-  "SENT",
-  "PARTIALLY_PAID",
-  "OVERDUE",
-];
 
 const addDays = (date: Date, days: number) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
@@ -98,25 +90,21 @@ const customerNameForInvoice = (
     ? invoice.snapshot.customerName
     : invoice.customer.name;
 
-const isEffectivelyOverdue = (
-  invoice: Pick<InvoiceWithPayments, "status" | "dueDate">,
-  today: Date,
-) => {
-  if (invoice.status !== "SENT" && invoice.status !== "PARTIALLY_PAID") {
-    return false;
-  }
+type AttentionBadge = ReturnType<
+  typeof createInvoiceOverdueBadge | typeof createInvoicePaymentStatusBadge
+>;
 
-  return toDateOnlyTime(invoice.dueDate) < toDateOnlyTime(today);
-};
-
-const createAttentionInvoiceRow = (invoice: InvoiceWithPayments) => ({
+const createAttentionInvoiceRow = (
+  invoice: InvoiceWithPayments,
+  statusBadges: AttentionBadge[] = [],
+) => ({
   id: invoice.id,
   number: invoice.number,
   customerName: customerNameForInvoice(invoice),
   dueDate: invoice.dueDate,
   status: invoice.status,
-  statusBadge: createInvoiceStatusBadges(invoice)[0],
-  statusBadges: createInvoiceStatusBadges(invoice),
+  statusBadge: statusBadges[0],
+  statusBadges,
   currency: invoice.currency,
   outstandingCents:
     invoice.status === "DRAFT"
@@ -259,8 +247,17 @@ export const getDashboardData = async (
   const recentMonthCount = 6;
   const recentStart = addMonths(currentMonthStart, -(recentMonthCount - 1));
   const dueSoonEnd = addDays(today, 8);
+  const overdueWhere = {
+    organizationId,
+    status: "ISSUED" as const,
+    paymentStatus: { not: "PAID" as const },
+    dueDate: { lt: today },
+  };
 
   const [
+    draftInvoiceCount,
+    partiallyPaidInvoiceCount,
+    overdueInvoiceCount,
     recentInvoices,
     recentPayments,
     openInvoices,
@@ -270,10 +267,26 @@ export const getDashboardData = async (
     recentRecordedPayments,
     recentVoidedInvoices,
   ] = await Promise.all([
+    prisma.invoice.count({
+      where: {
+        organizationId,
+        status: "DRAFT",
+      },
+    }),
+    prisma.invoice.count({
+      where: {
+        organizationId,
+        status: "ISSUED",
+        paymentStatus: "PARTIALLY_PAID",
+      },
+    }),
+    prisma.invoice.count({
+      where: overdueWhere,
+    }),
     prisma.invoice.findMany({
       where: {
         organizationId,
-        status: { in: issuedInvoiceStatuses },
+        status: "ISSUED",
         issueDate: {
           gte: recentStart,
           lt: nextMonthStart,
@@ -308,7 +321,8 @@ export const getDashboardData = async (
     prisma.invoice.findMany({
       where: {
         organizationId,
-        status: { in: openInvoiceStatuses },
+        status: "ISSUED",
+        paymentStatus: { not: "PAID" },
       },
       include: {
         customer: true,
@@ -423,10 +437,7 @@ export const getDashboardData = async (
       outstandingCents,
     );
 
-    if (
-      invoice.status === "OVERDUE" ||
-      isEffectivelyOverdue(invoice, today)
-    ) {
+    if (isInvoiceOverdue(invoice, today)) {
       addMoneyTotal(
         overdueAmountByCurrency,
         invoice.currency,
@@ -435,49 +446,64 @@ export const getDashboardData = async (
     }
   }
 
-  const overdueInvoices = openInvoices
-    .filter(
-      (invoice) =>
-        invoice.status === "OVERDUE" || isEffectivelyOverdue(invoice, today),
-    )
-    .sort(byDueDateAscending)
-    .slice(0, 5)
-    .map(createAttentionInvoiceRow);
-  const dueSoonInvoices = openInvoices
-    .filter((invoice) => {
-      const dueTime = toDateOnlyTime(invoice.dueDate);
+  const overdueInvoiceRows = openInvoices.filter((invoice) =>
+    isInvoiceOverdue(invoice, today),
+  );
+  const dueSoonInvoiceRows = openInvoices.filter((invoice) => {
+    const dueTime = toDateOnlyTime(invoice.dueDate);
 
-      return (
-        invoice.status !== "OVERDUE" &&
-        !isEffectivelyOverdue(invoice, today) &&
-        dueTime >= toDateOnlyTime(today) &&
-        dueTime < toDateOnlyTime(dueSoonEnd)
-      );
-    })
-    .sort(byDueDateAscending)
-    .slice(0, 5)
-    .map(createAttentionInvoiceRow);
-  const partiallyPaidInvoices = openInvoices
-    .filter((invoice) => {
-      const paidCents = paidCentsForInvoice(invoice);
-      const outstandingCents = outstandingCentsForInvoice(invoice);
+    return (
+      !isInvoiceOverdue(invoice, today) &&
+      dueTime >= toDateOnlyTime(today) &&
+      dueTime < toDateOnlyTime(dueSoonEnd)
+    );
+  });
+  const partiallyPaidInvoiceRows = openInvoices.filter((invoice) => {
+    const paidCents = paidCentsForInvoice(invoice);
+    const outstandingCents = outstandingCentsForInvoice(invoice);
 
-      return paidCents > 0 && outstandingCents > 0;
-    })
+    return (
+      invoice.paymentStatus === "PARTIALLY_PAID" &&
+      paidCents > 0 &&
+      outstandingCents > 0
+    );
+  });
+
+  const overdueInvoices = overdueInvoiceRows
     .sort(byDueDateAscending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) =>
+      createAttentionInvoiceRow(
+        invoice,
+        invoice.paymentStatus === "PARTIALLY_PAID"
+          ? [createInvoicePaymentStatusBadge("PARTIALLY_PAID")]
+          : [],
+      ),
+    );
+  const dueSoonInvoices = dueSoonInvoiceRows
+    .sort(byDueDateAscending)
+    .slice(0, 5)
+    .map((invoice) => createAttentionInvoiceRow(invoice));
+  const partiallyPaidInvoices = partiallyPaidInvoiceRows
+    .sort(byDueDateAscending)
+    .slice(0, 5)
+    .map((invoice) =>
+      createAttentionInvoiceRow(
+        invoice,
+        isInvoiceOverdue(invoice, today) ? [createInvoiceOverdueBadge()] : [],
+      ),
+    );
   const draftRows = draftInvoices
     .sort(byCreatedAtDescending)
     .slice(0, 5)
-    .map(createAttentionInvoiceRow);
+    .map((invoice) => createAttentionInvoiceRow(invoice));
 
   const paymentTarget = openInvoices.find(
     (invoice) => outstandingCentsForInvoice(invoice) > 0,
   );
   const recordPaymentHref = paymentTarget
     ? `/invoices/${paymentTarget.id}`
-    : "/invoices?status=sent";
+    : "/invoices?status=issued&paymentStatus=unpaid";
 
   const recentActivity = [
     ...recentCreatedInvoices.map((invoice) => ({
@@ -566,7 +592,7 @@ export const getDashboardData = async (
       {
         labelKey: "dashboard.quickActions.viewOverdueInvoices.label",
         descriptionKey: "dashboard.quickActions.viewOverdueInvoices.description",
-        href: "/invoices?status=overdue",
+        href: "/invoices?overdue=overdue",
         variant: "secondary",
       },
     ],
@@ -574,25 +600,29 @@ export const getDashboardData = async (
       {
         titleKey: "dashboard.attention.overdue.title",
         emptyMessageKey: "dashboard.attention.overdue.empty",
-        href: "/invoices?status=overdue",
+        href: "/invoices?overdue=overdue",
+        count: overdueInvoiceCount,
         rows: overdueInvoices,
       },
       {
         titleKey: "dashboard.attention.dueSoon.title",
         emptyMessageKey: "dashboard.attention.dueSoon.empty",
-        href: "/invoices?status=sent",
+        href: "/invoices?status=issued&paymentStatus=unpaid",
+        count: dueSoonInvoiceRows.length,
         rows: dueSoonInvoices,
       },
       {
         titleKey: "dashboard.attention.drafts.title",
         emptyMessageKey: "dashboard.attention.drafts.empty",
         href: "/invoices?status=draft",
+        count: draftInvoiceCount,
         rows: draftRows,
       },
       {
         titleKey: "dashboard.attention.partiallyPaid.title",
         emptyMessageKey: "dashboard.attention.partiallyPaid.empty",
-        href: "/invoices?status=partially_paid",
+        href: "/invoices?paymentStatus=partially_paid",
+        count: partiallyPaidInvoiceCount,
         rows: partiallyPaidInvoices,
       },
     ],

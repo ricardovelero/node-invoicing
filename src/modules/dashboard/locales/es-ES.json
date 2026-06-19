@@ -49,7 +49,7 @@
     },
     "drafts": {
       "title": "Facturas en borrador",
-      "empty": "No hay borradores pendientes de enviar."
+      "empty": "No hay borradores pendientes de emitir."
     },
     "partiallyPaid": {
       "title": "Parcialmente pagadas",
@@ -67,7 +67,7 @@
     "title": "Actividad reciente",
     "types": {
       "created": "Factura creada",
-      "sent": "Factura enviada",
+      "sent": "Correo de factura enviado",
       "payment": "Pago registrado",
       "voided": "Factura anulada"
     },

@@ -1,4 +1,8 @@
-import type { InvoiceEmailDeliveryStatus, InvoiceStatus } from '@prisma/client';
+import type {
+  InvoiceEmailDeliveryStatus,
+  InvoiceStatus,
+  PaymentStatus,
+} from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
 import { createCurrencyOptions, defaultCurrency } from '../../lib/currencies';
 import {
@@ -9,6 +13,7 @@ import {
   createInvoiceMetadataValues,
   createInvoicePaymentValues,
   invoiceListLimits,
+  invoiceListPaymentStatusOptions,
   invoiceListSortableColumns,
   invoiceListStatusOptions,
   type InvoiceMetadataErrors,
@@ -32,7 +37,7 @@ import {
   getAllowedInvoiceStatusActions,
   type getInvoiceDetails,
   type getInvoices,
-  isInvoiceEffectivelyOverdue,
+  isInvoiceOverdue,
 } from './invoice.service';
 
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
@@ -113,11 +118,23 @@ const invoiceStatusBadges: Record<
   { label: string; labelKey: string; variant: BadgeVariant }
 > = {
   DRAFT: { label: 'Draft', labelKey: 'invoices.statuses.draft', variant: 'neutral' },
-  SENT: { label: 'Sent', labelKey: 'invoices.statuses.sent', variant: 'info' },
-  PARTIALLY_PAID: { label: 'Partially paid', labelKey: 'invoices.statuses.partially_paid', variant: 'warning' },
-  PAID: { label: 'Paid', labelKey: 'invoices.statuses.paid', variant: 'success' },
-  OVERDUE: { label: 'Overdue', labelKey: 'invoices.statuses.overdue', variant: 'danger' },
+  ISSUED: { label: 'Issued', labelKey: 'invoices.statuses.issued', variant: 'info' },
   VOID: { label: 'Void', labelKey: 'invoices.statuses.void', variant: 'muted' },
+};
+
+const paymentStatusBadges: Record<
+  PaymentStatus,
+  { label: string; labelKey: string; variant: BadgeVariant }
+> = {
+  UNPAID: { label: 'Unpaid', labelKey: 'invoices.paymentStatuses.unpaid', variant: 'warning' },
+  PARTIALLY_PAID: { label: 'Partially paid', labelKey: 'invoices.paymentStatuses.partially_paid', variant: 'warning' },
+  PAID: { label: 'Paid', labelKey: 'invoices.paymentStatuses.paid', variant: 'success' },
+};
+
+const overdueBadge = {
+  label: 'Overdue',
+  labelKey: 'invoices.statuses.overdue',
+  variant: 'danger' as const,
 };
 
 const emailDeliveryStatusBadges: Record<
@@ -135,43 +152,30 @@ const emailDeliveryStatusBadges: Record<
 export const createInvoiceStatusBadge = (status: InvoiceStatus) =>
   invoiceStatusBadges[status];
 
+export const createInvoicePaymentStatusBadge = (status: PaymentStatus) =>
+  paymentStatusBadges[status];
+
+export const createInvoiceOverdueBadge = () => overdueBadge;
+
 export const createInvoiceStatusBadges = (invoice: {
   status: InvoiceStatus;
+  paymentStatus: PaymentStatus;
   dueDate: Date;
-  totalCents: number;
-  payments?: Array<{ amountCents: number }>;
 }) => {
-  if (invoice.status === 'DRAFT' || invoice.status === 'PAID' || invoice.status === 'VOID') {
+  if (invoice.status === 'DRAFT' || invoice.status === 'VOID') {
     return [createInvoiceStatusBadge(invoice.status)];
   }
 
-  const payments = invoice.payments;
-  const paymentSummary = payments
-    ? calculateInvoicePaymentSummary({ ...invoice, payments })
-    : null;
-  const isPartiallyPaid =
-    Boolean(paymentSummary) &&
-    paymentSummary!.paidCents > 0 &&
-    paymentSummary!.outstandingCents > 0;
-  const isOverdue =
-    invoice.status === 'OVERDUE' || isInvoiceEffectivelyOverdue(invoice);
+  const badges = [
+    createInvoiceStatusBadge(invoice.status),
+    createInvoicePaymentStatusBadge(invoice.paymentStatus),
+  ];
 
-  if (isPartiallyPaid && isOverdue) {
-    return [
-      createInvoiceStatusBadge('PARTIALLY_PAID'),
-      createInvoiceStatusBadge('OVERDUE'),
-    ];
+  if (isInvoiceOverdue(invoice)) {
+    badges.push(overdueBadge);
   }
 
-  if (isPartiallyPaid) {
-    return [createInvoiceStatusBadge('PARTIALLY_PAID')];
-  }
-
-  if (isOverdue) {
-    return [createInvoiceStatusBadge('OVERDUE')];
-  }
-
-  return [createInvoiceStatusBadge(invoice.status)];
+  return badges;
 };
 
 export const createEmailDeliveryStatusBadge = (
@@ -197,7 +201,8 @@ const invoiceListSortLabels: Record<InvoiceListSort, string> = {
   createdAt: 'Created',
 };
 
-const statusToQueryValue = (status: InvoiceStatus) => status.toLowerCase();
+const enumToQueryValue = (status: InvoiceStatus | PaymentStatus) =>
+  status.toLowerCase();
 
 const createInvoiceListUrl = (
   query: InvoiceListQuery,
@@ -214,7 +219,15 @@ const createInvoiceListUrl = (
   }
 
   if (nextQuery.status) {
-    params.set('status', statusToQueryValue(nextQuery.status));
+    params.set('status', enumToQueryValue(nextQuery.status));
+  }
+
+  if (nextQuery.paymentStatus) {
+    params.set('paymentStatus', enumToQueryValue(nextQuery.paymentStatus));
+  }
+
+  if (nextQuery.overdue) {
+    params.set('overdue', 'overdue');
   }
 
   params.set('sort', nextQuery.sort);
@@ -279,13 +292,21 @@ const createPaginationPages = (
 };
 
 const statusTranslationKey = (status: InvoiceStatus) =>
-  statusToQueryValue(status).replace(/-/g, '_');
+  enumToQueryValue(status).replace(/-/g, '_');
+
+const paymentStatusTranslationKey = (status: PaymentStatus) =>
+  enumToQueryValue(status).replace(/-/g, '_');
 
 export const invoiceIndexView = (
   invoiceList: InvoiceList,
   t?: Translate,
 ) => {
-  const hasActiveFilters = Boolean(invoiceList.query.q || invoiceList.query.status);
+  const hasActiveFilters = Boolean(
+    invoiceList.query.q ||
+      invoiceList.query.status ||
+      invoiceList.query.paymentStatus ||
+      invoiceList.query.overdue,
+  );
   const hasRows = invoiceList.invoices.length > 0;
   const emptyMessage =
     hasRows
@@ -302,8 +323,12 @@ export const invoiceIndexView = (
     filters: {
       q: invoiceList.query.q,
       status: invoiceList.query.status
-        ? statusToQueryValue(invoiceList.query.status)
+        ? enumToQueryValue(invoiceList.query.status)
         : '',
+      paymentStatus: invoiceList.query.paymentStatus
+        ? enumToQueryValue(invoiceList.query.paymentStatus)
+        : '',
+      overdue: invoiceList.query.overdue ? 'overdue' : '',
       limit: invoiceList.query.limit,
       sort: invoiceList.query.sort,
       direction: invoiceList.query.direction,
@@ -316,15 +341,29 @@ export const invoiceIndexView = (
     statusOptions: [
       {
         value: '',
-        label: t?.('invoices.filters.allStatuses') ?? 'All statuses',
+        label: t?.('invoices.filters.allInvoiceStatuses') ?? 'All invoice statuses',
         selected: !invoiceList.query.status,
       },
       ...invoiceListStatusOptions.map((status) => ({
-        value: statusToQueryValue(status),
+        value: enumToQueryValue(status),
         label:
           t?.(`invoices.statuses.${statusTranslationKey(status)}`) ??
           createInvoiceStatusBadge(status).label,
         selected: status === invoiceList.query.status,
+      })),
+    ],
+    paymentStatusOptions: [
+      {
+        value: '',
+        label: t?.('invoices.filters.allPaymentStatuses') ?? 'All payment statuses',
+        selected: !invoiceList.query.paymentStatus,
+      },
+      ...invoiceListPaymentStatusOptions.map((status) => ({
+        value: enumToQueryValue(status),
+        label:
+          t?.(`invoices.paymentStatuses.${paymentStatusTranslationKey(status)}`) ??
+          createInvoicePaymentStatusBadge(status).label,
+        selected: status === invoiceList.query.paymentStatus,
       })),
     ],
     sortLinks: createSortLinks(invoiceList.query),
@@ -426,7 +465,7 @@ export const invoiceDetailView = (
 ) => {
   const paymentSummary = calculateInvoicePaymentSummary(invoice);
   const invoiceDisplay = createInvoiceDisplay(invoice);
-  const isEffectivelyOverdue = isInvoiceEffectivelyOverdue(invoice);
+  const isEffectivelyOverdue = isInvoiceOverdue(invoice);
 
   return {
     title: invoice.number,
@@ -500,7 +539,7 @@ export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
   invoiceDisplay: createInvoiceDisplay(invoice),
   invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
   snapshot: createInvoiceDisplay(invoice).snapshot,
-  isEffectivelyOverdue: isInvoiceEffectivelyOverdue(invoice),
+  isEffectivelyOverdue: isInvoiceOverdue(invoice),
   paymentSummary: calculateInvoicePaymentSummary(invoice),
   currentOrganization: invoice.organization,
 });

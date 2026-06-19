@@ -49,7 +49,7 @@
     },
     "drafts": {
       "title": "Draft invoices",
-      "empty": "No draft invoices waiting to be sent."
+      "empty": "No draft invoices waiting to be issued."
     },
     "partiallyPaid": {
       "title": "Partially paid",
@@ -67,7 +67,7 @@
     "title": "Recent Activity",
     "types": {
       "created": "Invoice created",
-      "sent": "Invoice sent",
+      "sent": "Invoice email sent",
       "payment": "Payment recorded",
       "voided": "Invoice voided"
     },

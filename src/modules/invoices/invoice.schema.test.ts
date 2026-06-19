@@ -328,12 +328,12 @@ describe("invoiceMetadataSchema", () => {
 describe("invoiceStatusActionSchema", () => {
   test("accepts valid non-payment status actions", () => {
     const result = invoiceStatusActionSchema.safeParse({
-      action: "send",
+      action: "issue",
     });
 
     assert.equal(result.success, true);
     assert.deepEqual(result.data, {
-      action: "send",
+      action: "issue",
     });
   });
 
@@ -416,7 +416,9 @@ describe("invoiceListQuerySchema", () => {
       page: "2",
       limit: "50",
       q: "  acme  ",
-      status: "paid",
+      status: "issued",
+      paymentStatus: "paid",
+      overdue: "overdue",
       sort: "dueDate",
       direction: "asc",
     });
@@ -425,7 +427,9 @@ describe("invoiceListQuerySchema", () => {
       page: 2,
       limit: 50,
       q: "acme",
-      status: "PAID",
+      status: "ISSUED",
+      paymentStatus: "PAID",
+      overdue: true,
       sort: "dueDate",
       direction: "asc",
     });
@@ -437,6 +441,8 @@ describe("invoiceListQuerySchema", () => {
       limit: "20abc",
       q: 123,
       status: "deleted",
+      paymentStatus: "deleted",
+      overdue: "all",
       sort: "customer.name",
       direction: "sideways",
     });
@@ -446,6 +452,8 @@ describe("invoiceListQuerySchema", () => {
       limit: 20,
       q: "",
       status: undefined,
+      paymentStatus: undefined,
+      overdue: false,
       sort: "createdAt",
       direction: "desc",
     });
@@ -469,12 +477,16 @@ describe("invoiceListQuerySchema", () => {
   test("normalizes repeated query values from the first value", () => {
     const result = invoiceListQuerySchema.parse({
       page: ["3", "4"],
-      status: ["overdue", "paid"],
+      status: ["issued", "draft"],
+      paymentStatus: ["partially_paid", "paid"],
+      overdue: ["overdue", ""],
       direction: ["asc", "desc"],
     });
 
     assert.equal(result.page, 3);
-    assert.equal(result.status, "OVERDUE");
+    assert.equal(result.status, "ISSUED");
+    assert.equal(result.paymentStatus, "PARTIALLY_PAID");
+    assert.equal(result.overdue, true);
     assert.equal(result.direction, "asc");
   });
 });

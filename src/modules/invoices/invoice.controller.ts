@@ -23,8 +23,8 @@ import {
 } from '../../lib/withholding';
 import {
   canEditInvoice,
+  createIssuedInvoiceRecord,
   createInvoiceRecord,
-  createSentInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
@@ -250,8 +250,9 @@ export const createInvoice: RequestHandler = async (req, res) => {
   }
 
   if (intent === 'saveAndSend') {
-    const createResult = await createSentInvoiceRecord(
+    const createResult = await createIssuedInvoiceRecord(
       organizationId,
+      req.auth!.user.id,
       result.data,
     );
 
@@ -295,6 +296,20 @@ export const createInvoice: RequestHandler = async (req, res) => {
         errors: {},
         formError:
           req.t('invoices.errors.missingBillingEmail'),
+        organizationCurrency: req.auth!.organization.currency,
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
+      });
+    }
+
+    if (!createResult.ok && createResult.reason === 'invalidReplacementInvoice') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: {},
+        formError: req.t('invoices.errors.invalidReplacementInvoice'),
         organizationCurrency: req.auth!.organization.currency,
         withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
@@ -344,6 +359,20 @@ export const createInvoice: RequestHandler = async (req, res) => {
     });
   }
 
+  if (!createResult.ok && createResult.reason === 'invalidReplacementInvoice') {
+    return renderInvoiceForm(res, {
+      status: 422,
+      ...newInvoiceFormOptions,
+      ...newInvoiceLabels,
+      customers,
+      values: normalizeInvoiceFormValues(req.body),
+      errors: {},
+      formError: req.t('invoices.errors.invalidReplacementInvoice'),
+      organizationCurrency: req.auth!.organization.currency,
+      withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
+    });
+  }
+
   req.flash('success', req.t('invoices.flash.created'));
   res.redirect('/invoices');
 };
@@ -376,7 +405,7 @@ export const printInvoice: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', req.t('invoices.errors.markSentBeforePrinting'));
+    req.flash('error', req.t('invoices.errors.issueBeforePrinting'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -397,7 +426,7 @@ export const downloadInvoicePdf: RequestHandler = async (req, res) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   if (!invoiceDisplay.isPrintable || !invoiceDisplay.snapshot) {
-    req.flash('error', req.t('invoices.errors.markSentBeforePdf'));
+    req.flash('error', req.t('invoices.errors.issueBeforePdf'));
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
@@ -428,6 +457,7 @@ export const updateInvoiceStatusController: RequestHandler = async (
   const updateResult = await updateInvoiceStatus(
     req.auth!.organization.id,
     invoiceId,
+    req.auth!.user.id,
     result.data,
   );
 

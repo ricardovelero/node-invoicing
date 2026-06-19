@@ -33,6 +33,7 @@ test("dashboard attention sections render invoice badges", () => {
 
   assert.match(template, /from "components\/ui\/badge\.njk" import badge/);
   assert.match(template, /for section in attentionSections/);
+  assert.match(template, /t\(section\.titleKey\) }} \({{ section\.count }}\)/);
   assert.match(template, /for invoice in section\.rows/);
   assert.match(template, /invoice\.customerName/);
   assert.match(template, /for statusBadge in invoice\.statusBadges/);
@@ -41,6 +42,7 @@ test("dashboard attention sections render invoice badges", () => {
     /badge\(t\(statusBadge\.labelKey\) if statusBadge\.labelKey else statusBadge\.label, statusBadge\.variant\)/,
   );
   assert.doesNotMatch(template, /{{ invoice\.status }}/);
+  assert.doesNotMatch(template, /statusCards/);
 });
 
 test("dashboard monthly visual uses lightweight invoiced and paid bars", () => {

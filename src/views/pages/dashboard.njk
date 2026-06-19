@@ -69,7 +69,7 @@
         {% for section in attentionSections %}
           <div class="rounded-md border border-line">
             <div class="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
-              <h3 class="text-sm font-semibold">{{ t(section.titleKey) }}</h3>
+              <h3 class="text-sm font-semibold">{{ t(section.titleKey) }} ({{ section.count }})</h3>
               <a class="text-xs font-medium text-action hover:text-action-dark" href="{{ section.href }}">{{ t('dashboard.actions.view') }}</a>
             </div>
             <div class="divide-y divide-line">

@@ -16,8 +16,7 @@
     "sendEmail": "Send invoice via email",
     "downloadPdf": "Download PDF",
     "print": "Print invoice",
-    "markSent": "Mark sent",
-    "markOverdue": "Mark overdue",
+    "issueInvoice": "Issue invoice",
     "voidInvoice": "Void invoice",
     "recordPayment": "Record payment",
     "retry": "Retry",
@@ -89,8 +88,13 @@
     "search": "Search",
     "searchPlaceholder": "Invoice number or customer",
     "status": "Status",
+    "invoiceStatus": "Invoice status",
+    "paymentStatus": "Payment status",
+    "overdueOnly": "Overdue only",
     "rows": "Rows",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "allInvoiceStatuses": "All invoice statuses",
+    "allPaymentStatuses": "All payment statuses"
   },
   "table": {
     "number": "Number",
@@ -114,11 +118,14 @@
   },
   "statuses": {
     "draft": "Draft",
-    "sent": "Sent",
-    "partially_paid": "Partially paid",
-    "paid": "Paid",
+    "issued": "Issued",
     "overdue": "Overdue",
     "void": "Void"
+  },
+  "paymentStatuses": {
+    "unpaid": "Unpaid",
+    "partially_paid": "Partially paid",
+    "paid": "Paid"
   },
   "emailStatuses": {
     "pending": "Pending",
@@ -176,7 +183,7 @@
   "flash": {
     "created": "Invoice created.",
     "updated": "Invoice updated.",
-    "savedAndSent": "Invoice saved and sent to the customer's email address.",
+    "savedAndSent": "Invoice issued and sent to the customer's email address.",
     "statusUpdated": "Invoice status updated.",
     "detailsUpdated": "Invoice details updated.",
     "paymentRecorded": "Payment recorded."
@@ -184,11 +191,12 @@
   "errors": {
     "chooseCustomer": "Choose a customer.",
     "chooseCustomerWithEmail": "Choose a customer with an email address before sending.",
+    "invalidReplacementInvoice": "Choose a void invoice that has not already been replaced.",
     "missingBillingEmail": "Please, add a billing email in your organization settings before sending invoice emails.",
     "emailProviderFailure": "Invoice email could not be sent: {message}",
     "emailSendFailed": "Invoice email could not be sent.",
-    "markSentBeforePrinting": "Mark the invoice sent before printing.",
-    "markSentBeforePdf": "Mark the invoice sent before downloading a PDF.",
+    "issueBeforePrinting": "Issue the invoice before printing.",
+    "issueBeforePdf": "Issue the invoice before downloading a PDF.",
     "invalidStatusAction": "Choose a valid invoice status action.",
     "statusChangeNotAllowed": "That status change is not allowed for this invoice.",
     "snapshotRequiredForPaymentInstructions": "Payment instructions can only be edited after the invoice snapshot exists.",

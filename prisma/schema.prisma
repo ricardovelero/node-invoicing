@@ -8,11 +8,19 @@ datasource db {
 
 enum InvoiceStatus {
   DRAFT
-  SENT
+  ISSUED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
   PARTIALLY_PAID
   PAID
-  OVERDUE
-  VOID
+}
+
+enum InvoiceFiscalRecordType {
+  ALTA
+  ANULACION
 }
 
 enum OrganizationRole {
@@ -41,19 +49,20 @@ enum AuthAuditEventType {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String  @id @default(cuid())
+  email        String  @unique
   name         String?
   fullName     String?
   timeZone     String?
   passwordHash String
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  memberships  OrganizationMembership[]
-  sessions      Session[]
-  passwordResetTokens PasswordResetToken[]
-  authAuditEvents AuthAuditEvent[]
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  memberships          OrganizationMembership[]
+  sessions             Session[]
+  passwordResetTokens  PasswordResetToken[]
+  authAuditEvents      AuthAuditEvent[]
+  invoiceFiscalRecords InvoiceFiscalRecord[]
 }
 
 model PasswordResetToken {
@@ -65,7 +74,7 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -96,38 +105,40 @@ model Session {
 }
 
 model Organization {
-  id          String   @id @default(uuid()) @db.Uuid
+  id                          String   @id @default(uuid()) @db.Uuid
   /// Display name kept in sync with legalName for now. May become a separate trading name in the future.
-  name        String
-  legalName   String?
-  taxId       String?
-  addressLine1 String?
-  city        String?
-  country     String?
-  countryCode String?
-  legalForm   String   @default("other")
-  currency    String   @default("EUR")
-  locale      String   @default("en-GB")
-  paymentInstructions String?
-  billingEmail String?
-  withholdingEnabled Boolean @default(false)
-  defaultWithholdingType String?
-  defaultWithholdingRate Decimal? @db.Decimal(5, 2)
-  sessionIdleTimeoutMinutes Int @default(30)
-  sessionAbsoluteLifetimeDays Int @default(14)
+  name                        String
+  legalName                   String?
+  taxId                       String?
+  addressLine1                String?
+  city                        String?
+  country                     String?
+  countryCode                 String?
+  legalForm                   String   @default("other")
+  currency                    String   @default("EUR")
+  locale                      String   @default("en-GB")
+  paymentInstructions         String?
+  billingEmail                String?
+  withholdingEnabled          Boolean  @default(false)
+  defaultWithholdingType      String?
+  defaultWithholdingRate      Decimal? @db.Decimal(5, 2)
+  sessionIdleTimeoutMinutes   Int      @default(30)
+  sessionAbsoluteLifetimeDays Int      @default(14)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  memberships            OrganizationMembership[]
-  sessions               Session[]
-  customers              Customer[]
-  invoices               Invoice[]
-  invoiceNumberSequences InvoiceNumberSequence[]
-  invoicePublicAccessTokens InvoicePublicAccessToken[]
-  invoiceEmailDeliveries    InvoiceEmailDelivery[]
-  catalogItems              CatalogItem[]
-  authAuditEvents           AuthAuditEvent[]
+  memberships                 OrganizationMembership[]
+  sessions                    Session[]
+  customers                   Customer[]
+  invoices                    Invoice[]
+  invoiceNumberSequences      InvoiceNumberSequence[]
+  invoiceFiscalRecordSequence InvoiceFiscalRecordSequence?
+  invoiceFiscalRecords        InvoiceFiscalRecord[]
+  invoicePublicAccessTokens   InvoicePublicAccessToken[]
+  invoiceEmailDeliveries      InvoiceEmailDelivery[]
+  catalogItems                CatalogItem[]
+  authAuditEvents             AuthAuditEvent[]
 
   @@index([name])
 }
@@ -179,11 +190,11 @@ model OrganizationMembership {
   organizationId String           @db.Uuid
   role           OrganizationRole @default(MEMBER)
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -191,56 +202,62 @@ model OrganizationMembership {
 }
 
 model Customer {
-  id           String    @id @default(uuid()) @db.Uuid
-  organizationId String    @db.Uuid
-  name         String
-  email        String?
-  taxId        String?
-  addressLine1 String?
-  city         String?
-  country      String?
-  archivedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoices     Invoice[]
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  name           String
+  email          String?
+  taxId          String?
+  addressLine1   String?
+  city           String?
+  country        String?
+  archivedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
 
   @@index([organizationId])
   @@index([name])
 }
 
 model Invoice {
-  id             String        @id @default(uuid()) @db.Uuid
-  organizationId String        @db.Uuid
-  number         String
-  status         InvoiceStatus @default(DRAFT)
-  customerId     String        @db.Uuid
-  issueDate      DateTime
-  dueDate        DateTime
-  subtotalCents  Int
-  discountCents  Int           @default(0)
-  taxCents       Int           @default(0)
-  withholdingType String?
-  withholdingRate Decimal?     @db.Decimal(5, 2)
+  id                     String                     @id @default(uuid()) @db.Uuid
+  organizationId         String                     @db.Uuid
+  number                 String
+  status                 InvoiceStatus              @default(DRAFT)
+  paymentStatus          PaymentStatus              @default(UNPAID)
+  customerId             String                     @db.Uuid
+  issueDate              DateTime
+  dueDate                DateTime
+  subtotalCents          Int
+  discountCents          Int                        @default(0)
+  taxCents               Int                        @default(0)
+  withholdingType        String?
+  withholdingRate        Decimal?                   @db.Decimal(5, 2)
   withholdingAmountCents Int?
-  totalCents     Int
-  currency       String
-  paymentInstructions String?
-  notes          String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lines          InvoiceLine[]
-  payments       Payment[]
-  snapshot       InvoiceSnapshot?
-  publicAccessTokens InvoicePublicAccessToken[]
-  emailDeliveries    InvoiceEmailDelivery[]
+  totalCents             Int
+  currency               String
+  paymentInstructions    String?
+  notes                  String?
+  replacesInvoiceId      String?                    @unique @db.Uuid
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  customer               Customer                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  organization           Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  replacesInvoice        Invoice?                   @relation("InvoiceReplacement", fields: [replacesInvoiceId], references: [id], onDelete: Restrict)
+  replacementInvoice     Invoice?                   @relation("InvoiceReplacement")
+  lines                  InvoiceLine[]
+  payments               Payment[]
+  snapshot               InvoiceSnapshot?
+  fiscalRecords          InvoiceFiscalRecord[]
+  publicAccessTokens     InvoicePublicAccessToken[]
+  emailDeliveries        InvoiceEmailDelivery[]
 
   @@unique([organizationId, number])
   @@index([organizationId])
   @@index([customerId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([dueDate])
 }
 
@@ -256,30 +273,67 @@ model InvoiceNumberSequence {
   @@index([organizationId])
 }
 
+model InvoiceFiscalRecordSequence {
+  organizationId String       @id @db.Uuid
+  nextValue      Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+}
+
+model InvoiceFiscalRecord {
+  id               String                  @id @default(uuid()) @db.Uuid
+  invoiceId        String                  @db.Uuid
+  organizationId   String                  @db.Uuid
+  type             InvoiceFiscalRecordType
+  sequenceNumber   Int
+  previousRecordId String?                 @unique @db.Uuid
+  previousHash     String?
+  hash             String
+  hashInput        Json
+  hashVersion      String                  @default("internal-v1")
+  createdByUserId  String?
+  createdAt        DateTime                @default(now())
+
+  invoice        Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  previousRecord InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain", fields: [previousRecordId], references: [id], onDelete: Restrict)
+  nextRecord     InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain")
+  createdByUser  User?                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  // MVP constraint: one ALTA and one ANULACION per invoice. Revisit when
+  // corrections, substitutions, or reprocessing workflows are introduced.
+  @@unique([invoiceId, type])
+  @@unique([organizationId, sequenceNumber])
+  @@index([invoiceId])
+  @@index([organizationId, createdAt])
+  @@index([createdByUserId])
+}
+
 model InvoiceSnapshot {
-  invoiceId            String   @id @db.Uuid
-  customerName         String
-  customerEmail        String?
-  customerTaxId        String?
-  customerAddressLine1 String?
-  customerCity         String?
-  customerCountry      String?
-  sellerName           String
-  sellerLegalName      String?
-  sellerTaxId          String?
-  sellerAddressLine1   String?
-  sellerCity           String?
-  sellerCountry        String?
-  paymentInstructions  String?
-  subtotalCents        Int
-  discountCents        Int
-  taxCents             Int
-  withholdingType      String?
-  withholdingRate      Decimal? @db.Decimal(5, 2)
+  invoiceId              String   @id @db.Uuid
+  customerName           String
+  customerEmail          String?
+  customerTaxId          String?
+  customerAddressLine1   String?
+  customerCity           String?
+  customerCountry        String?
+  sellerName             String
+  sellerLegalName        String?
+  sellerTaxId            String?
+  sellerAddressLine1     String?
+  sellerCity             String?
+  sellerCountry          String?
+  paymentInstructions    String?
+  subtotalCents          Int
+  discountCents          Int
+  taxCents               Int
+  withholdingType        String?
+  withholdingRate        Decimal? @db.Decimal(5, 2)
   withholdingAmountCents Int?
-  totalCents           Int
-  createdAt            DateTime @default(now())
-  invoice              Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  totalCents             Int
+  createdAt              DateTime @default(now())
+  invoice                Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model InvoiceLine {
@@ -320,8 +374,8 @@ model InvoicePublicAccessToken {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deliveries   InvoiceEmailDelivery[]
 
   @@index([invoiceId])

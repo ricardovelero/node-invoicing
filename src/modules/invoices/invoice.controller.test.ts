@@ -21,6 +21,7 @@ import {
   createEmailDeliveryStatusBadge,
   createInvoiceDisplay,
   createInvoiceLineDisplays,
+  createInvoicePaymentStatusBadge,
   createInvoiceStatusBadge,
   createInvoiceStatusBadges,
   invoiceIndexView,
@@ -202,10 +203,17 @@ const createResponse = () => {
 
 const statusInvoice = {
   id: "invoice_1",
+  number: "INV-2026-0001",
   status: "DRAFT",
+  paymentStatus: "UNPAID",
+  issueDate: new Date("2026-05-27T00:00:00.000Z"),
+  dueDate: new Date("2026-06-27T00:00:00.000Z"),
   subtotalCents: 10000,
   discountCents: 0,
   taxCents: 0,
+  withholdingType: null,
+  withholdingRate: null,
+  withholdingAmountCents: null,
   totalCents: 10000,
   currency: "EUR",
   paymentInstructions: "Draft payment instructions.",
@@ -223,7 +231,7 @@ const statusInvoice = {
     taxId: null,
     addressLine1: null,
     city: null,
-    country: null,
+    countryCode: null,
     paymentInstructions: null,
   },
   snapshot: null,
@@ -254,7 +262,8 @@ const printableSnapshot = {
 const printableInvoice = {
   id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
   number: "INV-2026-0001",
-  status: "SENT",
+  status: "ISSUED",
+  paymentStatus: "UNPAID",
   issueDate: new Date("2026-05-27T00:00:00.000Z"),
   dueDate: new Date("2026-06-27T00:00:00.000Z"),
   subtotalCents: 10000,
@@ -294,31 +303,90 @@ const mockStatusTransaction = ({
 }) => {
   prismaMock.$transaction = async (
     callback: (tx: {
+      $queryRaw: (
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) => Promise<Array<{ id?: string; status?: string; reservedValue?: number }>>;
       invoice: {
         findFirst: () => Promise<unknown>;
         update: (args: unknown) => Promise<unknown>;
       };
       invoiceSnapshot: {
+        create: (args: { data: unknown }) => Promise<unknown>;
+      };
+      invoiceFiscalRecord: {
+        findFirst: () => Promise<unknown>;
         create: () => Promise<unknown>;
       };
     }) => Promise<unknown>,
-  ) =>
-    callback({
+  ) => {
+    let queryCalls = 0;
+    let snapshotData: unknown = null;
+    let currentInvoice = invoice;
+    const lockedInvoice =
+      invoice && typeof invoice === "object"
+        ? {
+            id: (invoice as { id: string }).id,
+            status: (invoice as { status: string }).status,
+          }
+        : null;
+
+    return callback({
+      $queryRaw: async () => {
+        queryCalls += 1;
+
+        if (queryCalls === 1) {
+          return lockedInvoice ? [lockedInvoice] : [];
+        }
+
+        return [{ reservedValue: queryCalls }];
+      },
       invoice: {
         async findFirst() {
-          return invoice;
+          if (currentInvoice && typeof currentInvoice === "object") {
+            return {
+              ...currentInvoice,
+              snapshot: snapshotData ?? (currentInvoice as { snapshot?: unknown }).snapshot,
+            };
+          }
+
+          return currentInvoice;
         },
         async update(args) {
           onInvoiceUpdate?.(args);
+          if (
+            currentInvoice &&
+            typeof currentInvoice === "object" &&
+            args &&
+            typeof args === "object" &&
+            "data" in args &&
+            (args as { data: { status?: string } }).data.status
+          ) {
+            currentInvoice = {
+              ...currentInvoice,
+              status: (args as { data: { status: string } }).data.status,
+            };
+          }
+
           return { id: "invoice_1" };
         },
       },
       invoiceSnapshot: {
-        async create() {
+        async create(args: { data: unknown }) {
+          snapshotData = args.data;
           return { invoiceId: "invoice_1" };
         },
       },
+      invoiceFiscalRecord: {
+        async findFirst() {
+          return null;
+        },
+        async create() {
+          return { id: "fiscal_record_1" };
+        },
+      },
     });
+  };
 };
 
 const validCreateInvoiceBody = {
@@ -364,15 +432,27 @@ const mockCreateInvoiceTransaction = ({
         findFirst: () => Promise<unknown>;
       };
       invoice: {
+        findFirst: () => Promise<unknown>;
         create: (args: unknown) => Promise<unknown>;
       };
       invoiceSnapshot: {
         create: (args: unknown) => Promise<unknown>;
       };
+      invoiceFiscalRecord: {
+        findFirst: () => Promise<unknown>;
+        create: (args: unknown) => Promise<unknown>;
+      };
     }) => Promise<unknown>,
-  ) =>
-    callback({
-      $queryRaw: async () => [{ reservedValue: 1 }],
+  ) => {
+    let queryCalls = 0;
+    let createdInvoice: unknown = null;
+    let snapshotData: unknown = null;
+
+    return callback({
+      $queryRaw: async () => {
+        queryCalls += 1;
+        return [{ reservedValue: queryCalls }];
+      },
       customer: {
         async findFirst() {
           return customer;
@@ -384,13 +464,34 @@ const mockCreateInvoiceTransaction = ({
         },
       },
       invoice: {
+        async findFirst() {
+          if (createdInvoice && typeof createdInvoice === "object") {
+            return {
+              ...createdInvoice,
+              snapshot: snapshotData,
+            };
+          }
+
+          return createdInvoice;
+        },
         async create(args) {
           onInvoiceCreate?.(args);
-          return {
+          const data = (args as { data: Record<string, unknown> }).data;
+          createdInvoice = {
             id: createdInvoiceId,
+            organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+            number: data.number,
+            status: data.status,
+            paymentStatus: data.paymentStatus,
+            issueDate: data.issueDate,
+            dueDate: data.dueDate,
+            currency: data.currency,
             subtotalCents: 10000,
             discountCents: 0,
             taxCents: 2100,
+            withholdingType: null,
+            withholdingRate: null,
+            withholdingAmountCents: null,
             totalCents: 12100,
             paymentInstructions: "Pay by bank transfer.",
             customer: {
@@ -411,15 +512,26 @@ const mockCreateInvoiceTransaction = ({
             },
             snapshot: null,
           };
+          return createdInvoice;
         },
       },
       invoiceSnapshot: {
         async create(args) {
           onSnapshotCreate?.(args);
+          snapshotData = (args as { data: unknown }).data;
           return { invoiceId: createdInvoiceId };
         },
       },
+      invoiceFiscalRecord: {
+        async findFirst() {
+          return null;
+        },
+        async create() {
+          return { id: "fiscal_record_1" };
+        },
+      },
     });
+  };
 };
 
 test("renderNewInvoice defaults payment instructions from organization settings and leaves notes empty", async () => {
@@ -564,7 +676,8 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
       {
         id: "invoice_1",
         number: "INV-2026-0001",
-        status: "PAID",
+        status: "ISSUED",
+        paymentStatus: "PAID",
         issueDate: new Date("2026-05-27T00:00:00.000Z"),
         dueDate: new Date("2026-06-27T00:00:00.000Z"),
         totalCents: 10000,
@@ -572,6 +685,7 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
         createdAt: new Date("2026-05-27T00:00:00.000Z"),
         customer: { name: "Live Ada Co" },
         snapshot: { customerName: "Snapshot Ada Co" },
+        payments: [{ amountCents: 10000 }],
       },
     ];
   };
@@ -583,7 +697,8 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
       page: "2",
       limit: "10",
       q: "  acme  ",
-      status: "paid",
+      status: "issued",
+      paymentStatus: "paid",
       sort: "dueDate",
       direction: "asc",
     },
@@ -596,6 +711,8 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
     filters: {
       q: string;
       status: string;
+      paymentStatus: string;
+      overdue: string;
       limit: number;
       sort: string;
       direction: string;
@@ -607,7 +724,9 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
   assert.equal(res.renderedView, "pages/invoices/index.njk");
   assert.deepEqual(renderedData.filters, {
     q: "acme",
-    status: "paid",
+    status: "issued",
+    paymentStatus: "paid",
+    overdue: "",
     limit: 10,
     sort: "dueDate",
     direction: "asc",
@@ -624,24 +743,25 @@ test("listInvoices renders normalized filters and paginated invoice rows", async
     pages: [
       {
         page: 1,
-        href: "/invoices?page=1&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+        href: "/invoices?page=1&limit=10&q=acme&status=issued&paymentStatus=paid&sort=dueDate&direction=asc",
         isCurrent: false,
       },
       {
         page: 2,
-        href: "/invoices?page=2&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+        href: "/invoices?page=2&limit=10&q=acme&status=issued&paymentStatus=paid&sort=dueDate&direction=asc",
         isCurrent: true,
       },
     ],
     previousHref:
-      "/invoices?page=1&limit=10&q=acme&status=paid&sort=dueDate&direction=asc",
+      "/invoices?page=1&limit=10&q=acme&status=issued&paymentStatus=paid&sort=dueDate&direction=asc",
     nextHref: null,
   });
   assert.equal(renderedData.invoiceRows[0]?.customerName, "Snapshot Ada Co");
   assert.deepEqual(findManyArgs, {
     where: {
       organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      status: "PAID",
+      status: "ISSUED",
+      paymentStatus: "PAID",
       OR: [
         { number: { contains: "acme", mode: "insensitive" } },
         {
@@ -714,11 +834,15 @@ test("createInvoice saveDraft uses the draft create path", async () => {
   assert.deepEqual(req.flashMessages.success, ["Invoice created."]);
   assert.equal(
     (invoiceCreateArgs as { data: { status?: string } }).data.status,
-    undefined,
+    "DRAFT",
+  );
+  assert.equal(
+    (invoiceCreateArgs as { data: { paymentStatus?: string } }).data.paymentStatus,
+    "UNPAID",
   );
 });
 
-test("createInvoice saveAndSend creates a sent invoice, emails the customer, and flashes success", async () => {
+test("createInvoice saveAndSend creates an issued invoice, emails the customer, and flashes success", async () => {
   const customers = [{ id: "customer_1", name: "Ada Co" }];
   let invoiceCreateArgs: unknown;
   let snapshotCreateArgs: unknown;
@@ -750,11 +874,15 @@ test("createInvoice saveAndSend creates a sent invoice, emails the customer, and
 
   assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
   assert.deepEqual(req.flashMessages.success, [
-    "Invoice saved and sent to the customer's email address.",
+    "Invoice issued and sent to the customer's email address.",
   ]);
   assert.equal(
     (invoiceCreateArgs as { data: { status: string } }).data.status,
-    "SENT",
+    "ISSUED",
+  );
+  assert.equal(
+    (invoiceCreateArgs as { data: { paymentStatus: string } }).data.paymentStatus,
+    "UNPAID",
   );
   assert.ok(snapshotCreateArgs);
   assert.deepEqual(sendInvoiceEmailArgs!, [
@@ -1098,7 +1226,7 @@ test("showInvoice renders invoice details and available actions", async () => {
       isPrintable: false,
     },
     invoiceLineDisplays: [],
-    allowedActions: ["send", "void"],
+    allowedActions: ["issue", "void"],
     canEditInvoice: true,
     canRecordPayment: false,
     isEffectivelyOverdue: false,
@@ -1153,7 +1281,8 @@ test("showInvoice disables payment recording when open invoices are fully paid o
     const invoice = {
       id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
       number: "INV-2026-0001",
-      status: "SENT",
+      status: "ISSUED",
+      paymentStatus: "PAID",
       dueDate: new Date("2099-06-27T00:00:00.000Z"),
       totalCents: 10000,
       currency: "EUR",
@@ -1213,7 +1342,8 @@ test("createInvoiceDisplay uses snapshot customer and currency for printable inv
   };
   const display = createInvoiceDisplay(
     {
-      status: "SENT",
+      status: "ISSUED",
+      paymentStatus: "UNPAID",
       currency: "GBP",
       customer: { id: "customer_1", name: "Live Ada Co" },
       snapshot,
@@ -1235,45 +1365,49 @@ test("invoice status badges use readable labels and semantic variants", () => {
     labelKey: "invoices.statuses.draft",
     variant: "neutral",
   });
-  assert.deepEqual(createInvoiceStatusBadge("SENT"), {
-    label: "Sent",
-    labelKey: "invoices.statuses.sent",
+  assert.deepEqual(createInvoiceStatusBadge("ISSUED"), {
+    label: "Issued",
+    labelKey: "invoices.statuses.issued",
     variant: "info",
-  });
-  assert.deepEqual(createInvoiceStatusBadge("PARTIALLY_PAID"), {
-    label: "Partially paid",
-    labelKey: "invoices.statuses.partially_paid",
-    variant: "warning",
-  });
-  assert.deepEqual(createInvoiceStatusBadge("PAID"), {
-    label: "Paid",
-    labelKey: "invoices.statuses.paid",
-    variant: "success",
-  });
-  assert.deepEqual(createInvoiceStatusBadge("OVERDUE"), {
-    label: "Overdue",
-    labelKey: "invoices.statuses.overdue",
-    variant: "danger",
   });
   assert.deepEqual(createInvoiceStatusBadge("VOID"), {
     label: "Void",
     labelKey: "invoices.statuses.void",
     variant: "muted",
   });
+  assert.deepEqual(createInvoicePaymentStatusBadge("UNPAID"), {
+    label: "Unpaid",
+    labelKey: "invoices.paymentStatuses.unpaid",
+    variant: "warning",
+  });
+  assert.deepEqual(createInvoicePaymentStatusBadge("PARTIALLY_PAID"), {
+    label: "Partially paid",
+    labelKey: "invoices.paymentStatuses.partially_paid",
+    variant: "warning",
+  });
+  assert.deepEqual(createInvoicePaymentStatusBadge("PAID"), {
+    label: "Paid",
+    labelKey: "invoices.paymentStatuses.paid",
+    variant: "success",
+  });
 });
 
 test("invoice status badge list keeps partial payment visible when overdue", () => {
   assert.deepEqual(
     createInvoiceStatusBadges({
-      status: "OVERDUE",
-      dueDate: new Date("2026-06-01T00:00:00.000Z"),
-      totalCents: 10000,
-      payments: [{ amountCents: 4000 }],
+      status: "ISSUED",
+      paymentStatus: "PARTIALLY_PAID",
+      dueDate: new Date("2000-06-01T00:00:00.000Z"),
     }),
     [
       {
+        label: "Issued",
+        labelKey: "invoices.statuses.issued",
+        variant: "info",
+      },
+      {
         label: "Partially paid",
-        labelKey: "invoices.statuses.partially_paid",
+        labelKey: "invoices.paymentStatuses.partially_paid",
         variant: "warning",
       },
       {
@@ -1325,6 +1459,7 @@ test("invoiceIndexView prepares customer names and status badges", () => {
         id: "invoice_1",
         number: "INV-2026-0001",
         status: "DRAFT",
+        paymentStatus: "UNPAID",
         issueDate: new Date("2026-05-27T00:00:00.000Z"),
         dueDate: new Date("2026-06-27T00:00:00.000Z"),
         totalCents: 10000,
@@ -1332,11 +1467,13 @@ test("invoiceIndexView prepares customer names and status badges", () => {
         createdAt: new Date("2026-05-27T00:00:00.000Z"),
         customer: { name: "Live Ada Co" },
         snapshot: { customerName: "Snapshot Ada Co" },
+        payments: [],
       },
       {
         id: "invoice_2",
         number: "INV-2026-0002",
-        status: "SENT",
+        status: "ISSUED",
+        paymentStatus: "UNPAID",
         issueDate: new Date("2026-05-28T00:00:00.000Z"),
         dueDate: new Date("2026-06-28T00:00:00.000Z"),
         totalCents: 20000,
@@ -1344,6 +1481,7 @@ test("invoiceIndexView prepares customer names and status badges", () => {
         createdAt: new Date("2026-05-28T00:00:00.000Z"),
         customer: { name: "Live Byron Co" },
         snapshot: { customerName: "Snapshot Byron Co" },
+        payments: [],
       },
     ],
     totalCount: 22,
@@ -1351,7 +1489,9 @@ test("invoiceIndexView prepares customer names and status badges", () => {
       page: 2,
       limit: 20,
       q: "ada",
-      status: "SENT",
+      status: "ISSUED",
+      paymentStatus: "UNPAID",
+      overdue: false,
       sort: "createdAt",
       direction: "desc",
     },
@@ -1364,12 +1504,14 @@ test("invoiceIndexView prepares customer names and status badges", () => {
       previousPage: 1,
       nextPage: null,
     },
-  } as Parameters<typeof invoiceIndexView>[0]);
+  } as unknown as Parameters<typeof invoiceIndexView>[0]);
 
   assert.equal(rows.title, "Invoices");
   assert.deepEqual(rows.filters, {
     q: "ada",
-    status: "sent",
+    status: "issued",
+    paymentStatus: "unpaid",
+    overdue: "",
     limit: 20,
     sort: "createdAt",
     direction: "desc",
@@ -1389,18 +1531,22 @@ test("invoiceIndexView prepares customer names and status badges", () => {
   ]);
   assert.equal(rows.invoiceRows[1]?.customerName, "Snapshot Byron Co");
   assert.deepEqual(rows.invoiceRows[1]?.statusBadge, {
-    label: "Sent",
-    labelKey: "invoices.statuses.sent",
+    label: "Issued",
+    labelKey: "invoices.statuses.issued",
     variant: "info",
   });
-  assert.equal(rows.statusOptions.find((option) => option.value === "sent")?.selected, true);
+  assert.equal(rows.statusOptions.find((option) => option.value === "issued")?.selected, true);
+  assert.equal(
+    rows.paymentStatusOptions.find((option) => option.value === "unpaid")?.selected,
+    true,
+  );
   assert.equal(
     rows.sortLinks.createdAt.href,
-    "/invoices?page=1&limit=20&q=ada&status=sent&sort=createdAt&direction=asc",
+    "/invoices?page=1&limit=20&q=ada&status=issued&paymentStatus=unpaid&sort=createdAt&direction=asc",
   );
   assert.equal(
     rows.pagination.previousHref,
-    "/invoices?page=1&limit=20&q=ada&status=sent&sort=createdAt&direction=desc",
+    "/invoices?page=1&limit=20&q=ada&status=issued&paymentStatus=unpaid&sort=createdAt&direction=desc",
   );
   assert.equal(rows.emptyMessage, "");
 });
@@ -1489,7 +1635,7 @@ test("downloadInvoicePdf redirects draft invoices and issued invoices without sn
 
     assert.deepEqual(
       req.flashMessages.error,
-      ["Mark the invoice sent before downloading a PDF."],
+      ["Issue the invoice before downloading a PDF."],
       name,
     );
     assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`, name);
@@ -1591,7 +1737,7 @@ test("printInvoice redirects draft invoices and issued invoices without snapshot
 
     await printInvoice(req, res, () => undefined);
 
-    assert.deepEqual(req.flashMessages.error, ["Mark the invoice sent before printing."], name);
+    assert.deepEqual(req.flashMessages.error, ["Issue the invoice before printing."], name);
     assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`, name);
   }
 });
@@ -1622,7 +1768,8 @@ test("updateInvoiceMetadataController re-renders invoice detail for validation e
   const invoice = {
     id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
     number: "INV-2026-0001",
-    status: "SENT",
+    status: "ISSUED",
+    paymentStatus: "UNPAID",
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
     currency: "EUR",
@@ -1766,7 +1913,7 @@ test("updateInvoiceMetadataController updates draft invoice payment instructions
   assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
 });
 
-test("updateInvoiceMetadataController updates sent invoice snapshot payment instructions", async () => {
+test("updateInvoiceMetadataController updates issued invoice snapshot payment instructions", async () => {
   let invoiceUpdateData: unknown;
   let snapshotUpdateData: unknown;
   prismaMock.$transaction = async (
@@ -1785,7 +1932,7 @@ test("updateInvoiceMetadataController updates sent invoice snapshot payment inst
         async findFirst() {
           return {
             id: printableInvoice.id,
-            status: "SENT",
+            status: "ISSUED",
             snapshot: { invoiceId: printableInvoice.id },
           };
         },
@@ -1825,7 +1972,7 @@ test("updateInvoiceStatusController redirects with flash error for invalid trans
   mockStatusTransaction({
     invoice: {
       ...statusInvoice,
-      status: "PAID",
+      status: "VOID",
     },
   });
   const req = createRequest(
@@ -1874,7 +2021,7 @@ test("updateInvoiceStatusController redirects with flash success for valid trans
     },
   });
   const req = createRequest(
-    { action: "send" },
+    { action: "issue" },
     { invoiceId: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
   );
   const res = createResponse();
@@ -1883,7 +2030,7 @@ test("updateInvoiceStatusController redirects with flash success for valid trans
 
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
-    data: { status: "SENT" },
+    data: { status: "ISSUED" },
   });
   assert.deepEqual(req.flashMessages.success, ["Invoice status updated."]);
   assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
@@ -1892,6 +2039,7 @@ test("updateInvoiceStatusController redirects with flash success for valid trans
 test("recordInvoicePaymentController redirects with flash success for valid payments", async () => {
   let createdPaymentData: unknown;
   let updatedInvoiceData: unknown;
+  let createdAmountCents = 0;
   prismaMock.$transaction = async (
     callback: (tx: {
       $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;
@@ -1906,17 +2054,17 @@ test("recordInvoicePaymentController redirects with flash success for valid paym
       $queryRaw: async () => [
         {
           id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
-        status: "SENT" as const,
+          status: "ISSUED" as const,
           totalCents: 10000,
-          dueDate: new Date("2099-06-27T00:00:00.000Z"),
         },
       ],
       payment: {
         async aggregate() {
-          return { _sum: { amountCents: 0 } };
+          return { _sum: { amountCents: createdAmountCents } };
         },
         async create(args) {
           createdPaymentData = args.data;
+          createdAmountCents = (args.data as { amountCents: number }).amountCents;
           return { id: "payment_1" };
         },
       },
@@ -1943,7 +2091,7 @@ test("recordInvoicePaymentController redirects with flash success for valid paym
   });
   assert.deepEqual(updatedInvoiceData, {
     where: { id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c" },
-    data: { status: "PARTIALLY_PAID" },
+    data: { paymentStatus: "PARTIALLY_PAID" },
   });
   assert.deepEqual(req.flashMessages.success, ["Payment recorded."]);
   assert.equal(res.redirectedTo, "/invoices/5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c");
@@ -1953,7 +2101,8 @@ test("recordInvoicePaymentController re-renders invoice detail for invalid payme
   const invoice = {
     id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
     number: "INV-2026-0001",
-    status: "SENT",
+    status: "ISSUED",
+    paymentStatus: "UNPAID",
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
     customer: { id: "customer_1", name: "Ada Co" },
@@ -1981,7 +2130,8 @@ test("recordInvoicePaymentController re-renders invoice detail for overpayments"
   const invoice = {
     id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
     number: "INV-2026-0001",
-    status: "SENT",
+    status: "ISSUED",
+    paymentStatus: "PARTIALLY_PAID",
     dueDate: new Date("2026-06-27T00:00:00.000Z"),
     totalCents: 10000,
     customer: { id: "customer_1", name: "Ada Co" },
@@ -2003,9 +2153,8 @@ test("recordInvoicePaymentController re-renders invoice detail for overpayments"
       $queryRaw: async () => [
         {
           id: invoice.id,
-          status: "SENT",
+          status: "ISSUED",
           totalCents: 10000,
-          dueDate: new Date("2099-06-27T00:00:00.000Z"),
         },
       ],
       payment: {
