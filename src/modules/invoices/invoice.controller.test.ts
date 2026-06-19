@@ -203,10 +203,17 @@ const createResponse = () => {
 
 const statusInvoice = {
   id: "invoice_1",
+  number: "INV-2026-0001",
   status: "DRAFT",
+  paymentStatus: "UNPAID",
+  issueDate: new Date("2026-05-27T00:00:00.000Z"),
+  dueDate: new Date("2026-06-27T00:00:00.000Z"),
   subtotalCents: 10000,
   discountCents: 0,
   taxCents: 0,
+  withholdingType: null,
+  withholdingRate: null,
+  withholdingAmountCents: null,
   totalCents: 10000,
   currency: "EUR",
   paymentInstructions: "Draft payment instructions.",
@@ -224,7 +231,7 @@ const statusInvoice = {
     taxId: null,
     addressLine1: null,
     city: null,
-    country: null,
+    countryCode: null,
     paymentInstructions: null,
   },
   snapshot: null,
@@ -305,14 +312,17 @@ const mockStatusTransaction = ({
         update: (args: unknown) => Promise<unknown>;
       };
       invoiceSnapshot: {
-        create: () => Promise<unknown>;
+        create: (args: { data: unknown }) => Promise<unknown>;
       };
       invoiceFiscalRecord: {
+        findFirst: () => Promise<unknown>;
         create: () => Promise<unknown>;
       };
     }) => Promise<unknown>,
   ) => {
     let queryCalls = 0;
+    let snapshotData: unknown = null;
+    let currentInvoice = invoice;
     const lockedInvoice =
       invoice && typeof invoice === "object"
         ? {
@@ -333,19 +343,44 @@ const mockStatusTransaction = ({
       },
       invoice: {
         async findFirst() {
-          return invoice;
+          if (currentInvoice && typeof currentInvoice === "object") {
+            return {
+              ...currentInvoice,
+              snapshot: snapshotData ?? (currentInvoice as { snapshot?: unknown }).snapshot,
+            };
+          }
+
+          return currentInvoice;
         },
         async update(args) {
           onInvoiceUpdate?.(args);
+          if (
+            currentInvoice &&
+            typeof currentInvoice === "object" &&
+            args &&
+            typeof args === "object" &&
+            "data" in args &&
+            (args as { data: { status?: string } }).data.status
+          ) {
+            currentInvoice = {
+              ...currentInvoice,
+              status: (args as { data: { status: string } }).data.status,
+            };
+          }
+
           return { id: "invoice_1" };
         },
       },
       invoiceSnapshot: {
-        async create() {
+        async create(args: { data: unknown }) {
+          snapshotData = args.data;
           return { invoiceId: "invoice_1" };
         },
       },
       invoiceFiscalRecord: {
+        async findFirst() {
+          return null;
+        },
         async create() {
           return { id: "fiscal_record_1" };
         },
@@ -397,17 +432,21 @@ const mockCreateInvoiceTransaction = ({
         findFirst: () => Promise<unknown>;
       };
       invoice: {
+        findFirst: () => Promise<unknown>;
         create: (args: unknown) => Promise<unknown>;
       };
       invoiceSnapshot: {
         create: (args: unknown) => Promise<unknown>;
       };
       invoiceFiscalRecord: {
+        findFirst: () => Promise<unknown>;
         create: (args: unknown) => Promise<unknown>;
       };
     }) => Promise<unknown>,
   ) => {
     let queryCalls = 0;
+    let createdInvoice: unknown = null;
+    let snapshotData: unknown = null;
 
     return callback({
       $queryRaw: async () => {
@@ -425,13 +464,34 @@ const mockCreateInvoiceTransaction = ({
         },
       },
       invoice: {
+        async findFirst() {
+          if (createdInvoice && typeof createdInvoice === "object") {
+            return {
+              ...createdInvoice,
+              snapshot: snapshotData,
+            };
+          }
+
+          return createdInvoice;
+        },
         async create(args) {
           onInvoiceCreate?.(args);
-          return {
+          const data = (args as { data: Record<string, unknown> }).data;
+          createdInvoice = {
             id: createdInvoiceId,
+            organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+            number: data.number,
+            status: data.status,
+            paymentStatus: data.paymentStatus,
+            issueDate: data.issueDate,
+            dueDate: data.dueDate,
+            currency: data.currency,
             subtotalCents: 10000,
             discountCents: 0,
             taxCents: 2100,
+            withholdingType: null,
+            withholdingRate: null,
+            withholdingAmountCents: null,
             totalCents: 12100,
             paymentInstructions: "Pay by bank transfer.",
             customer: {
@@ -452,15 +512,20 @@ const mockCreateInvoiceTransaction = ({
             },
             snapshot: null,
           };
+          return createdInvoice;
         },
       },
       invoiceSnapshot: {
         async create(args) {
           onSnapshotCreate?.(args);
+          snapshotData = (args as { data: unknown }).data;
           return { invoiceId: createdInvoiceId };
         },
       },
       invoiceFiscalRecord: {
+        async findFirst() {
+          return null;
+        },
         async create() {
           return { id: "fiscal_record_1" };
         },

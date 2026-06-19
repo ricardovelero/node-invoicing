@@ -18,6 +18,10 @@ import {
   updateInvoiceMetadata,
   updateInvoiceStatus,
 } from "./invoice.service";
+import {
+  hashFiscalRecordInput,
+  invoiceFiscalRecordHashVersion,
+} from "./invoice-fiscal-records";
 
 const prismaMock = prisma as unknown as {
   $transaction: unknown;
@@ -74,6 +78,7 @@ type IssuedInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
     create: (args: unknown) => Promise<unknown>;
   };
   invoiceFiscalRecord?: {
+    findFirst: (args: unknown) => Promise<unknown>;
     create: (args: unknown) => Promise<unknown>;
   };
 };
@@ -116,6 +121,40 @@ const defaultOrganizationInvoiceSettings = {
   withholdingEnabled: false,
   defaultWithholdingType: null,
   defaultWithholdingRate: null,
+};
+
+const assertFiscalRecordCreateArgs = (
+  args: unknown,
+  expected: {
+    invoiceId: string;
+    organizationId: string;
+    type: "ALTA" | "ANULACION";
+    sequenceNumber: number;
+    previousRecordId: string | null;
+    previousHash: string | null;
+    createdByUserId: string | null;
+  },
+) => {
+  const data = (args as { data: Record<string, unknown> }).data;
+
+  assert.deepEqual(
+    {
+      invoiceId: data.invoiceId,
+      organizationId: data.organizationId,
+      type: data.type,
+      sequenceNumber: data.sequenceNumber,
+      previousRecordId: data.previousRecordId,
+      previousHash: data.previousHash,
+      hashVersion: data.hashVersion,
+      createdByUserId: data.createdByUserId,
+    },
+    {
+      ...expected,
+      hashVersion: invoiceFiscalRecordHashVersion,
+    },
+  );
+  assert.ok(data.hashInput);
+  assert.equal(data.hash, hashFiscalRecordInput(data.hashInput));
 };
 
 afterEach(() => {
@@ -419,13 +458,20 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
   const dueDate = new Date("2026-06-27T00:00:00.000Z");
   const createdInvoice = {
     id: "invoice_1",
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    number: `INV-${new Date().getFullYear()}-0003`,
+    status: "ISSUED",
+    paymentStatus: "UNPAID",
+    issueDate,
+    dueDate,
+    currency: "EUR",
     subtotalCents: 10000,
     discountCents: 0,
     taxCents: 2100,
-          withholdingType: null,
-          withholdingRate: null,
-          withholdingAmountCents: null,
-          totalCents: 12100,
+    withholdingType: null,
+    withholdingRate: null,
+    withholdingAmountCents: null,
+    totalCents: 12100,
     paymentInstructions: "Pay this invoice by bank transfer.",
     customer: {
       name: "Ada Co",
@@ -445,6 +491,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
     },
     snapshot: null,
   };
+  let snapshotData: unknown = null;
 
   prismaMock.$transaction = async (
     callback: (tx: IssuedInvoiceCreateTransactionMock) => Promise<unknown>,
@@ -468,6 +515,12 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
         },
       },
       invoice: {
+        async findFirst() {
+          return {
+            ...createdInvoice,
+            snapshot: snapshotData,
+          };
+        },
         async create(args) {
           createdInvoiceData = args.data;
           createdInvoiceInclude = args.include;
@@ -477,10 +530,14 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       invoiceSnapshot: {
         async create(args) {
           snapshotCreateArgs = args;
+          snapshotData = (args as { data: unknown }).data;
           return { invoiceId: "invoice_1" };
         },
       },
       invoiceFiscalRecord: {
+        async findFirst() {
+          return null;
+        },
         async create(args) {
           fiscalRecordCreateArgs = args;
           return { id: "fiscal_record_1" };
@@ -625,14 +682,14 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       totalCents: 12100,
     },
   });
-  assert.deepEqual(fiscalRecordCreateArgs, {
-    data: {
-      invoiceId: "invoice_1",
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      type: "ALTA",
-      sequenceNumber: 4,
-      createdByUserId: "user_1",
-    },
+  assertFiscalRecordCreateArgs(fiscalRecordCreateArgs, {
+    invoiceId: "invoice_1",
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    type: "ALTA",
+    sequenceNumber: 4,
+    previousRecordId: null,
+    previousHash: null,
+    createdByUserId: "user_1",
   });
 });
 
@@ -1476,16 +1533,24 @@ type StatusTransactionMock = {
     create: (args: { data: unknown }) => Promise<unknown>;
   };
   invoiceFiscalRecord: {
+    findFirst: (args: unknown) => Promise<unknown>;
     create: (args: { data: unknown }) => Promise<unknown>;
   };
 };
 
 const invoiceForStatusUpdate = {
   id: "invoice_1",
+  number: "INV-2026-0001",
   status: "DRAFT",
+  paymentStatus: "UNPAID",
+  issueDate: new Date("2026-05-27T00:00:00.000Z"),
+  dueDate: new Date("2026-06-27T00:00:00.000Z"),
   subtotalCents: 10000,
   discountCents: 1000,
   taxCents: 1890,
+  withholdingType: null,
+  withholdingRate: null,
+  withholdingAmountCents: null,
   totalCents: 10890,
   currency: "GBP",
   paymentInstructions: "Pay this invoice by card.",
@@ -1525,6 +1590,8 @@ const mockStatusTransaction = ({
   prismaMock.$transaction = async (callback: (tx: StatusTransactionMock) => Promise<unknown>) =>
     {
       let queryCalls = 0;
+      let snapshotData: unknown = null;
+      let currentInvoice = invoice;
       const lockedInvoice =
         invoice && typeof invoice === "object"
           ? {
@@ -1545,21 +1612,54 @@ const mockStatusTransaction = ({
         },
       invoice: {
         async findFirst(args) {
-          onInvoiceFindFirst?.(args);
-          return invoice;
+          if (
+            args &&
+            typeof args === "object" &&
+            "select" in args &&
+            (args as { select: { customer?: unknown } }).select.customer
+          ) {
+            onInvoiceFindFirst?.(args);
+          }
+
+          if (currentInvoice && typeof currentInvoice === "object") {
+            return {
+              ...currentInvoice,
+              snapshot: snapshotData ?? (currentInvoice as { snapshot?: unknown }).snapshot,
+            };
+          }
+
+          return currentInvoice;
         },
         async update(args) {
           onInvoiceUpdate?.(args);
+          if (
+            currentInvoice &&
+            typeof currentInvoice === "object" &&
+            args &&
+            typeof args === "object" &&
+            "data" in args &&
+            (args as { data: { status?: InvoiceStatus } }).data.status
+          ) {
+            currentInvoice = {
+              ...currentInvoice,
+              status: (args as { data: { status: InvoiceStatus } }).data.status,
+            };
+          }
+
           return { id: "invoice_1" };
         },
       },
       invoiceSnapshot: {
         async create(args) {
           onSnapshotCreate?.(args);
+          snapshotData = args.data;
           return { invoiceId: "invoice_1" };
         },
       },
         invoiceFiscalRecord: {
+          async findFirst() {
+            return null;
+          },
           async create(args) {
             onFiscalRecordCreate?.(args);
             return { id: "fiscal_record_1" };
@@ -1795,14 +1895,14 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
     where: { id: "invoice_1" },
     data: { status: "ISSUED" },
   });
-  assert.deepEqual(fiscalRecordCreateArgs, {
-    data: {
-      invoiceId: "invoice_1",
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      type: "ALTA",
-      sequenceNumber: 2,
-      createdByUserId: "user_1",
-    },
+  assertFiscalRecordCreateArgs(fiscalRecordCreateArgs, {
+    invoiceId: "invoice_1",
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    type: "ALTA",
+    sequenceNumber: 2,
+    previousRecordId: null,
+    previousHash: null,
+    createdByUserId: "user_1",
   });
 });
 
@@ -1840,14 +1940,14 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
     where: { id: "invoice_1" },
     data: { status: "ISSUED" },
   });
-  assert.deepEqual(fiscalRecordCreateArgs, {
-    data: {
-      invoiceId: "invoice_1",
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      type: "ALTA",
-      sequenceNumber: 2,
-      createdByUserId: "user_1",
-    },
+  assertFiscalRecordCreateArgs(fiscalRecordCreateArgs, {
+    invoiceId: "invoice_1",
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    type: "ALTA",
+    sequenceNumber: 2,
+    previousRecordId: null,
+    previousHash: null,
+    createdByUserId: "user_1",
   });
 });
 
@@ -1951,14 +2051,14 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
     where: { id: "invoice_1" },
     data: { status: "VOID" },
   });
-  assert.deepEqual(fiscalRecordCreateArgs, {
-    data: {
-      invoiceId: "invoice_1",
-      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
-      type: "ANULACION",
-      sequenceNumber: 2,
-      createdByUserId: "user_1",
-    },
+  assertFiscalRecordCreateArgs(fiscalRecordCreateArgs, {
+    invoiceId: "invoice_1",
+    organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    type: "ANULACION",
+    sequenceNumber: 2,
+    previousRecordId: null,
+    previousHash: null,
+    createdByUserId: "user_1",
   });
 });
 

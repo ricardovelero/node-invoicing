@@ -282,17 +282,24 @@ model InvoiceFiscalRecordSequence {
 }
 
 model InvoiceFiscalRecord {
-  id              String                  @id @default(uuid()) @db.Uuid
-  invoiceId       String                  @db.Uuid
-  organizationId  String                  @db.Uuid
-  type            InvoiceFiscalRecordType
-  sequenceNumber  Int
-  createdByUserId String?
-  createdAt       DateTime                @default(now())
+  id               String                  @id @default(uuid()) @db.Uuid
+  invoiceId        String                  @db.Uuid
+  organizationId   String                  @db.Uuid
+  type             InvoiceFiscalRecordType
+  sequenceNumber   Int
+  previousRecordId String?                 @unique @db.Uuid
+  previousHash     String?
+  hash             String
+  hashInput        Json
+  hashVersion      String                  @default("internal-v1")
+  createdByUserId  String?
+  createdAt        DateTime                @default(now())
 
-  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdByUser User?        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  invoice        Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  previousRecord InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain", fields: [previousRecordId], references: [id], onDelete: Restrict)
+  nextRecord     InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain")
+  createdByUser  User?                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
   // MVP constraint: one ALTA and one ANULACION per invoice. Revisit when
   // corrections, substitutions, or reprocessing workflows are introduced.
