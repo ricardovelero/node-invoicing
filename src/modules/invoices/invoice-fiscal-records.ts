@@ -105,18 +105,29 @@ type FiscalRecordHashInvoice = Prisma.InvoiceGetPayload<{
   select: typeof fiscalRecordHashInvoiceSelect;
 }>;
 
+// Code-point key ordering. Must stay in sync with the SQL backfill, which sorts
+// object keys with COLLATE "C" so both engines produce the same canonical JSON.
 const sortKeys = (left: string, right: string) =>
   left < right ? -1 : left > right ? 1 : 0;
 
-const formatDate = (value: Date | string) =>
-  value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+// Canonical date form matches the SQL backfill, which renders timestamps via
+// to_char(ts, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'). toISOString() produces exactly
+// that UTC, millisecond-precision form for both Date and parseable strings.
+const formatCanonicalDate = (value: Date | string) =>
+  (value instanceof Date ? value : new Date(value)).toISOString();
+
+// Fiscal hashes must serialize decimals identically to the SQL backfill, which
+// renders the Decimal(5, 2) columns via `::text` (always two fractional digits).
+// `Decimal.toString()` strips trailing zeros (15.00 -> "15"), so normalize to a
+// fixed scale to keep the TS and SQL canonical forms in agreement.
+const fiscalRecordDecimalScale = 2;
 
 const formatDecimal = (value: Prisma.Decimal | number | string | null) => {
   if (value === null) {
     return null;
   }
 
-  return value.toString();
+  return new Prisma.Decimal(value).toFixed(fiscalRecordDecimalScale);
 };
 
 const canonicalizeJsonValue = (value: unknown): CanonicalJsonValue => {
@@ -125,7 +136,7 @@ const canonicalizeJsonValue = (value: unknown): CanonicalJsonValue => {
   }
 
   if (value instanceof Date) {
-    return value.toISOString();
+    return formatCanonicalDate(value);
   }
 
   if (Array.isArray(value)) {
@@ -142,8 +153,12 @@ const canonicalizeJsonValue = (value: unknown): CanonicalJsonValue => {
   }
 
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new Error('Fiscal record hash input cannot include non-finite numbers.');
+    // The canonical input only carries integer numbers (cents, sequence number),
+    // which serialize identically here and in Postgres (int::jsonb::text). This
+    // also rejects non-finite values. Fractional amounts must arrive as decimal
+    // strings via formatDecimal so the two engines never diverge on numbers.
+    if (!Number.isInteger(value)) {
+      throw new Error('Fiscal record hash input numbers must be finite integers.');
     }
 
     return value;
@@ -179,8 +194,8 @@ export const buildFiscalRecordHashInput = (
     sequenceNumber: options.sequenceNumber,
     previousHash: options.previousHash,
     invoiceStatus: options.invoiceStatus,
-    issueDate: formatDate(options.issueDate),
-    dueDate: formatDate(options.dueDate),
+    issueDate: formatCanonicalDate(options.issueDate),
+    dueDate: formatCanonicalDate(options.dueDate),
     currency: options.currency,
     subtotalCents: options.subtotalCents,
     discountCents: options.discountCents,
@@ -324,4 +339,96 @@ export const createInvoiceFiscalRecord = async (
       createdByUserId: options.createdByUserId ?? null,
     },
   });
+};
+
+export type InvoiceFiscalRecordChainIssueReason =
+  | 'hashMismatch'
+  | 'previousHashMismatch'
+  | 'previousRecordMismatch'
+  | 'chainStartMismatch'
+  | 'chainLinkMissing';
+
+export type InvoiceFiscalRecordChainIssue = {
+  recordId: string;
+  sequenceNumber: number;
+  reason: InvoiceFiscalRecordChainIssueReason;
+};
+
+export type VerifyInvoiceFiscalRecordChainResult = {
+  ok: boolean;
+  organizationId: string;
+  recordCount: number;
+  issues: InvoiceFiscalRecordChainIssue[];
+};
+
+const fiscalRecordChainSelect =
+  Prisma.validator<Prisma.InvoiceFiscalRecordSelect>()({
+    id: true,
+    sequenceNumber: true,
+    hash: true,
+    previousHash: true,
+    previousRecordId: true,
+    hashInput: true,
+  });
+
+// Walks an organization's append-only fiscal chain in sequence order and
+// recomputes each hash from its stored canonical input, flagging tampered
+// records and broken links. Read-only, so it accepts the shared client or a
+// transaction client.
+export const verifyInvoiceFiscalRecordChain = async (
+  client: Prisma.TransactionClient,
+  organizationId: string,
+): Promise<VerifyInvoiceFiscalRecordChainResult> => {
+  const records = await client.invoiceFiscalRecord.findMany({
+    where: { organizationId },
+    orderBy: { sequenceNumber: 'asc' },
+    select: fiscalRecordChainSelect,
+  });
+
+  const issues: InvoiceFiscalRecordChainIssue[] = [];
+  const addIssue = (
+    record: { id: string; sequenceNumber: number },
+    reason: InvoiceFiscalRecordChainIssueReason,
+  ) =>
+    issues.push({
+      recordId: record.id,
+      sequenceNumber: record.sequenceNumber,
+      reason,
+    });
+
+  records.forEach((record, index) => {
+    if (hashFiscalRecordInput(record.hashInput) !== record.hash) {
+      addIssue(record, 'hashMismatch');
+    }
+
+    const previousRecord = index === 0 ? null : records[index - 1];
+
+    if (!previousRecord) {
+      if (record.previousHash !== null || record.previousRecordId !== null) {
+        addIssue(record, 'chainStartMismatch');
+      }
+
+      return;
+    }
+
+    if (record.previousHash === null || record.previousRecordId === null) {
+      addIssue(record, 'chainLinkMissing');
+      return;
+    }
+
+    if (record.previousHash !== previousRecord.hash) {
+      addIssue(record, 'previousHashMismatch');
+    }
+
+    if (record.previousRecordId !== previousRecord.id) {
+      addIssue(record, 'previousRecordMismatch');
+    }
+  });
+
+  return {
+    ok: issues.length === 0,
+    organizationId,
+    recordCount: records.length,
+    issues,
+  };
 };

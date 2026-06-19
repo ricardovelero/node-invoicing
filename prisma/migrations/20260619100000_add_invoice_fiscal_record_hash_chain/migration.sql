@@ -17,9 +17,12 @@ DECLARE
 BEGIN
   CASE jsonb_typeof(input_json)
     WHEN 'object' THEN
+      -- Sort keys bytewise (COLLATE "C") to match the TypeScript canonicalizer,
+      -- which orders keys by code point. A locale-aware default collation could
+      -- order the same keys differently and produce a non-matching hash.
       SELECT '{' || string_agg(
         to_jsonb(entry.key)::text || ':' || "__asienta_canonical_jsonb"(entry.value),
-        ',' ORDER BY entry.key
+        ',' ORDER BY entry.key COLLATE "C"
       ) || '}'
       INTO canonical
       FROM jsonb_each(input_json) AS entry(key, value);

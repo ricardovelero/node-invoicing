@@ -17,6 +17,7 @@ import {
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
   updateInvoiceStatus,
+  verifyOrganizationFiscalRecordChain,
 } from "./invoice.service";
 import {
   hashFiscalRecordInput,
@@ -2841,4 +2842,45 @@ test("recordInvoicePayment locks the invoice row scoped by organization", async 
   assert.match(query, /"organizationId" = \?::uuid/);
   assert.match(query, /FOR UPDATE/);
   assert.deepEqual(queryValues, [invoiceId, organizationId]);
+});
+
+test("verifyOrganizationFiscalRecordChain verifies the organization-scoped chain via prisma", async () => {
+  const organizationId = "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab";
+  const prismaWithFiscalRecords = prisma as unknown as {
+    invoiceFiscalRecord?: { findMany: unknown };
+  };
+  const originalFiscalRecord = prismaWithFiscalRecords.invoiceFiscalRecord;
+  let findManyArgs: unknown;
+
+  prismaWithFiscalRecords.invoiceFiscalRecord = {
+    findMany: async (args: unknown) => {
+      findManyArgs = args;
+      return [];
+    },
+  };
+
+  try {
+    const result = await verifyOrganizationFiscalRecordChain(organizationId);
+
+    assert.deepEqual(result, {
+      ok: true,
+      organizationId,
+      recordCount: 0,
+      issues: [],
+    });
+    assert.deepEqual(findManyArgs, {
+      where: { organizationId },
+      orderBy: { sequenceNumber: "asc" },
+      select: {
+        id: true,
+        sequenceNumber: true,
+        hash: true,
+        previousHash: true,
+        previousRecordId: true,
+        hashInput: true,
+      },
+    });
+  } finally {
+    prismaWithFiscalRecords.invoiceFiscalRecord = originalFiscalRecord;
+  }
 });

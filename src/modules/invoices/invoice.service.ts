@@ -3,7 +3,10 @@ import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
-import { createInvoiceFiscalRecord } from './invoice-fiscal-records';
+import {
+  createInvoiceFiscalRecord,
+  verifyInvoiceFiscalRecordChain,
+} from './invoice-fiscal-records';
 import { nextInvoiceNumber } from './invoice-numbering';
 import type {
   InvoiceForm,
@@ -455,6 +458,9 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
       },
     },
   });
+
+export const verifyOrganizationFiscalRecordChain = (organizationId: string) =>
+  verifyInvoiceFiscalRecordChain(prisma, organizationId);
 
 export const createInvoiceRecord = async (
   organizationId: string,
