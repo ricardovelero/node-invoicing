@@ -95,6 +95,13 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
 - Use TypeScript strict mode.
 - Match nearby import and formatting style.
 - Keep controllers focused on HTTP flow; move reusable validation and data access out.
+- Before coding, state assumptions when the task is ambiguous, and ask only when the ambiguity can materially change the implementation.
+- Prefer the smallest change that satisfies the request; do not add speculative features, generic abstractions, or configurability that was not requested.
+- Every changed line should trace directly to the current task.
+- Do not refactor adjacent code, rename concepts, reformat files, or clean up unrelated dead code unless explicitly asked.
+- If an implementation starts growing beyond the requested scope, stop and simplify before continuing.
+- For bug fixes, prefer a failing test or reproducible check first, then implement the smallest fix.
+- For multi-step changes, define the verification path before editing: test, build, manual route check, or template render check as appropriate.
 - Keep comments sparse and useful.
 - Do not commit generated `dist/` or `public/assets/` files.
 - Preserve unrelated user changes. Do not revert files outside the current task.
