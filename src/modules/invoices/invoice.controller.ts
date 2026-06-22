@@ -459,6 +459,7 @@ export const updateInvoiceStatusController: RequestHandler = async (
     invoiceId,
     req.auth!.user.id,
     result.data,
+    req.auth!.organization.countryCode,
   );
 
   if (!updateResult.ok && updateResult.reason === 'notFound') {

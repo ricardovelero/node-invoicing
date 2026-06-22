@@ -3,6 +3,7 @@ import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
+import { logVerifactuXmlPreviewForFiscalRecord } from '../verifactu';
 import {
   createInvoiceFiscalRecord,
   verifyInvoiceFiscalRecordChain,
@@ -628,11 +629,16 @@ export const createIssuedInvoiceRecord = async (
     });
 
     await captureInvoiceSnapshot(tx, invoice);
-    await createInvoiceFiscalRecord(tx, {
+    const fiscalRecord = await createInvoiceFiscalRecord(tx, {
       invoiceId: invoice.id,
       organizationId,
       type: 'ALTA',
       createdByUserId,
+    });
+    await logVerifactuXmlPreviewForFiscalRecord({
+      client: tx,
+      fiscalRecordId: fiscalRecord.id,
+      organizationCountryCode: invoice.organization.countryCode,
     });
 
     return { ok: true as const, invoice, customerEmail };
@@ -774,6 +780,7 @@ export const updateInvoiceStatus = async (
   invoiceId: string,
   createdByUserId: string | null,
   data: InvoiceStatusActionForm,
+  organizationCountryCode?: string | null,
 ) => {
   return prisma.$transaction(async (tx) => {
     const lockedInvoices = await tx.$queryRaw<LockedInvoiceStatusRow[]>`
@@ -857,20 +864,30 @@ export const updateInvoiceStatus = async (
     });
 
     if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
-      await createInvoiceFiscalRecord(tx, {
+      const fiscalRecord = await createInvoiceFiscalRecord(tx, {
         invoiceId: lockedInvoice.id,
         organizationId,
         type: 'ALTA',
         createdByUserId,
       });
+      await logVerifactuXmlPreviewForFiscalRecord({
+        client: tx,
+        fiscalRecordId: fiscalRecord.id,
+        organizationCountryCode,
+      });
     }
 
     if (lockedInvoice.status === 'ISSUED' && status === 'VOID') {
-      await createInvoiceFiscalRecord(tx, {
+      const fiscalRecord = await createInvoiceFiscalRecord(tx, {
         invoiceId: lockedInvoice.id,
         organizationId,
         type: 'ANULACION',
         createdByUserId,
+      });
+      await logVerifactuXmlPreviewForFiscalRecord({
+        client: tx,
+        fiscalRecordId: fiscalRecord.id,
+        organizationCountryCode,
       });
     }
 

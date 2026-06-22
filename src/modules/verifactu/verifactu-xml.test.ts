@@ -1,0 +1,256 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+  buildVerifactuXml,
+  logVerifactuXmlPreviewForFiscalRecord,
+  verifactuSuministroInformacionNamespace,
+  verifactuSuministroLRNamespace,
+} from './verifactu-xml';
+import type {
+  InvoiceFiscalRecordWithInvoiceSnapshot,
+  VerifactuAltaPayload,
+  VerifactuAnulacionPayload,
+} from './verifactu-payload';
+
+const baseAltaPayload = (): VerifactuAltaPayload => ({
+  recordType: 'ALTA',
+  fiscalRecordId: 'e4cd5d64-124f-4635-9548-2ca1df11fa52',
+  organizationId: '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab',
+  invoiceId: '5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c',
+  invoiceNumber: 'INV-2026-0001',
+  issueDate: '2026-05-27T00:00:00.000Z',
+  sellerTaxId: 'B12345678',
+  sellerLegalName: 'Seller Legal SL',
+  sellerCountry: 'Spain',
+  customerName: 'Customer SA',
+  customerTaxId: 'A87654321',
+  customerCountry: 'Spain',
+  currency: 'EUR',
+  subtotalCents: 10000,
+  discountCents: 0,
+  taxCents: 2100,
+  withholdingType: null,
+  withholdingRate: null,
+  withholdingAmountCents: null,
+  totalCents: 12100,
+  internalFiscalSequenceNumber: 1,
+  internalPreviousHash: null,
+  internalHash: 'current-internal-hash',
+});
+
+const baseAnulacionPayload = (): VerifactuAnulacionPayload => ({
+  recordType: 'ANULACION',
+  fiscalRecordId: 'f05c3f4b-b22a-487b-a453-fc29bd39a4e7',
+  organizationId: '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab',
+  invoiceId: '5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c',
+  invoiceNumber: 'INV-2026-0001',
+  issueDate: '2026-05-27T00:00:00.000Z',
+  cancellationSequenceNumber: 2,
+  sellerTaxId: 'B12345678',
+  sellerLegalName: 'Seller Legal SL',
+  sellerCountry: 'Spain',
+  internalHash: 'cancellation-internal-hash',
+  internalPreviousHash: 'current-internal-hash',
+});
+
+const indexOrder = (xml: string, elementNames: string[]) =>
+  elementNames.map((name) => xml.indexOf(`<${name}>`));
+
+test('buildVerifactuXml builds ALTA XML with expected fiscal values', () => {
+  const xml = buildVerifactuXml(baseAltaPayload());
+
+  assert.match(xml, /<sf:RegistroAlta>/);
+  assert.match(xml, /<sf:NIF>B12345678<\/sf:NIF>/);
+  assert.match(xml, /<sf:NumSerieFactura>INV-2026-0001<\/sf:NumSerieFactura>/);
+  assert.match(xml, /<sf:FechaExpedicionFactura>27-05-2026<\/sf:FechaExpedicionFactura>/);
+  assert.match(xml, /<sf:TipoFactura>F1<\/sf:TipoFactura>/);
+  assert.match(xml, /<sf:BaseImponibleOimporteNoSujeto>100.00<\/sf:BaseImponibleOimporteNoSujeto>/);
+  assert.match(xml, /<sf:TipoImpositivo>21.00<\/sf:TipoImpositivo>/);
+  assert.match(xml, /<sf:CuotaTotal>21.00<\/sf:CuotaTotal>/);
+  assert.match(xml, /<sf:ImporteTotal>121.00<\/sf:ImporteTotal>/);
+});
+
+test('buildVerifactuXml builds ANULACION XML with expected fiscal values', () => {
+  const xml = buildVerifactuXml(baseAnulacionPayload());
+
+  assert.match(xml, /<sf:RegistroAnulacion>/);
+  assert.match(xml, /<sf:NIF>B12345678<\/sf:NIF>/);
+  assert.match(xml, /<sf:NumSerieFacturaAnulada>INV-2026-0001<\/sf:NumSerieFacturaAnulada>/);
+  assert.match(
+    xml,
+    /<sf:FechaExpedicionFacturaAnulada>27-05-2026<\/sf:FechaExpedicionFacturaAnulada>/,
+  );
+  assert.match(xml, /<sf:Huella>cancellation-internal-hash<\/sf:Huella>/);
+});
+
+test('buildVerifactuXml escapes XML special characters', () => {
+  const xml = buildVerifactuXml({
+    ...baseAltaPayload(),
+    sellerLegalName: 'Seller & Sons <SL> "A"',
+    customerName: "Customer's > Name",
+  });
+
+  assert.match(xml, /Seller &amp; Sons &lt;SL&gt; &quot;A&quot;/);
+  assert.match(xml, /Customer&apos;s &gt; Name/);
+});
+
+test('buildVerifactuXml uses official AEAT namespaces from local WSDL and XSD', () => {
+  const xml = buildVerifactuXml(baseAltaPayload());
+
+  assert.match(xml, new RegExp(`xmlns:sfLR="${verifactuSuministroLRNamespace}"`));
+  assert.match(
+    xml,
+    new RegExp(`xmlns:sf="${verifactuSuministroInformacionNamespace}"`),
+  );
+  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>/);
+  assert.match(xml, /<sfLR:RegFactuSistemaFacturacion/);
+});
+
+test('buildVerifactuXml follows required ALTA element order', () => {
+  const xml = buildVerifactuXml(baseAltaPayload());
+  const order = indexOrder(xml, [
+    'sf:IDVersion',
+    'sf:IDFactura',
+    'sf:NombreRazonEmisor',
+    'sf:TipoFactura',
+    'sf:DescripcionOperacion',
+    'sf:Destinatarios',
+    'sf:Desglose',
+    'sf:CuotaTotal',
+    'sf:ImporteTotal',
+    'sf:Encadenamiento',
+    'sf:SistemaInformatico',
+    'sf:FechaHoraHusoGenRegistro',
+    'sf:TipoHuella',
+    'sf:Huella',
+  ]);
+
+  assert.deepEqual(order, [...order].sort((left, right) => left - right));
+  assert.equal(order.includes(-1), false);
+});
+
+test('buildVerifactuXml follows required ANULACION element order', () => {
+  const xml = buildVerifactuXml(baseAnulacionPayload());
+  const order = [
+    xml.indexOf('<sf:IDVersion>'),
+    xml.indexOf('<sf:IDFactura>'),
+    xml.indexOf('<sf:Encadenamiento>'),
+    xml.indexOf('<sf:SistemaInformatico>'),
+    xml.indexOf('<sf:FechaHoraHusoGenRegistro>'),
+    xml.indexOf('<sf:TipoHuella>'),
+    xml.lastIndexOf('<sf:Huella>'),
+  ];
+
+  assert.deepEqual(order, [...order].sort((left, right) => left - right));
+  assert.equal(order.includes(-1), false);
+});
+
+test('logVerifactuXmlPreviewForFiscalRecord skips non-Spanish organizations', async () => {
+  let findUniqueCalls = 0;
+  let logCalls = 0;
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        findUniqueCalls += 1;
+        return null;
+      },
+    },
+  };
+
+  await logVerifactuXmlPreviewForFiscalRecord({
+    client: client as never,
+    fiscalRecordId: 'record_1',
+    organizationCountryCode: 'GB',
+    logger: {
+      log() {
+        logCalls += 1;
+      },
+      error() {
+        throw new Error('Unexpected error log');
+      },
+    },
+  });
+
+  assert.equal(findUniqueCalls, 0);
+  assert.equal(logCalls, 0);
+});
+
+test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or network calls', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  let logMessage = '';
+  let updateCalls = 0;
+  let createCalls = 0;
+  const record: InvoiceFiscalRecordWithInvoiceSnapshot = {
+    id: baseAltaPayload().fiscalRecordId,
+    organizationId: baseAltaPayload().organizationId,
+    invoiceId: baseAltaPayload().invoiceId,
+    type: 'ALTA',
+    sequenceNumber: 1,
+    previousHash: null,
+    hash: baseAltaPayload().internalHash,
+    invoice: {
+      id: baseAltaPayload().invoiceId,
+      organizationId: baseAltaPayload().organizationId,
+      number: baseAltaPayload().invoiceNumber,
+      issueDate: new Date(baseAltaPayload().issueDate),
+      currency: 'EUR',
+      snapshot: {
+        sellerName: 'Seller Legal SL',
+        sellerLegalName: 'Seller Legal SL',
+        sellerTaxId: 'B12345678',
+        sellerCountry: 'Spain',
+        customerName: 'Customer SA',
+        customerTaxId: 'A87654321',
+        customerCountry: 'Spain',
+        subtotalCents: 10000,
+        discountCents: 0,
+        taxCents: 2100,
+        withholdingType: null,
+        withholdingRate: null,
+        withholdingAmountCents: null,
+        totalCents: 12100,
+      },
+    },
+  };
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return record;
+      },
+      async update() {
+        updateCalls += 1;
+      },
+      async create() {
+        createCalls += 1;
+      },
+    },
+  };
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    throw new Error('Unexpected network call');
+  }) as typeof fetch;
+
+  try {
+    await logVerifactuXmlPreviewForFiscalRecord({
+      client: client as never,
+      fiscalRecordId: record.id,
+      organizationCountryCode: 'ES',
+      logger: {
+        log(prefix: string, xml: string) {
+          logMessage = `${prefix} ${xml}`;
+        },
+        error() {
+          throw new Error('Unexpected error log');
+        },
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.match(logMessage, /^\[VERIFACTU_XML_PREVIEW\] <\?xml/);
+  assert.equal(updateCalls, 0);
+  assert.equal(createCalls, 0);
+  assert.equal(fetchCalls, 0);
+});
