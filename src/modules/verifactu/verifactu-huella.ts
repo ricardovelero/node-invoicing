@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 
+export const verifactuHuellaSourceStatus =
+  'official-aeat-huella-specification-v0.1.2' as const;
+
+// Source: vendor/aeat/verifactu/docs/Veri-Factu_especificaciones_huella_hash_registros.pdf
+// v0.1.2, sections 2, 3, 5 and examples 6.1-6.3.
+
 type VerifactuHuellaPayload = {
   recordType: 'ALTA' | 'ANULACION';
   sellerTaxId: string;
@@ -33,7 +39,7 @@ export const formatVerifactuDate = (value: string) => {
   return `${day}-${month}-${year}`;
 };
 
-const sourceEntry = (key: string, value: string) => `${key}=${value}`;
+const sourceEntry = (key: string, value: string) => `${key}=${value.trim()}`;
 
 export const buildVerifactuHuellaSource = (payload: VerifactuHuellaPayload) => {
   const previousHuella = payload.previousRecord?.huella;
@@ -52,9 +58,7 @@ export const buildVerifactuHuellaSource = (payload: VerifactuHuellaPayload) => {
         sourceEntry('FechaExpedicionFacturaAnulada', formatVerifactuDate(payload.issueDate)),
       ];
 
-  if (previousHuella) {
-    entries.push(sourceEntry('Huella', previousHuella));
-  }
+  entries.push(sourceEntry('Huella', previousHuella ?? ''));
 
   entries.push(
     sourceEntry('FechaHoraHusoGenRegistro', payload.generationDateTimeWithTimezone),
