@@ -97,6 +97,7 @@ Always run `pnpm test` for auth/session/validation changes. Run `pnpm build` for
 - Keep controllers focused on HTTP flow; move reusable validation and data access out.
 - Before coding, state assumptions when the task is ambiguous, and ask only when the ambiguity can materially change the implementation.
 - Prefer the smallest change that satisfies the request; do not add speculative features, generic abstractions, or configurability that was not requested.
+- Treat Ponytail as the local execution discipline for coding tasks: smallest viable diff, no unrelated refactors, no architecture changes unless requested, and no extra cleverness beyond the current task.
 - Every changed line should trace directly to the current task.
 - Do not refactor adjacent code, rename concepts, reformat files, or clean up unrelated dead code unless explicitly asked.
 - If an implementation starts growing beyond the requested scope, stop and simplify before continuing.
