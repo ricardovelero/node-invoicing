@@ -3,16 +3,50 @@ import { test } from 'node:test';
 import {
   buildVerifactuXml,
   logVerifactuXmlPreviewForFiscalRecord,
+  validateVerifactuXmlWithXsd,
   verifactuSuministroInformacionNamespace,
   verifactuSuministroLRNamespace,
 } from './verifactu-xml';
 import type {
+  BuildVerifactuPayloadOptions,
   InvoiceFiscalRecordWithInvoiceSnapshot,
   VerifactuAltaPayload,
   VerifactuAnulacionPayload,
 } from './verifactu-payload';
+import { buildVerifactuPayload } from './verifactu-payload';
+
+const previousHuella = 'A'.repeat(64);
+const currentHuella = 'B'.repeat(64);
+const cancellationHuella = 'C'.repeat(64);
+
+const software = {
+  producerName: 'Asienta Software SL',
+  producerTaxId: 'B87654321',
+  name: 'Asienta',
+  id: 'AS',
+  version: '1.0.0',
+  installationNumber: 'inst-001',
+  onlyVerifactu: 'S' as const,
+  multiTaxpayerUse: 'N' as const,
+  multipleTaxpayers: 'N' as const,
+};
+
+const taxBreakdown = [
+  {
+    taxType: '01',
+    taxRegimeKey: '01',
+    operationClassification: 'S1',
+    exemptOperation: null,
+    taxRate: '21.00',
+    taxableBaseAmount: '100.00',
+    taxAmount: '21.00',
+    equivalenceSurchargeRate: null,
+    equivalenceSurchargeAmount: null,
+  },
+];
 
 const baseAltaPayload = (): VerifactuAltaPayload => ({
+  payloadVersion: '1.0',
   recordType: 'ALTA',
   fiscalRecordId: 'e4cd5d64-124f-4635-9548-2ca1df11fa52',
   organizationId: '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab',
@@ -22,10 +56,20 @@ const baseAltaPayload = (): VerifactuAltaPayload => ({
   sellerTaxId: 'B12345678',
   sellerLegalName: 'Seller Legal SL',
   sellerCountry: 'Spain',
-  customerName: 'Customer SA',
-  customerTaxId: 'A87654321',
+  software,
+  previousRecord: null,
+  generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
+  huellaType: '01',
+  huella: currentHuella,
+  customer: {
+    name: 'Customer SA',
+    nif: 'A87654321',
+  },
   customerCountry: 'Spain',
   currency: 'EUR',
+  invoiceType: 'F1',
+  operationDescription: 'Servicios profesionales',
+  taxBreakdown,
   subtotalCents: 10000,
   discountCents: 0,
   taxCents: 2100,
@@ -33,12 +77,15 @@ const baseAltaPayload = (): VerifactuAltaPayload => ({
   withholdingRate: null,
   withholdingAmountCents: null,
   totalCents: 12100,
+  taxAmount: '21.00',
+  totalAmount: '121.00',
   internalFiscalSequenceNumber: 1,
   internalPreviousHash: null,
-  internalHash: 'current-internal-hash',
+  internalHash: 'internal-not-official',
 });
 
 const baseAnulacionPayload = (): VerifactuAnulacionPayload => ({
+  payloadVersion: '1.0',
   recordType: 'ANULACION',
   fiscalRecordId: 'f05c3f4b-b22a-487b-a453-fc29bd39a4e7',
   organizationId: '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab',
@@ -49,8 +96,62 @@ const baseAnulacionPayload = (): VerifactuAnulacionPayload => ({
   sellerTaxId: 'B12345678',
   sellerLegalName: 'Seller Legal SL',
   sellerCountry: 'Spain',
-  internalHash: 'cancellation-internal-hash',
-  internalPreviousHash: 'current-internal-hash',
+  software,
+  previousRecord: {
+    sellerTaxId: 'B12345678',
+    invoiceNumber: 'INV-2026-0001',
+    issueDate: '2026-05-27T00:00:00.000Z',
+    huella: previousHuella,
+  },
+  generationDateTimeWithTimezone: '2026-05-27T10:16:30+02:00',
+  huellaType: '01',
+  huella: cancellationHuella,
+  internalHash: 'internal-cancellation-not-official',
+  internalPreviousHash: 'internal-alta-not-official',
+});
+
+const payloadOptions = (): BuildVerifactuPayloadOptions => ({
+  generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
+  software,
+  previousRecord: null,
+  alta: {
+    invoiceType: 'F1',
+    operationDescription: 'Servicios profesionales',
+    taxBreakdown,
+  },
+});
+
+const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
+  id: baseAltaPayload().fiscalRecordId,
+  organizationId: baseAltaPayload().organizationId,
+  invoiceId: baseAltaPayload().invoiceId,
+  type: 'ALTA',
+  sequenceNumber: 1,
+  previousHash: null,
+  hash: baseAltaPayload().internalHash,
+  invoice: {
+    id: baseAltaPayload().invoiceId,
+    organizationId: baseAltaPayload().organizationId,
+    number: baseAltaPayload().invoiceNumber,
+    issueDate: new Date(baseAltaPayload().issueDate),
+    currency: 'EUR',
+    snapshot: {
+      sellerName: 'Seller Legal SL',
+      sellerLegalName: 'Seller Legal SL',
+      sellerTaxId: 'B12345678',
+      sellerCountry: 'Spain',
+      customerName: 'Customer SA',
+      customerTaxId: 'A87654321',
+      customerCountry: 'Spain',
+      subtotalCents: 10000,
+      discountCents: 0,
+      taxCents: 2100,
+      withholdingType: null,
+      withholdingRate: null,
+      withholdingAmountCents: null,
+      totalCents: 12100,
+    },
+  },
 });
 
 const indexOrder = (xml: string, elementNames: string[]) =>
@@ -68,6 +169,8 @@ test('buildVerifactuXml builds ALTA XML with expected fiscal values', () => {
   assert.match(xml, /<sf:TipoImpositivo>21.00<\/sf:TipoImpositivo>/);
   assert.match(xml, /<sf:CuotaTotal>21.00<\/sf:CuotaTotal>/);
   assert.match(xml, /<sf:ImporteTotal>121.00<\/sf:ImporteTotal>/);
+  assert.match(xml, new RegExp(`<sf:Huella>${currentHuella}<\\/sf:Huella>`));
+  assert.doesNotMatch(xml, /internal-not-official/);
 });
 
 test('buildVerifactuXml builds ANULACION XML with expected fiscal values', () => {
@@ -80,14 +183,18 @@ test('buildVerifactuXml builds ANULACION XML with expected fiscal values', () =>
     xml,
     /<sf:FechaExpedicionFacturaAnulada>27-05-2026<\/sf:FechaExpedicionFacturaAnulada>/,
   );
-  assert.match(xml, /<sf:Huella>cancellation-internal-hash<\/sf:Huella>/);
+  assert.match(xml, new RegExp(`<sf:Huella>${cancellationHuella}<\\/sf:Huella>`));
+  assert.doesNotMatch(xml, /internal-cancellation-not-official/);
 });
 
 test('buildVerifactuXml escapes XML special characters', () => {
   const xml = buildVerifactuXml({
     ...baseAltaPayload(),
     sellerLegalName: 'Seller & Sons <SL> "A"',
-    customerName: "Customer's > Name",
+    customer: {
+      name: "Customer's > Name",
+      nif: 'A87654321',
+    },
   });
 
   assert.match(xml, /Seller &amp; Sons &lt;SL&gt; &quot;A&quot;/);
@@ -145,6 +252,20 @@ test('buildVerifactuXml follows required ANULACION element order', () => {
   assert.equal(order.includes(-1), false);
 });
 
+test('validateVerifactuXmlWithXsd validates generated XML against local XSD', async () => {
+  const result = await validateVerifactuXmlWithXsd(buildVerifactuXml(baseAltaPayload()));
+
+  assert.deepEqual(result, { ok: true });
+});
+
+test('validateVerifactuXmlWithXsd rejects schema-invalid XML', async () => {
+  const result = await validateVerifactuXmlWithXsd(
+    buildVerifactuXml(baseAltaPayload()).replace('<sf:IDVersion>1.0</sf:IDVersion>', ''),
+  );
+
+  assert.equal(result.ok, false);
+});
+
 test('logVerifactuXmlPreviewForFiscalRecord skips non-Spanish organizations', async () => {
   let findUniqueCalls = 0;
   let logCalls = 0;
@@ -161,6 +282,7 @@ test('logVerifactuXmlPreviewForFiscalRecord skips non-Spanish organizations', as
     client: client as never,
     fiscalRecordId: 'record_1',
     organizationCountryCode: 'GB',
+    payloadOptions: payloadOptions(),
     logger: {
       log() {
         logCalls += 1;
@@ -181,42 +303,10 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
   let logMessage = '';
   let updateCalls = 0;
   let createCalls = 0;
-  const record: InvoiceFiscalRecordWithInvoiceSnapshot = {
-    id: baseAltaPayload().fiscalRecordId,
-    organizationId: baseAltaPayload().organizationId,
-    invoiceId: baseAltaPayload().invoiceId,
-    type: 'ALTA',
-    sequenceNumber: 1,
-    previousHash: null,
-    hash: baseAltaPayload().internalHash,
-    invoice: {
-      id: baseAltaPayload().invoiceId,
-      organizationId: baseAltaPayload().organizationId,
-      number: baseAltaPayload().invoiceNumber,
-      issueDate: new Date(baseAltaPayload().issueDate),
-      currency: 'EUR',
-      snapshot: {
-        sellerName: 'Seller Legal SL',
-        sellerLegalName: 'Seller Legal SL',
-        sellerTaxId: 'B12345678',
-        sellerCountry: 'Spain',
-        customerName: 'Customer SA',
-        customerTaxId: 'A87654321',
-        customerCountry: 'Spain',
-        subtotalCents: 10000,
-        discountCents: 0,
-        taxCents: 2100,
-        withholdingType: null,
-        withholdingRate: null,
-        withholdingAmountCents: null,
-        totalCents: 12100,
-      },
-    },
-  };
   const client = {
     invoiceFiscalRecord: {
       async findUnique() {
-        return record;
+        return fiscalRecord();
       },
       async update() {
         updateCalls += 1;
@@ -234,8 +324,9 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
   try {
     await logVerifactuXmlPreviewForFiscalRecord({
       client: client as never,
-      fiscalRecordId: record.id,
+      fiscalRecordId: fiscalRecord().id,
       organizationCountryCode: 'ES',
+      payloadOptions: payloadOptions(),
       logger: {
         log(prefix: string, xml: string) {
           logMessage = `${prefix} ${xml}`;
@@ -250,6 +341,7 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
   }
 
   assert.match(logMessage, /^\[VERIFACTU_XML_PREVIEW\] <\?xml/);
+  assert.doesNotThrow(() => buildVerifactuPayload(fiscalRecord(), payloadOptions()));
   assert.equal(updateCalls, 0);
   assert.equal(createCalls, 0);
   assert.equal(fetchCalls, 0);

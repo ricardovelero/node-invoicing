@@ -23,6 +23,15 @@ enum InvoiceFiscalRecordType {
   ANULACION
 }
 
+enum VerifactuRecordStatus {
+  GENERATED
+  SUBMISSION_PENDING
+  SUBMITTED
+  ACCEPTED
+  ACCEPTED_WITH_ERRORS
+  REJECTED
+}
+
 enum OrganizationRole {
   OWNER
   ADMIN
@@ -135,6 +144,7 @@ model Organization {
   invoiceNumberSequences      InvoiceNumberSequence[]
   invoiceFiscalRecordSequence InvoiceFiscalRecordSequence?
   invoiceFiscalRecords        InvoiceFiscalRecord[]
+  verifactuRecords            VerifactuRecord[]
   invoicePublicAccessTokens   InvoicePublicAccessToken[]
   invoiceEmailDeliveries      InvoiceEmailDelivery[]
   catalogItems                CatalogItem[]
@@ -250,6 +260,7 @@ model Invoice {
   payments               Payment[]
   snapshot               InvoiceSnapshot?
   fiscalRecords          InvoiceFiscalRecord[]
+  verifactuRecords       VerifactuRecord[]
   publicAccessTokens     InvoicePublicAccessToken[]
   emailDeliveries        InvoiceEmailDelivery[]
 
@@ -300,6 +311,7 @@ model InvoiceFiscalRecord {
   previousRecord InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain", fields: [previousRecordId], references: [id], onDelete: Restrict)
   nextRecord     InvoiceFiscalRecord? @relation("InvoiceFiscalRecordChain")
   createdByUser  User?                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  verifactuRecord VerifactuRecord?
 
   // MVP constraint: one ALTA and one ANULACION per invoice. Revisit when
   // corrections, substitutions, or reprocessing workflows are introduced.
@@ -308,6 +320,40 @@ model InvoiceFiscalRecord {
   @@index([invoiceId])
   @@index([organizationId, createdAt])
   @@index([createdByUserId])
+}
+
+model VerifactuRecord {
+  id                             String                  @id @default(uuid()) @db.Uuid
+  invoiceFiscalRecordId          String                  @unique @db.Uuid
+  invoiceId                      String                  @db.Uuid
+  organizationId                 String                  @db.Uuid
+  recordType                     InvoiceFiscalRecordType
+  sellerTaxId                    String
+  invoiceNumber                  String
+  issueDate                      DateTime
+  previousVerifactuRecordId      String?                 @unique @db.Uuid
+  previousSellerTaxId            String?
+  previousInvoiceNumber          String?
+  previousIssueDate              DateTime?
+  previousHuella                 String?
+  huella                         String
+  generationDateTimeWithTimezone String
+  payloadVersion                 String
+  xml                            String
+  status                         VerifactuRecordStatus   @default(GENERATED)
+  createdAt                      DateTime                @default(now())
+  updatedAt                      DateTime                @updatedAt
+
+  invoiceFiscalRecord     InvoiceFiscalRecord @relation(fields: [invoiceFiscalRecordId], references: [id], onDelete: Restrict)
+  invoice                 Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  organization            Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  previousVerifactuRecord VerifactuRecord?     @relation("VerifactuRecordChain", fields: [previousVerifactuRecordId], references: [id], onDelete: Restrict)
+  nextVerifactuRecord     VerifactuRecord?     @relation("VerifactuRecordChain")
+
+  @@unique([organizationId, huella])
+  @@index([invoiceId])
+  @@index([organizationId, createdAt])
+  @@index([status])
 }
 
 model InvoiceSnapshot {

@@ -1,24 +1,32 @@
+import { spawn } from 'node:child_process';
+import path from 'node:path';
 import type { Prisma } from '@prisma/client';
 import {
   buildVerifactuPayload,
   verifactuPayloadFiscalRecordSelect,
+  type BuildVerifactuPayloadOptions,
   type VerifactuAltaPayload,
   type VerifactuAnulacionPayload,
   type VerifactuPayload,
+  type VerifactuTaxBreakdownItem,
 } from './verifactu-payload';
+import { formatVerifactuDate } from './verifactu-huella';
 
 export const verifactuSuministroLRNamespace =
   'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
 export const verifactuSuministroInformacionNamespace =
   'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
-const verifactuVersion = '1.0';
 const verifactuPreviewLogPrefix = '[VERIFACTU_XML_PREVIEW]';
 const verifactuPreviewErrorLogPrefix = '[VERIFACTU_XML_PREVIEW_ERROR]';
 
 type VerifactuXmlPreviewLogger = Pick<typeof console, 'log' | 'error'>;
 
 type VerifactuPreviewClient = Pick<Prisma.TransactionClient, 'invoiceFiscalRecord'>;
+
+export type VerifactuXsdValidationResult =
+  | { ok: true }
+  | { ok: false; error: string };
 
 export const escapeXml = (value: string) =>
   value
@@ -34,35 +42,6 @@ const element = (name: string, value: string | number) =>
 const optionalElement = (name: string, value: string | number | null) =>
   value === null ? '' : element(name, value);
 
-const formatDate = (value: string) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error('VERI*FACTU XML requires a valid issue date.');
-  }
-
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = String(date.getUTCFullYear());
-
-  return `${day}-${month}-${year}`;
-};
-
-const centsToAmount = (value: number) => (value / 100).toFixed(2);
-
-const taxableBaseCents = (payload: VerifactuAltaPayload) =>
-  payload.subtotalCents - payload.discountCents;
-
-const taxRateFromAmounts = (payload: VerifactuAltaPayload) => {
-  const baseCents = taxableBaseCents(payload);
-
-  if (baseCents <= 0 || payload.taxCents <= 0) {
-    return null;
-  }
-
-  return ((payload.taxCents / baseCents) * 100).toFixed(2);
-};
-
 const buildObligadoEmisionXml = (payload: VerifactuPayload) =>
   '<sfLR:Cabecera>' +
   '<sf:ObligadoEmision>' +
@@ -75,49 +54,49 @@ const buildIdFacturaAltaXml = (payload: VerifactuAltaPayload) =>
   '<sf:IDFactura>' +
   element('sf:IDEmisorFactura', payload.sellerTaxId) +
   element('sf:NumSerieFactura', payload.invoiceNumber) +
-  element('sf:FechaExpedicionFactura', formatDate(payload.issueDate)) +
+  element('sf:FechaExpedicionFactura', formatVerifactuDate(payload.issueDate)) +
   '</sf:IDFactura>';
 
 const buildIdFacturaAnulacionXml = (payload: VerifactuAnulacionPayload) =>
   '<sf:IDFactura>' +
   element('sf:IDEmisorFacturaAnulada', payload.sellerTaxId) +
   element('sf:NumSerieFacturaAnulada', payload.invoiceNumber) +
-  element('sf:FechaExpedicionFacturaAnulada', formatDate(payload.issueDate)) +
+  element('sf:FechaExpedicionFacturaAnulada', formatVerifactuDate(payload.issueDate)) +
   '</sf:IDFactura>';
 
 const buildDestinatariosXml = (payload: VerifactuAltaPayload) => {
-  if (!payload.customerTaxId) {
+  if (!payload.customer.nif) {
     return '';
   }
 
   return '<sf:Destinatarios>' +
     '<sf:IDDestinatario>' +
-    element('sf:NombreRazon', payload.customerName) +
-    element('sf:NIF', payload.customerTaxId) +
+    element('sf:NombreRazon', payload.customer.name) +
+    element('sf:NIF', payload.customer.nif) +
     '</sf:IDDestinatario>' +
     '</sf:Destinatarios>';
 };
 
-const buildDesgloseXml = (payload: VerifactuAltaPayload) => {
-  const taxRate = taxRateFromAmounts(payload);
+const buildTaxBreakdownItemXml = (item: VerifactuTaxBreakdownItem) =>
+  '<sf:DetalleDesglose>' +
+  element('sf:Impuesto', item.taxType) +
+  optionalElement('sf:ClaveRegimen', item.taxRegimeKey) +
+  optionalElement('sf:CalificacionOperacion', item.operationClassification) +
+  optionalElement('sf:OperacionExenta', item.exemptOperation) +
+  optionalElement('sf:TipoImpositivo', item.taxRate) +
+  element('sf:BaseImponibleOimporteNoSujeto', item.taxableBaseAmount) +
+  optionalElement('sf:CuotaRepercutida', item.taxAmount) +
+  optionalElement('sf:TipoRecargoEquivalencia', item.equivalenceSurchargeRate) +
+  optionalElement('sf:CuotaRecargoEquivalencia', item.equivalenceSurchargeAmount) +
+  '</sf:DetalleDesglose>';
 
-  return '<sf:Desglose>' +
-    '<sf:DetalleDesglose>' +
-    element('sf:Impuesto', '01') +
-    element('sf:ClaveRegimen', '01') +
-    element('sf:CalificacionOperacion', 'S1') +
-    optionalElement('sf:TipoImpositivo', taxRate) +
-    element('sf:BaseImponibleOimporteNoSujeto', centsToAmount(taxableBaseCents(payload))) +
-    optionalElement(
-      'sf:CuotaRepercutida',
-      payload.taxCents > 0 ? centsToAmount(payload.taxCents) : null,
-    ) +
-    '</sf:DetalleDesglose>' +
-    '</sf:Desglose>';
-};
+const buildDesgloseXml = (payload: VerifactuAltaPayload) =>
+  '<sf:Desglose>' +
+  payload.taxBreakdown.map(buildTaxBreakdownItemXml).join('') +
+  '</sf:Desglose>';
 
 const buildEncadenamientoXml = (payload: VerifactuPayload) => {
-  if (!payload.internalPreviousHash) {
+  if (!payload.previousRecord) {
     return '<sf:Encadenamiento>' +
       element('sf:PrimerRegistro', 'S') +
       '</sf:Encadenamiento>';
@@ -125,54 +104,57 @@ const buildEncadenamientoXml = (payload: VerifactuPayload) => {
 
   return '<sf:Encadenamiento>' +
     '<sf:RegistroAnterior>' +
-    element('sf:IDEmisorFactura', payload.sellerTaxId) +
-    element('sf:NumSerieFactura', payload.invoiceNumber) +
-    element('sf:FechaExpedicionFactura', formatDate(payload.issueDate)) +
-    element('sf:Huella', payload.internalPreviousHash) +
+    element('sf:IDEmisorFactura', payload.previousRecord.sellerTaxId) +
+    element('sf:NumSerieFactura', payload.previousRecord.invoiceNumber) +
+    element(
+      'sf:FechaExpedicionFactura',
+      formatVerifactuDate(payload.previousRecord.issueDate),
+    ) +
+    element('sf:Huella', payload.previousRecord.huella) +
     '</sf:RegistroAnterior>' +
     '</sf:Encadenamiento>';
 };
 
 const buildSistemaInformaticoXml = (payload: VerifactuPayload) =>
   '<sf:SistemaInformatico>' +
-  element('sf:NombreRazon', payload.sellerLegalName) +
-  element('sf:NIF', payload.sellerTaxId) +
-  element('sf:NombreSistemaInformatico', 'Asienta') +
-  element('sf:IdSistemaInformatico', 'AS') +
-  element('sf:Version', '0.1') +
-  element('sf:NumeroInstalacion', payload.organizationId) +
-  element('sf:TipoUsoPosibleSoloVerifactu', 'S') +
-  element('sf:TipoUsoPosibleMultiOT', 'N') +
-  element('sf:IndicadorMultiplesOT', 'N') +
+  element('sf:NombreRazon', payload.software.producerName) +
+  element('sf:NIF', payload.software.producerTaxId) +
+  element('sf:NombreSistemaInformatico', payload.software.name) +
+  element('sf:IdSistemaInformatico', payload.software.id) +
+  element('sf:Version', payload.software.version) +
+  element('sf:NumeroInstalacion', payload.software.installationNumber) +
+  element('sf:TipoUsoPosibleSoloVerifactu', payload.software.onlyVerifactu) +
+  element('sf:TipoUsoPosibleMultiOT', payload.software.multiTaxpayerUse) +
+  element('sf:IndicadorMultiplesOT', payload.software.multipleTaxpayers) +
   '</sf:SistemaInformatico>';
 
 const buildRegistroAltaXml = (payload: VerifactuAltaPayload) =>
   '<sf:RegistroAlta>' +
-  element('sf:IDVersion', verifactuVersion) +
+  element('sf:IDVersion', payload.payloadVersion) +
   buildIdFacturaAltaXml(payload) +
   element('sf:NombreRazonEmisor', payload.sellerLegalName) +
-  element('sf:TipoFactura', 'F1') +
-  element('sf:DescripcionOperacion', 'Operacion facturada') +
+  element('sf:TipoFactura', payload.invoiceType) +
+  element('sf:DescripcionOperacion', payload.operationDescription) +
   buildDestinatariosXml(payload) +
   buildDesgloseXml(payload) +
-  element('sf:CuotaTotal', centsToAmount(payload.taxCents)) +
-  element('sf:ImporteTotal', centsToAmount(payload.totalCents)) +
+  element('sf:CuotaTotal', payload.taxAmount) +
+  element('sf:ImporteTotal', payload.totalAmount) +
   buildEncadenamientoXml(payload) +
   buildSistemaInformaticoXml(payload) +
-  element('sf:FechaHoraHusoGenRegistro', payload.issueDate) +
-  element('sf:TipoHuella', '01') +
-  element('sf:Huella', payload.internalHash) +
+  element('sf:FechaHoraHusoGenRegistro', payload.generationDateTimeWithTimezone) +
+  element('sf:TipoHuella', payload.huellaType) +
+  element('sf:Huella', payload.huella) +
   '</sf:RegistroAlta>';
 
 const buildRegistroAnulacionXml = (payload: VerifactuAnulacionPayload) =>
   '<sf:RegistroAnulacion>' +
-  element('sf:IDVersion', verifactuVersion) +
+  element('sf:IDVersion', payload.payloadVersion) +
   buildIdFacturaAnulacionXml(payload) +
   buildEncadenamientoXml(payload) +
   buildSistemaInformaticoXml(payload) +
-  element('sf:FechaHoraHusoGenRegistro', payload.issueDate) +
-  element('sf:TipoHuella', '01') +
-  element('sf:Huella', payload.internalHash) +
+  element('sf:FechaHoraHusoGenRegistro', payload.generationDateTimeWithTimezone) +
+  element('sf:TipoHuella', payload.huellaType) +
+  element('sf:Huella', payload.huella) +
   '</sf:RegistroAnulacion>';
 
 export const buildVerifactuXml = (payload: VerifactuPayload) => {
@@ -189,15 +171,49 @@ export const buildVerifactuXml = (payload: VerifactuPayload) => {
     '</sfLR:RegFactuSistemaFacturacion>';
 };
 
+export const validateVerifactuXmlWithXsd = async (
+  xml: string,
+): Promise<VerifactuXsdValidationResult> => {
+  const xsdDirectory = path.join(
+    process.cwd(),
+    'vendor',
+    'aeat',
+    'verifactu',
+    'xsd',
+  );
+
+  return new Promise((resolve) => {
+    const child = spawn('xmllint', ['--noout', '--schema', 'SuministroLR.xsd', '-'], {
+      cwd: xsdDirectory,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const chunks: Buffer[] = [];
+
+    child.stderr.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.on('error', (error) => resolve({ ok: false, error: error.message }));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ ok: true });
+        return;
+      }
+
+      resolve({ ok: false, error: Buffer.concat(chunks).toString('utf8') });
+    });
+    child.stdin.end(xml);
+  });
+};
+
 export const logVerifactuXmlPreviewForFiscalRecord = async ({
   client,
   fiscalRecordId,
   organizationCountryCode,
+  payloadOptions,
   logger = console,
 }: {
   client: VerifactuPreviewClient;
   fiscalRecordId: string;
   organizationCountryCode: string | null | undefined;
+  payloadOptions: BuildVerifactuPayloadOptions;
   logger?: VerifactuXmlPreviewLogger;
 }) => {
   if (organizationCountryCode !== 'ES') {
@@ -214,7 +230,10 @@ export const logVerifactuXmlPreviewForFiscalRecord = async ({
       throw new Error('Unable to load invoice fiscal record for VERI*FACTU XML preview.');
     }
 
-    logger.log(verifactuPreviewLogPrefix, buildVerifactuXml(buildVerifactuPayload(record)));
+    logger.log(
+      verifactuPreviewLogPrefix,
+      buildVerifactuXml(buildVerifactuPayload(record, payloadOptions)),
+    );
   } catch (error) {
     logger.error(verifactuPreviewErrorLogPrefix, error);
   }
