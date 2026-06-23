@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import { Prisma } from '@prisma/client';
 import {
   buildVerifactuPayload,
+  buildVerifactuPayloadForFiscalRecord,
+  VerifactuPayloadValidationError,
   type BuildVerifactuPayloadOptions,
   type InvoiceFiscalRecordWithInvoiceSnapshot,
 } from './verifactu-payload';
@@ -11,42 +13,29 @@ const organizationId = '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab';
 const invoiceId = '5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c';
 const fiscalRecordId = 'e4cd5d64-124f-4635-9548-2ca1df11fa52';
 const previousHuella = 'A'.repeat(64);
+const previousVerifactuRecordId = '7d099fc2-225e-4f00-b35a-b1fdc1b62d4e';
+
+const storedTaxBreakdown = () => [
+  {
+    taxType: '01',
+    taxRegimeKey: '01',
+    operationClassification: 'S1',
+    exemptOperation: null,
+    taxRate: '10.00',
+    taxableBaseAmount: '90.00',
+    taxAmount: '9.00',
+    equivalenceSurchargeRate: null,
+    equivalenceSurchargeAmount: null,
+  },
+];
 
 export const baseVerifactuOptions = (): BuildVerifactuPayloadOptions => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
-  software: {
-    producerName: 'Asienta Software SL',
-    producerTaxId: 'B87654321',
-    name: 'Asienta',
-    id: 'AS',
-    version: '1.0.0',
-    installationNumber: 'inst-001',
-    onlyVerifactu: 'S',
-    multiTaxpayerUse: 'N',
-    multipleTaxpayers: 'N',
-  },
   previousRecord: {
     sellerTaxId: 'B12345678',
     invoiceNumber: 'INV-2026-0000',
     issueDate: '2026-05-26T00:00:00.000Z',
     huella: previousHuella,
-  },
-  alta: {
-    invoiceType: 'F1',
-    operationDescription: 'Servicios profesionales',
-    taxBreakdown: [
-      {
-        taxType: '01',
-        taxRegimeKey: '01',
-        operationClassification: 'S1',
-        exemptOperation: null,
-        taxRate: '21.00',
-        taxableBaseAmount: '95.00',
-        taxAmount: '19.95',
-        equivalenceSurchargeRate: null,
-        equivalenceSurchargeAmount: null,
-      },
-    ],
   },
 });
 
@@ -58,6 +47,21 @@ const baseRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   sequenceNumber: 7,
   previousHash: 'previous-internal-hash',
   hash: 'current-internal-hash',
+  invoiceType: 'F2',
+  operationDescription: 'Stored fiscal operation',
+  taxBreakdown: storedTaxBreakdown(),
+  organization: {
+    verifactuSoftwareProducerName: 'Stored Producer SL',
+    verifactuSoftwareProducerTaxId: 'B11223344',
+    verifactuSoftwareName: 'Stored SIF',
+    verifactuSoftwareId: 'SIF01',
+    verifactuSoftwareVersion: '2.3.4',
+    verifactuSoftwareInstallationNumber: 'stored-installation-001',
+    verifactuSoftwareOnlyVerifactu: 'S',
+    verifactuSoftwareMultiTaxpayerUse: 'N',
+    verifactuSoftwareMultipleTaxpayers: 'N',
+  },
+  verifactuRecord: null,
   invoice: {
     id: invoiceId,
     organizationId,
@@ -97,14 +101,55 @@ test('buildVerifactuPayload builds an ALTA payload from a fiscal record snapshot
   assert.equal(payload.sellerLegalName, 'Snapshot Legal SL');
   assert.equal(payload.customer.name, 'Snapshot Customer SA');
   assert.equal(payload.customer.nif, 'A87654321');
-  assert.equal(payload.invoiceType, 'F1');
-  assert.equal(payload.operationDescription, 'Servicios profesionales');
+  assert.equal(payload.invoiceType, 'F2');
+  assert.equal(payload.operationDescription, 'Stored fiscal operation');
   assert.equal(payload.taxAmount, '19.95');
   assert.equal(payload.totalAmount, '99.95');
+  assert.deepEqual(payload.taxBreakdown, storedTaxBreakdown());
   assert.equal(payload.internalFiscalSequenceNumber, 7);
   assert.equal(payload.internalPreviousHash, 'previous-internal-hash');
   assert.equal(payload.internalHash, 'current-internal-hash');
   assert.match(payload.huella, /^[A-F0-9]{64}$/);
+});
+
+test('buildVerifactuPayload uses persisted organization compliance data', () => {
+  const payload = buildVerifactuPayload(baseRecord(), baseVerifactuOptions());
+
+  assert.deepEqual(payload.software, {
+    producerName: 'Stored Producer SL',
+    producerTaxId: 'B11223344',
+    name: 'Stored SIF',
+    id: 'SIF01',
+    version: '2.3.4',
+    installationNumber: 'stored-installation-001',
+    onlyVerifactu: 'S',
+    multiTaxpayerUse: 'N',
+    multipleTaxpayers: 'N',
+  });
+});
+
+test('buildVerifactuPayload uses persisted invoice fiscal data', () => {
+  const record = baseRecord();
+  record.invoiceType = 'R1';
+  record.operationDescription = 'Persisted rectification';
+  record.taxBreakdown = [{
+    taxType: '01',
+    taxRegimeKey: '03',
+    operationClassification: 'S1',
+    exemptOperation: null,
+    taxRate: '4.00',
+    taxableBaseAmount: '50.00',
+    taxAmount: '2.00',
+    equivalenceSurchargeRate: null,
+    equivalenceSurchargeAmount: null,
+  }];
+
+  const payload = buildVerifactuPayload(record, baseVerifactuOptions());
+
+  assert.equal(payload.recordType, 'ALTA');
+  assert.equal(payload.invoiceType, 'R1');
+  assert.equal(payload.operationDescription, 'Persisted rectification');
+  assert.deepEqual(payload.taxBreakdown, record.taxBreakdown);
 });
 
 test('buildVerifactuPayload builds an ANULACION payload from a fiscal record snapshot', () => {
@@ -192,12 +237,120 @@ test('buildVerifactuPayload rejects a missing invoice number', () => {
 });
 
 test('buildVerifactuPayload rejects missing real ALTA fiscal details', () => {
-  const options = baseVerifactuOptions();
-  options.alta = undefined;
+  const record = baseRecord();
+  record.invoiceType = null;
 
   assert.throws(
-    () => buildVerifactuPayload(baseRecord(), options),
-    /requires ALTA fiscal details/,
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.invoiceType/,
+  );
+});
+
+test('buildVerifactuPayload rejects missing persisted organization SIF fields', () => {
+  const record = baseRecord();
+  record.organization.verifactuSoftwareProducerTaxId = '  ';
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    {
+      name: 'VerifactuPayloadValidationError',
+      message: /requires persisted Organization\.verifactuSoftwareProducerTaxId/,
+    },
+  );
+});
+
+test('buildVerifactuPayload rejects invalid persisted organization SIF flags', () => {
+  const record = baseRecord();
+  record.organization.verifactuSoftwareOnlyVerifactu = 'X';
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted Organization\.verifactuSoftwareOnlyVerifactu to be S or N/,
+  );
+});
+
+test('buildVerifactuPayload rejects missing persisted operation description', () => {
+  const record = baseRecord();
+  record.operationDescription = null;
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.operationDescription/,
+  );
+});
+
+test('buildVerifactuPayload rejects empty persisted tax breakdown', () => {
+  const record = baseRecord();
+  record.taxBreakdown = [];
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.taxBreakdown as a non-empty array/,
+  );
+});
+
+test('buildVerifactuPayload rejects non-object tax breakdown entries', () => {
+  const record = baseRecord();
+  record.taxBreakdown = ['bad-entry'];
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.taxBreakdown\[0\] to be an object/,
+  );
+});
+
+test('buildVerifactuPayload rejects missing required tax breakdown fields', () => {
+  const record = baseRecord();
+  record.taxBreakdown = [{
+    ...storedTaxBreakdown()[0],
+    taxType: ' ',
+  }];
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.taxBreakdown\[0\]\.taxType/,
+  );
+});
+
+test('buildVerifactuPayload rejects invalid tax breakdown decimal fields', () => {
+  const record = baseRecord();
+  record.taxBreakdown = [{
+    ...storedTaxBreakdown()[0],
+    taxableBaseAmount: 'not-decimal',
+  }];
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.taxBreakdown\[0\]\.taxableBaseAmount to be a decimal string/,
+  );
+});
+
+test('buildVerifactuPayload rejects omitted optional tax breakdown keys', () => {
+  const record = baseRecord();
+  record.taxBreakdown = [{
+    taxType: '01',
+    taxRegimeKey: '01',
+    operationClassification: 'S1',
+    exemptOperation: null,
+    taxRate: '10.00',
+    taxableBaseAmount: '90.00',
+    taxAmount: '9.00',
+    equivalenceSurchargeRate: null,
+  }];
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    /requires persisted InvoiceFiscalRecord\.taxBreakdown\[0\]\.equivalenceSurchargeAmount to be text or null/,
+  );
+});
+
+test('VerifactuPayloadValidationError identifies payload validation failures', () => {
+  const record = baseRecord();
+  record.invoiceType = null;
+
+  assert.throws(
+    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    VerifactuPayloadValidationError,
   );
 });
 
@@ -239,4 +392,101 @@ test('buildVerifactuPayload does not call AEAT or any network API', () => {
   }
 
   assert.equal(fetchCalls, 0);
+});
+
+test('buildVerifactuPayloadForFiscalRecord supports a first record with no previousRecord', async () => {
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return baseRecord();
+      },
+    },
+    verifactuRecord: {
+      async findFirst() {
+        return null;
+      },
+    },
+  };
+
+  const result = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
+
+  assert.equal(result.previousVerifactuRecordId, null);
+  assert.equal(result.payload.previousRecord, null);
+  assert.match(result.payload.huella, /^[A-F0-9]{64}$/);
+});
+
+test('buildVerifactuPayloadForFiscalRecord resolves the previous valid record', async () => {
+  let previousWhere: unknown;
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return baseRecord();
+      },
+    },
+    verifactuRecord: {
+      async findFirst(args: { where: unknown }) {
+        previousWhere = args.where;
+
+        return {
+          id: previousVerifactuRecordId,
+          sellerTaxId: 'B12345678',
+          invoiceNumber: 'INV-2026-0000',
+          issueDate: new Date('2026-05-26T00:00:00.000Z'),
+          huella: previousHuella,
+        };
+      },
+    },
+  };
+
+  const result = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
+
+  assert.equal(result.previousVerifactuRecordId, previousVerifactuRecordId);
+  assert.deepEqual(result.payload.previousRecord, {
+    sellerTaxId: 'B12345678',
+    invoiceNumber: 'INV-2026-0000',
+    issueDate: '2026-05-26T00:00:00.000Z',
+    huella: previousHuella,
+  });
+  assert.deepEqual(previousWhere, {
+    organizationId,
+    status: { not: 'REJECTED' },
+    invoiceFiscalRecord: {
+      sequenceNumber: {
+        lt: 7,
+      },
+    },
+  });
+});
+
+test('buildVerifactuPayloadForFiscalRecord reuses persisted generation timestamp', async () => {
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return {
+          ...baseRecord(),
+          verifactuRecord: {
+            generationDateTimeWithTimezone: '2026-05-27T12:30:45+02:00',
+          },
+        };
+      },
+    },
+    verifactuRecord: {
+      async findFirst() {
+        return null;
+      },
+    },
+  };
+
+  const first = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
+  const second = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
+
+  assert.equal(
+    first.payload.generationDateTimeWithTimezone,
+    '2026-05-27T12:30:45+02:00',
+  );
+  assert.equal(
+    second.payload.generationDateTimeWithTimezone,
+    '2026-05-27T12:30:45+02:00',
+  );
+  assert.equal(first.payload.huella, second.payload.huella);
 });

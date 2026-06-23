@@ -112,13 +112,7 @@ const baseAnulacionPayload = (): VerifactuAnulacionPayload => ({
 
 const payloadOptions = (): BuildVerifactuPayloadOptions => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
-  software,
   previousRecord: null,
-  alta: {
-    invoiceType: 'F1',
-    operationDescription: 'Servicios profesionales',
-    taxBreakdown,
-  },
 });
 
 const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
@@ -129,6 +123,21 @@ const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   sequenceNumber: 1,
   previousHash: null,
   hash: baseAltaPayload().internalHash,
+  invoiceType: 'F1',
+  operationDescription: 'Servicios profesionales',
+  taxBreakdown,
+  organization: {
+    verifactuSoftwareProducerName: software.producerName,
+    verifactuSoftwareProducerTaxId: software.producerTaxId,
+    verifactuSoftwareName: software.name,
+    verifactuSoftwareId: software.id,
+    verifactuSoftwareVersion: software.version,
+    verifactuSoftwareInstallationNumber: software.installationNumber,
+    verifactuSoftwareOnlyVerifactu: software.onlyVerifactu,
+    verifactuSoftwareMultiTaxpayerUse: software.multiTaxpayerUse,
+    verifactuSoftwareMultipleTaxpayers: software.multipleTaxpayers,
+  },
+  verifactuRecord: null,
   invoice: {
     id: baseAltaPayload().invoiceId,
     organizationId: baseAltaPayload().organizationId,
@@ -276,13 +285,17 @@ test('logVerifactuXmlPreviewForFiscalRecord skips non-Spanish organizations', as
         return null;
       },
     },
+    verifactuRecord: {
+      async findFirst() {
+        throw new Error('Unexpected previous record lookup');
+      },
+    },
   };
 
   await logVerifactuXmlPreviewForFiscalRecord({
     client: client as never,
     fiscalRecordId: 'record_1',
     organizationCountryCode: 'GB',
-    payloadOptions: payloadOptions(),
     logger: {
       log() {
         logCalls += 1;
@@ -315,6 +328,11 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
         createCalls += 1;
       },
     },
+    verifactuRecord: {
+      async findFirst() {
+        return null;
+      },
+    },
   };
   globalThis.fetch = (async () => {
     fetchCalls += 1;
@@ -326,7 +344,6 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
       client: client as never,
       fiscalRecordId: fiscalRecord().id,
       organizationCountryCode: 'ES',
-      payloadOptions: payloadOptions(),
       logger: {
         log(prefix: string, xml: string) {
           logMessage = `${prefix} ${xml}`;

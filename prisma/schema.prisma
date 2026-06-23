@@ -131,6 +131,15 @@ model Organization {
   withholdingEnabled          Boolean  @default(false)
   defaultWithholdingType      String?
   defaultWithholdingRate      Decimal? @db.Decimal(5, 2)
+  verifactuSoftwareProducerName       String?
+  verifactuSoftwareProducerTaxId      String?
+  verifactuSoftwareName               String?
+  verifactuSoftwareId                 String?
+  verifactuSoftwareVersion            String?
+  verifactuSoftwareInstallationNumber String?
+  verifactuSoftwareOnlyVerifactu      String?
+  verifactuSoftwareMultiTaxpayerUse   String?
+  verifactuSoftwareMultipleTaxpayers  String?
   sessionIdleTimeoutMinutes   Int      @default(30)
   sessionAbsoluteLifetimeDays Int      @default(14)
 
@@ -302,9 +311,12 @@ model InvoiceFiscalRecord {
   previousHash     String?
   hash             String
   hashInput        Json
-  hashVersion      String                  @default("internal-v1")
-  createdByUserId  String?
-  createdAt        DateTime                @default(now())
+  hashVersion          String                  @default("internal-v1")
+  invoiceType          String?
+  operationDescription String?
+  taxBreakdown         Json?
+  createdByUserId      String?
+  createdAt            DateTime                @default(now())
 
   invoice        Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)

@@ -2,9 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Prisma } from '@prisma/client';
 import {
-  buildVerifactuPayload,
-  verifactuPayloadFiscalRecordSelect,
-  type BuildVerifactuPayloadOptions,
+  buildVerifactuPayloadForFiscalRecord,
   type VerifactuAltaPayload,
   type VerifactuAnulacionPayload,
   type VerifactuPayload,
@@ -22,7 +20,10 @@ const verifactuPreviewErrorLogPrefix = '[VERIFACTU_XML_PREVIEW_ERROR]';
 
 type VerifactuXmlPreviewLogger = Pick<typeof console, 'log' | 'error'>;
 
-type VerifactuPreviewClient = Pick<Prisma.TransactionClient, 'invoiceFiscalRecord'>;
+type VerifactuPreviewClient = Pick<
+  Prisma.TransactionClient,
+  'invoiceFiscalRecord' | 'verifactuRecord'
+>;
 
 export type VerifactuXsdValidationResult =
   | { ok: true }
@@ -207,13 +208,11 @@ export const logVerifactuXmlPreviewForFiscalRecord = async ({
   client,
   fiscalRecordId,
   organizationCountryCode,
-  payloadOptions,
   logger = console,
 }: {
   client: VerifactuPreviewClient;
   fiscalRecordId: string;
   organizationCountryCode: string | null | undefined;
-  payloadOptions: BuildVerifactuPayloadOptions;
   logger?: VerifactuXmlPreviewLogger;
 }) => {
   if (organizationCountryCode !== 'ES') {
@@ -221,18 +220,10 @@ export const logVerifactuXmlPreviewForFiscalRecord = async ({
   }
 
   try {
-    const record = await client.invoiceFiscalRecord.findUnique({
-      where: { id: fiscalRecordId },
-      select: verifactuPayloadFiscalRecordSelect,
-    });
-
-    if (!record) {
-      throw new Error('Unable to load invoice fiscal record for VERI*FACTU XML preview.');
-    }
-
+    const { payload } = await buildVerifactuPayloadForFiscalRecord(client, fiscalRecordId);
     logger.log(
       verifactuPreviewLogPrefix,
-      buildVerifactuXml(buildVerifactuPayload(record, payloadOptions)),
+      buildVerifactuXml(payload),
     );
   } catch (error) {
     logger.error(verifactuPreviewErrorLogPrefix, error);

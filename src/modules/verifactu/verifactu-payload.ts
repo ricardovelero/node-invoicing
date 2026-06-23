@@ -39,6 +39,27 @@ export const verifactuPayloadFiscalRecordSelect =
         },
       },
     },
+    organization: {
+      select: {
+        verifactuSoftwareProducerName: true,
+        verifactuSoftwareProducerTaxId: true,
+        verifactuSoftwareName: true,
+        verifactuSoftwareId: true,
+        verifactuSoftwareVersion: true,
+        verifactuSoftwareInstallationNumber: true,
+        verifactuSoftwareOnlyVerifactu: true,
+        verifactuSoftwareMultiTaxpayerUse: true,
+        verifactuSoftwareMultipleTaxpayers: true,
+      },
+    },
+    verifactuRecord: {
+      select: {
+        generationDateTimeWithTimezone: true,
+      },
+    },
+    invoiceType: true,
+    operationDescription: true,
+    taxBreakdown: true,
   });
 
 export type InvoiceFiscalRecordWithInvoiceSnapshot = Prisma.InvoiceFiscalRecordGetPayload<{
@@ -83,13 +104,7 @@ export type VerifactuTaxBreakdownItem = {
 
 export type BuildVerifactuPayloadOptions = {
   generationDateTimeWithTimezone: string;
-  software: VerifactuSoftwareIdentifier;
   previousRecord: VerifactuPreviousRecordIdentity | null;
-  alta?: {
-    invoiceType: string;
-    operationDescription: string;
-    taxBreakdown: VerifactuTaxBreakdownItem[];
-  };
 };
 
 type VerifactuBasePayload = {
@@ -138,42 +153,18 @@ export type VerifactuAnulacionPayload = VerifactuBasePayload & {
 
 export type VerifactuPayload = VerifactuAltaPayload | VerifactuAnulacionPayload;
 
-export const missingVerifactuSourceFields = [
-  {
-    field: 'software.*',
-    shouldLiveIn: 'Organization compliance/profile settings',
-    reason: 'SistemaInformatico is mandatory in RegistroAlta and RegistroAnulacion.',
-  },
-  {
-    field: 'operationDescription',
-    shouldLiveIn: 'Invoice fiscal snapshot',
-    reason: 'DescripcionOperacion is mandatory in RegistroAlta.',
-  },
-  {
-    field: 'invoiceType',
-    shouldLiveIn: 'Invoice fiscal snapshot',
-    reason: 'TipoFactura is mandatory and cannot be inferred safely.',
-  },
-  {
-    field: 'taxBreakdown[]',
-    shouldLiveIn: 'Invoice fiscal snapshot line/tax summary',
-    reason: 'Desglose requires explicit tax type, regime, classification and amounts.',
-  },
-  {
-    field: 'previousRecord',
-    shouldLiveIn: 'VerifactuRecord chain',
-    reason: 'RegistroAnterior must point to the previous Veri*Factu record identity.',
-  },
-  {
-    field: 'generationDateTimeWithTimezone',
-    shouldLiveIn: 'VerifactuRecord',
-    reason: 'FechaHoraHusoGenRegistro is mandatory and must include timezone.',
-  },
-] as const;
+export class VerifactuPayloadValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VerifactuPayloadValidationError';
+  }
+}
+
+const invalidPayload = (message: string) => new VerifactuPayloadValidationError(message);
 
 const formatIssueDate = (value: Date) => {
   if (Number.isNaN(value.getTime())) {
-    throw new Error('VERI*FACTU payload requires a valid invoice issue date.');
+    throw invalidPayload('VERI*FACTU payload requires a valid invoice issue date.');
   }
 
   return value.toISOString();
@@ -183,7 +174,7 @@ const requiredText = (value: string | null | undefined, fieldName: string) => {
   const text = value?.trim();
 
   if (!text) {
-    throw new Error(`VERI*FACTU payload requires ${fieldName}.`);
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName}.`);
   }
 
   return text;
@@ -201,25 +192,61 @@ const centsToAmount = (value: number) => (value / 100).toFixed(2);
 
 const validateGenerationDateTime = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
-    throw new Error('VERI*FACTU payload requires a generation datetime with timezone.');
+    throw invalidPayload('VERI*FACTU payload requires a generation datetime with timezone.');
   }
 
   return value;
 };
 
-const validateSoftware = (software: VerifactuSoftwareIdentifier) => ({
-  producerName: requiredText(software.producerName, 'a software producer name'),
-  producerTaxId: requiredText(software.producerTaxId, 'a software producer tax ID'),
-  name: requiredText(software.name, 'a software name'),
-  id: requiredText(software.id, 'a software ID'),
-  version: requiredText(software.version, 'a software version'),
-  installationNumber: requiredText(
-    software.installationNumber,
-    'a software installation number',
+const validateSoftwareFlag = (value: string | null, fieldName: string) => {
+  const text = requiredText(value, fieldName);
+
+  if (text !== 'S' && text !== 'N') {
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName} to be S or N.`);
+  }
+
+  return text;
+};
+
+const buildSoftware = (
+  organization: InvoiceFiscalRecordWithInvoiceSnapshot['organization'],
+): VerifactuSoftwareIdentifier => ({
+  producerName: requiredText(
+    organization.verifactuSoftwareProducerName,
+    'persisted Organization.verifactuSoftwareProducerName',
   ),
-  onlyVerifactu: software.onlyVerifactu,
-  multiTaxpayerUse: software.multiTaxpayerUse,
-  multipleTaxpayers: software.multipleTaxpayers,
+  producerTaxId: requiredText(
+    organization.verifactuSoftwareProducerTaxId,
+    'persisted Organization.verifactuSoftwareProducerTaxId',
+  ),
+  name: requiredText(
+    organization.verifactuSoftwareName,
+    'persisted Organization.verifactuSoftwareName',
+  ),
+  id: requiredText(
+    organization.verifactuSoftwareId,
+    'persisted Organization.verifactuSoftwareId',
+  ),
+  version: requiredText(
+    organization.verifactuSoftwareVersion,
+    'persisted Organization.verifactuSoftwareVersion',
+  ),
+  installationNumber: requiredText(
+    organization.verifactuSoftwareInstallationNumber,
+    'persisted Organization.verifactuSoftwareInstallationNumber',
+  ),
+  onlyVerifactu: validateSoftwareFlag(
+    organization.verifactuSoftwareOnlyVerifactu,
+    'persisted Organization.verifactuSoftwareOnlyVerifactu',
+  ),
+  multiTaxpayerUse: validateSoftwareFlag(
+    organization.verifactuSoftwareMultiTaxpayerUse,
+    'persisted Organization.verifactuSoftwareMultiTaxpayerUse',
+  ),
+  multipleTaxpayers: validateSoftwareFlag(
+    organization.verifactuSoftwareMultipleTaxpayers,
+    'persisted Organization.verifactuSoftwareMultipleTaxpayers',
+  ),
 });
 
 const validatePreviousRecord = (
@@ -237,24 +264,171 @@ const validatePreviousRecord = (
   };
 };
 
-const validateAltaOptions = (options: BuildVerifactuPayloadOptions) => {
-  if (!options.alta) {
-    throw new Error('VERI*FACTU ALTA payload requires ALTA fiscal details.');
+const decimalPattern = /^-?\d+(?:\.\d{1,2})?$/;
+
+const optionalJsonText = (value: unknown, fieldName: string) => {
+  if (value === null) {
+    return null;
   }
 
-  if (options.alta.taxBreakdown.length === 0) {
-    throw new Error('VERI*FACTU ALTA payload requires at least one tax breakdown item.');
+  if (typeof value !== 'string') {
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName} to be text or null.`);
+  }
+
+  return value.trim() || null;
+};
+
+const requiredJsonText = (value: unknown, fieldName: string) => {
+  if (typeof value !== 'string') {
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName}.`);
+  }
+
+  return requiredText(value, fieldName);
+};
+
+const optionalDecimalText = (value: unknown, fieldName: string) => {
+  const text = optionalJsonText(value, fieldName);
+
+  if (text !== null && !decimalPattern.test(text)) {
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName} to be a decimal string.`);
+  }
+
+  return text;
+};
+
+const requiredDecimalText = (value: unknown, fieldName: string) => {
+  const text = requiredJsonText(value, fieldName);
+
+  if (!decimalPattern.test(text)) {
+    throw invalidPayload(`VERI*FACTU payload requires ${fieldName} to be a decimal string.`);
+  }
+
+  return text;
+};
+
+const validateTaxBreakdown = (
+  value: Prisma.JsonValue | null,
+): VerifactuTaxBreakdownItem[] => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw invalidPayload(
+      'VERI*FACTU ALTA payload requires persisted InvoiceFiscalRecord.taxBreakdown ' +
+        'as a non-empty array.',
+    );
+  }
+
+  return value.map((item, index) => {
+    const fieldPrefix = `persisted InvoiceFiscalRecord.taxBreakdown[${index}]`;
+
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw invalidPayload(
+        `VERI*FACTU ALTA payload requires ${fieldPrefix} to be an object.`,
+      );
+    }
+
+    const row = item as Record<string, unknown>;
+
+    return {
+      taxType: requiredJsonText(row.taxType, `${fieldPrefix}.taxType`),
+      taxRegimeKey: optionalJsonText(row.taxRegimeKey, `${fieldPrefix}.taxRegimeKey`),
+      operationClassification: optionalJsonText(
+        row.operationClassification,
+        `${fieldPrefix}.operationClassification`,
+      ),
+      exemptOperation: optionalJsonText(row.exemptOperation, `${fieldPrefix}.exemptOperation`),
+      taxRate: optionalDecimalText(row.taxRate, `${fieldPrefix}.taxRate`),
+      taxableBaseAmount: requiredDecimalText(
+        row.taxableBaseAmount,
+        `${fieldPrefix}.taxableBaseAmount`,
+      ),
+      taxAmount: optionalDecimalText(row.taxAmount, `${fieldPrefix}.taxAmount`),
+      equivalenceSurchargeRate: optionalDecimalText(
+        row.equivalenceSurchargeRate,
+        `${fieldPrefix}.equivalenceSurchargeRate`,
+      ),
+      equivalenceSurchargeAmount: optionalDecimalText(
+        row.equivalenceSurchargeAmount,
+        `${fieldPrefix}.equivalenceSurchargeAmount`,
+      ),
+    };
+  });
+};
+
+const buildAltaFiscalData = (record: InvoiceFiscalRecordWithInvoiceSnapshot) => {
+  if (record.type !== 'ALTA') {
+    throw invalidPayload('VERI*FACTU ALTA payload requires an ALTA fiscal record.');
   }
 
   return {
-    invoiceType: requiredText(options.alta.invoiceType, 'an invoice type'),
-    operationDescription: requiredText(
-      options.alta.operationDescription,
-      'an operation description',
+    invoiceType: requiredText(
+      record.invoiceType,
+      'persisted InvoiceFiscalRecord.invoiceType',
     ),
-    taxBreakdown: options.alta.taxBreakdown,
+    operationDescription: requiredText(
+      record.operationDescription,
+      'persisted InvoiceFiscalRecord.operationDescription',
+    ),
+    taxBreakdown: validateTaxBreakdown(record.taxBreakdown),
   };
 };
+
+type VerifactuPayloadClient = Pick<
+  Prisma.TransactionClient,
+  'invoiceFiscalRecord' | 'verifactuRecord'
+>;
+
+const previousVerifactuRecordSelect =
+  Prisma.validator<Prisma.VerifactuRecordSelect>()({
+    id: true,
+    sellerTaxId: true,
+    invoiceNumber: true,
+    issueDate: true,
+    huella: true,
+  });
+
+type PreviousVerifactuRecord = Prisma.VerifactuRecordGetPayload<{
+  select: typeof previousVerifactuRecordSelect;
+}>;
+
+const buildPreviousRecordIdentity = (
+  previousRecord: PreviousVerifactuRecord | null,
+): VerifactuPreviousRecordIdentity | null => previousRecord
+  ? {
+      sellerTaxId: previousRecord.sellerTaxId,
+      invoiceNumber: previousRecord.invoiceNumber,
+      issueDate: previousRecord.issueDate.toISOString(),
+      huella: previousRecord.huella,
+    }
+  : null;
+
+export const resolvePreviousVerifactuRecord = async (
+  client: VerifactuPayloadClient,
+  record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'organizationId' | 'sequenceNumber'>,
+) => {
+  const previousRecord = await client.verifactuRecord.findFirst({
+    where: {
+      organizationId: record.organizationId,
+      status: { not: 'REJECTED' },
+      invoiceFiscalRecord: {
+        sequenceNumber: {
+          lt: record.sequenceNumber,
+        },
+      },
+    },
+    orderBy: {
+      invoiceFiscalRecord: {
+        sequenceNumber: 'desc',
+      },
+    },
+    select: previousVerifactuRecordSelect,
+  });
+
+  return {
+    previousVerifactuRecordId: previousRecord?.id ?? null,
+    previousRecord: buildPreviousRecordIdentity(previousRecord),
+  };
+};
+
+const newGenerationDateTimeWithTimezone = () => new Date().toISOString();
 
 export const buildVerifactuPayload = (
   record: InvoiceFiscalRecordWithInvoiceSnapshot,
@@ -286,7 +460,7 @@ export const buildVerifactuPayload = (
     sellerTaxId,
     sellerLegalName,
     sellerCountry: snapshot.sellerCountry,
-    software: validateSoftware(options.software),
+    software: buildSoftware(record.organization),
     previousRecord,
     generationDateTimeWithTimezone: validateGenerationDateTime(
       options.generationDateTimeWithTimezone,
@@ -297,7 +471,7 @@ export const buildVerifactuPayload = (
   };
 
   if (record.type === 'ALTA') {
-    const alta = validateAltaOptions(options);
+    const alta = buildAltaFiscalData(record);
     const payloadWithoutHuella = {
       ...basePayload,
       recordType: 'ALTA' as const,
@@ -342,4 +516,31 @@ export const buildVerifactuPayload = (
   }
 
   throw new Error(`Unsupported VERI*FACTU fiscal record type: ${record.type}.`);
+};
+
+export const buildVerifactuPayloadForFiscalRecord = async (
+  client: VerifactuPayloadClient,
+  fiscalRecordId: string,
+) => {
+  const record = await client.invoiceFiscalRecord.findUnique({
+    where: { id: fiscalRecordId },
+    select: verifactuPayloadFiscalRecordSelect,
+  });
+
+  if (!record) {
+    throw new Error('Unable to load invoice fiscal record for VERI*FACTU payload.');
+  }
+
+  const previous = await resolvePreviousVerifactuRecord(client, record);
+  const payload = buildVerifactuPayload(record, {
+    previousRecord: previous.previousRecord,
+    generationDateTimeWithTimezone:
+      record.verifactuRecord?.generationDateTimeWithTimezone ??
+      newGenerationDateTimeWithTimezone(),
+  });
+
+  return {
+    payload,
+    previousVerifactuRecordId: previous.previousVerifactuRecordId,
+  };
 };
