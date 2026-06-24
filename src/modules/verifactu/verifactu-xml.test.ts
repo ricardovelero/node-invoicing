@@ -273,6 +273,8 @@ test('validateVerifactuXmlWithXsd rejects schema-invalid XML', async () => {
   );
 
   assert.equal(result.ok, false);
+  assert.match(result.error, /IDVersion/);
+  assert.match(result.error, /IDFactura/);
 });
 
 test('logVerifactuXmlPreviewForFiscalRecord skips non-Spanish organizations', async () => {

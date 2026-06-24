@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Prisma } from '@prisma/client';
 import {
@@ -28,6 +28,9 @@ type VerifactuPreviewClient = Pick<
 export type VerifactuXsdValidationResult =
   | { ok: true }
   | { ok: false; error: string };
+
+const importLibxml2Wasm = Function('return import("libxml2-wasm")') as () =>
+  Promise<typeof import('libxml2-wasm')>;
 
 export const escapeXml = (value: string) =>
   value
@@ -182,26 +185,53 @@ export const validateVerifactuXmlWithXsd = async (
     'verifactu',
     'xsd',
   );
+  const schemaPath = path.join(xsdDirectory, 'SuministroLR.xsd');
+  const {
+    XmlBufferInputProvider,
+    XmlDocument,
+    XsdValidator,
+    xmlCleanupInputProvider,
+    xmlRegisterInputProvider,
+  } = await importLibxml2Wasm();
+  const schemaBuffers = Object.fromEntries(
+    readdirSync(xsdDirectory)
+      .filter((fileName) => fileName.endsWith('.xsd'))
+      .map((fileName) => {
+        const filePath = path.join(xsdDirectory, fileName);
 
-  return new Promise((resolve) => {
-    const child = spawn('xmllint', ['--noout', '--schema', 'SuministroLR.xsd', '-'], {
-      cwd: xsdDirectory,
-      stdio: ['pipe', 'pipe', 'pipe'],
+        return [filePath, readFileSync(filePath)];
+      }),
+  );
+
+  schemaBuffers['http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd'] =
+    readFileSync(path.join(xsdDirectory, 'xmldsig-core-schema.xsd'));
+
+  xmlRegisterInputProvider(new XmlBufferInputProvider(schemaBuffers));
+
+  let schemaDocument: InstanceType<typeof XmlDocument> | undefined;
+  let xmlDocument: InstanceType<typeof XmlDocument> | undefined;
+  let validator: InstanceType<typeof XsdValidator> | undefined;
+
+  try {
+    schemaDocument = XmlDocument.fromString(readFileSync(schemaPath, 'utf8'), {
+      url: schemaPath,
     });
-    const chunks: Buffer[] = [];
+    validator = XsdValidator.fromDoc(schemaDocument);
+    xmlDocument = XmlDocument.fromString(xml);
+    validator.validate(xmlDocument);
 
-    child.stderr.on('data', (chunk: Buffer) => chunks.push(chunk));
-    child.on('error', (error) => resolve({ ok: false, error: error.message }));
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ ok: true });
-        return;
-      }
-
-      resolve({ ok: false, error: Buffer.concat(chunks).toString('utf8') });
-    });
-    child.stdin.end(xml);
-  });
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    validator?.dispose();
+    xmlDocument?.dispose();
+    schemaDocument?.dispose();
+    xmlCleanupInputProvider();
+  }
 };
 
 export const logVerifactuXmlPreviewForFiscalRecord = async ({
