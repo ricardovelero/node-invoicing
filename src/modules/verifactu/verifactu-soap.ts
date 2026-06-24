@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { request as httpsRequest } from 'node:https';
 import path from 'node:path';
 import { URL } from 'node:url';
+import type { VerifactuRecordStatus } from '@prisma/client';
 
 const soapEnvelopeNamespace = 'http://schemas.xmlsoap.org/soap/envelope/';
 const defaultTestEndpoint =
@@ -35,6 +36,45 @@ export type VerifactuSoapTransportResponse = {
 export type VerifactuSoapTransport = (
   request: VerifactuSoapTransportRequest,
 ) => Promise<VerifactuSoapTransportResponse>;
+
+export type VerifactuSoapPresentationData = {
+  nifPresentador: string | null;
+  timestampPresentacion: string | null;
+  idPeticion: string | null;
+};
+
+export type VerifactuSoapLineResponse = {
+  idFactura: {
+    idEmisorFactura: string | null;
+    numSerieFactura: string | null;
+    fechaExpedicionFactura: string | null;
+  };
+  operacion: string | null;
+  refExterna: string | null;
+  estadoRegistro: string | null;
+  codigoErrorRegistro: string | null;
+  descripcionErrorRegistro: string | null;
+};
+
+export type VerifactuSoapSubmissionResult = {
+  kind: 'response';
+  csv: string | null;
+  datosPresentacion: VerifactuSoapPresentationData | null;
+  tiempoEsperaEnvio: string | null;
+  estadoEnvio: string | null;
+  respuestaLinea: VerifactuSoapLineResponse[];
+};
+
+export type VerifactuSoapFaultResult = {
+  kind: 'fault';
+  faultCode: string | null;
+  faultString: string | null;
+  detail: string | null;
+};
+
+export type ParsedVerifactuSoapSubmission =
+  | VerifactuSoapSubmissionResult
+  | VerifactuSoapFaultResult;
 
 export const readVerifactuWsdl = () => readFileSync(
   path.join(
@@ -167,6 +207,121 @@ export const sendVerifactuSoapRequest: VerifactuSoapTransport = ({
   req.end(body);
 });
 
+const decodeXmlText = (value: string) => value
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"')
+  .replace(/&apos;/g, "'")
+  .replace(/&amp;/g, '&');
+
+const tagPattern = (tagName: string) => `(?:[A-Za-z_][\\w.-]*:)?${tagName}`;
+
+const elementsXml = (xml: string, tagName: string) => {
+  const tag = tagPattern(tagName);
+  const matches = xml.matchAll(
+    new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'gu'),
+  );
+
+  return Array.from(matches, (match) => match[1] ?? '');
+};
+
+const elementXml = (xml: string, tagName: string) => elementsXml(xml, tagName)[0] ?? null;
+
+const elementText = (xml: string, tagName: string) => {
+  const value = elementXml(xml, tagName);
+
+  if (value === null) {
+    return null;
+  }
+
+  return decodeXmlText(value.replace(/<[^>]+>/gu, '').trim()) || null;
+};
+
+const parseDatosPresentacion = (xml: string): VerifactuSoapPresentationData | null => {
+  const datosPresentacionXml = elementXml(xml, 'DatosPresentacion');
+
+  if (!datosPresentacionXml) {
+    return null;
+  }
+
+  return {
+    nifPresentador: elementText(datosPresentacionXml, 'NIFPresentador'),
+    timestampPresentacion: elementText(datosPresentacionXml, 'TimestampPresentacion'),
+    idPeticion: elementText(datosPresentacionXml, 'IdPeticion'),
+  };
+};
+
+const parseRespuestaLinea = (xml: string): VerifactuSoapLineResponse => {
+  const idFacturaXml = elementXml(xml, 'IDFactura') ?? '';
+
+  return {
+    idFactura: {
+      idEmisorFactura: elementText(idFacturaXml, 'IDEmisorFactura'),
+      numSerieFactura: elementText(idFacturaXml, 'NumSerieFactura'),
+      fechaExpedicionFactura: elementText(idFacturaXml, 'FechaExpedicionFactura'),
+    },
+    operacion: elementText(xml, 'Operacion'),
+    refExterna: elementText(xml, 'RefExterna'),
+    estadoRegistro: elementText(xml, 'EstadoRegistro'),
+    codigoErrorRegistro: elementText(xml, 'CodigoErrorRegistro'),
+    descripcionErrorRegistro: elementText(xml, 'DescripcionErrorRegistro'),
+  };
+};
+
+export const parseVerifactuSoapSubmissionResponse = (
+  responseXml: string,
+): ParsedVerifactuSoapSubmission => {
+  const faultXml = elementXml(responseXml, 'Fault');
+
+  if (faultXml) {
+    return {
+      kind: 'fault',
+      faultCode: elementText(faultXml, 'faultcode') ?? elementText(faultXml, 'Code'),
+      faultString: elementText(faultXml, 'faultstring') ?? elementText(faultXml, 'Text'),
+      detail: elementText(faultXml, 'detail') ?? elementText(faultXml, 'Detail'),
+    };
+  }
+
+  const responseBody = elementXml(responseXml, 'RespuestaRegFactuSistemaFacturacion') ?? responseXml;
+
+  return {
+    kind: 'response',
+    csv: elementText(responseBody, 'CSV'),
+    datosPresentacion: parseDatosPresentacion(responseBody),
+    tiempoEsperaEnvio: elementText(responseBody, 'TiempoEsperaEnvio'),
+    estadoEnvio: elementText(responseBody, 'EstadoEnvio'),
+    respuestaLinea: elementsXml(responseBody, 'RespuestaLinea').map(parseRespuestaLinea),
+  };
+};
+
+export const verifactuStatusFromSoapSubmission = (
+  parsed: ParsedVerifactuSoapSubmission,
+): VerifactuRecordStatus => {
+  if (parsed.kind === 'fault') {
+    return 'REJECTED';
+  }
+
+  const estadoRegistro = parsed.respuestaLinea[0]?.estadoRegistro;
+
+  if (estadoRegistro === 'Correcto') {
+    return 'ACCEPTED';
+  }
+
+  if (estadoRegistro === 'AceptadoConErrores') {
+    return 'ACCEPTED_WITH_ERRORS';
+  }
+
+  if (estadoRegistro === 'Incorrecto' || estadoRegistro === 'Rechazado') {
+    return 'REJECTED';
+  }
+
+  if (parsed.estadoEnvio === 'Incorrecto') {
+    return 'REJECTED';
+  }
+
+  return 'SUBMITTED';
+};
+
 export const submitVerifactuSoapXml = async ({
   regFactuXml,
   config,
@@ -189,5 +344,6 @@ export const submitVerifactuSoapXml = async ({
     requestXml,
     responseXml: response.body,
     httpStatus: response.status,
+    parsedResponse: parseVerifactuSoapSubmissionResponse(response.body),
   };
 };

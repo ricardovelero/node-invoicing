@@ -344,6 +344,12 @@ model VerifactuRecord {
   payloadVersion                 String
   xml                            String
   status                         VerifactuRecordStatus   @default(GENERATED)
+  aeatSubmissionResponseXml      String?
+  aeatSubmissionResult           Json?
+  aeatEstadoEnvio                String?
+  aeatEstadoRegistro             String?
+  aeatCodigoErrorRegistro        String?
+  aeatDescripcionErrorRegistro   String?
   createdAt                      DateTime                @default(now())
   updatedAt                      DateTime                @updatedAt
 

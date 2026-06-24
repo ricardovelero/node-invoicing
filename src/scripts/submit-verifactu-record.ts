@@ -3,6 +3,7 @@ import {
   loadVerifactuSoapConfig,
   submitVerifactuSoapXml,
 } from '../modules/verifactu/verifactu-soap';
+import { persistVerifactuSoapSubmissionResponse } from '../modules/verifactu/verifactu-record';
 import { validateVerifactuXmlWithXsd } from '../modules/verifactu/verifactu-xml';
 
 const recordId = process.argv[2];
@@ -32,11 +33,19 @@ const main = async () => {
     regFactuXml: record.xml,
     config,
   });
+  const persisted = await persistVerifactuSoapSubmissionResponse({
+    client: prisma,
+    verifactuRecordId: record.id,
+    responseXml: result.responseXml,
+  });
 
   console.log('[VERIFACTU_AEAT_TEST_ENDPOINT]', result.endpoint);
   console.log('[VERIFACTU_AEAT_TEST_REQUEST_XML]', result.requestXml);
   console.log('[VERIFACTU_AEAT_TEST_HTTP_STATUS]', result.httpStatus);
   console.log('[VERIFACTU_AEAT_TEST_RESPONSE_XML]', result.responseXml);
+  console.log('[VERIFACTU_AEAT_TEST_PARSED_RESPONSE]', JSON.stringify(persisted.parsed));
+  console.log('[VERIFACTU_AEAT_TEST_PERSISTED_STATUS]', persisted.record.status);
+  console.log('[VERIFACTU_AEAT_TEST_PERSIST_SKIPPED]', persisted.skipped);
 };
 
 main()
