@@ -54,6 +54,10 @@ export type VerifactuSoapLineResponse = {
   estadoRegistro: string | null;
   codigoErrorRegistro: string | null;
   descripcionErrorRegistro: string | null;
+  registroDuplicado: {
+    idPeticionRegistroDuplicado: string | null;
+    estadoRegistroDuplicado: string | null;
+  } | null;
 };
 
 export type VerifactuSoapSubmissionResult = {
@@ -253,6 +257,7 @@ const parseDatosPresentacion = (xml: string): VerifactuSoapPresentationData | nu
 
 const parseRespuestaLinea = (xml: string): VerifactuSoapLineResponse => {
   const idFacturaXml = elementXml(xml, 'IDFactura') ?? '';
+  const registroDuplicadoXml = elementXml(xml, 'RegistroDuplicado');
 
   return {
     idFactura: {
@@ -265,8 +270,22 @@ const parseRespuestaLinea = (xml: string): VerifactuSoapLineResponse => {
     estadoRegistro: elementText(xml, 'EstadoRegistro'),
     codigoErrorRegistro: elementText(xml, 'CodigoErrorRegistro'),
     descripcionErrorRegistro: elementText(xml, 'DescripcionErrorRegistro'),
+    registroDuplicado: registroDuplicadoXml
+      ? {
+          idPeticionRegistroDuplicado: elementText(
+            registroDuplicadoXml,
+            'IdPeticionRegistroDuplicado',
+          ),
+          estadoRegistroDuplicado: elementText(registroDuplicadoXml, 'EstadoRegistroDuplicado'),
+        }
+      : null,
   };
 };
+
+export const isAcceptedDuplicateVerifactuResponse = (
+  line: VerifactuSoapLineResponse | undefined,
+) => line?.codigoErrorRegistro === '3000' &&
+  line.registroDuplicado?.estadoRegistroDuplicado === 'Correcta';
 
 export const parseVerifactuSoapSubmissionResponse = (
   responseXml: string,
@@ -302,6 +321,11 @@ export const verifactuStatusFromSoapSubmission = (
   }
 
   const estadoRegistro = parsed.respuestaLinea[0]?.estadoRegistro;
+  const firstLine = parsed.respuestaLinea[0];
+
+  if (isAcceptedDuplicateVerifactuResponse(firstLine)) {
+    return 'ACCEPTED';
+  }
 
   if (estadoRegistro === 'Correcto') {
     return 'ACCEPTED';

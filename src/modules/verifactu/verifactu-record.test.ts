@@ -28,6 +28,37 @@ const responseXml = '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org
   '</sfR:RespuestaLinea>' +
   '</sfR:RespuestaRegFactuSistemaFacturacion>' +
   '</soapenv:Body></soapenv:Envelope>';
+const duplicateCorrectResponseXml = '<soapenv:Envelope ' +
+  'xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
+  'xmlns:sfR="urn:respuesta" xmlns:sf="urn:suministro"><soapenv:Body>' +
+  '<sfR:RespuestaRegFactuSistemaFacturacion>' +
+  '<sfR:TiempoEsperaEnvio>60</sfR:TiempoEsperaEnvio>' +
+  '<sfR:EstadoEnvio>Incorrecto</sfR:EstadoEnvio>' +
+  '<sfR:RespuestaLinea>' +
+  '<sfR:IDFactura><sf:IDEmisorFactura>B12345678</sf:IDEmisorFactura>' +
+  '<sf:NumSerieFactura>INV-2026-0001</sf:NumSerieFactura>' +
+  '<sf:FechaExpedicionFactura>27-05-2026</sf:FechaExpedicionFactura></sfR:IDFactura>' +
+  '<sfR:EstadoRegistro>Incorrecto</sfR:EstadoRegistro>' +
+  '<sfR:CodigoErrorRegistro>3000</sfR:CodigoErrorRegistro>' +
+  '<sfR:DescripcionErrorRegistro>Registro de facturación duplicado</sfR:DescripcionErrorRegistro>' +
+  '<sfR:RegistroDuplicado>' +
+  '<sf:IdPeticionRegistroDuplicado>ABC123</sf:IdPeticionRegistroDuplicado>' +
+  '<sf:EstadoRegistroDuplicado>Correcta</sf:EstadoRegistroDuplicado>' +
+  '</sfR:RegistroDuplicado>' +
+  '</sfR:RespuestaLinea>' +
+  '</sfR:RespuestaRegFactuSistemaFacturacion>' +
+  '</soapenv:Body></soapenv:Envelope>';
+const rejectedResponseXml = '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
+  'xmlns:sfR="urn:respuesta"><soapenv:Body>' +
+  '<sfR:RespuestaRegFactuSistemaFacturacion>' +
+  '<sfR:EstadoEnvio>Incorrecto</sfR:EstadoEnvio>' +
+  '<sfR:RespuestaLinea>' +
+  '<sfR:EstadoRegistro>Incorrecto</sfR:EstadoRegistro>' +
+  '<sfR:CodigoErrorRegistro>5000</sfR:CodigoErrorRegistro>' +
+  '<sfR:DescripcionErrorRegistro>Rejected record</sfR:DescripcionErrorRegistro>' +
+  '</sfR:RespuestaLinea>' +
+  '</sfR:RespuestaRegFactuSistemaFacturacion>' +
+  '</soapenv:Body></soapenv:Envelope>';
 
 const payload = (): VerifactuAltaPayload => ({
   payloadVersion: '1.0',
@@ -159,8 +190,8 @@ test('persistVerifactuSoapSubmissionResponse stores parsed AEAT response fields'
   assert.equal((data.aeatSubmissionResult as { kind: string }).kind, 'response');
 });
 
-test('persistVerifactuSoapSubmissionResponse does not overwrite accepted records', async () => {
-  let updateCalls = 0;
+test('persistVerifactuSoapSubmissionResponse does not downgrade accepted records', async () => {
+  let updateArgs: unknown;
   const client = {
     verifactuRecord: {
       async findUnique() {
@@ -172,9 +203,17 @@ test('persistVerifactuSoapSubmissionResponse does not overwrite accepted records
           aeatDescripcionErrorRegistro: null,
         };
       },
-      async update() {
-        updateCalls += 1;
-        throw new Error('update should not be called');
+      async update(args: unknown) {
+        updateArgs = args;
+
+        return {
+          id: 'verifactu_record_1',
+          status: 'ACCEPTED' as const,
+          aeatEstadoEnvio: 'Incorrecto',
+          aeatEstadoRegistro: 'Incorrecto',
+          aeatCodigoErrorRegistro: '5000',
+          aeatDescripcionErrorRegistro: 'Rejected record',
+        };
       },
     },
   };
@@ -182,11 +221,65 @@ test('persistVerifactuSoapSubmissionResponse does not overwrite accepted records
   const result = await persistVerifactuSoapSubmissionResponse({
     client,
     verifactuRecordId: 'verifactu_record_1',
-    responseXml,
+    responseXml: rejectedResponseXml,
   });
+  const data = (updateArgs as { data: Record<string, unknown> }).data;
 
-  assert.equal(result.skipped, true);
+  assert.equal(result.skipped, false);
   assert.equal(result.record.status, 'ACCEPTED');
-  assert.equal(result.record.aeatEstadoEnvio, 'Correcto');
-  assert.equal(updateCalls, 0);
+  assert.equal(data.status, 'ACCEPTED');
+  assert.equal(data.aeatEstadoEnvio, 'Incorrecto');
+  assert.equal(data.aeatCodigoErrorRegistro, '5000');
+});
+
+test('persistVerifactuSoapSubmissionResponse restores accepted status for correct duplicates', async () => {
+  let updateArgs: unknown;
+  const client = {
+    verifactuRecord: {
+      async findUnique() {
+        return {
+          status: 'GENERATED' as const,
+          aeatEstadoEnvio: null,
+          aeatEstadoRegistro: null,
+          aeatCodigoErrorRegistro: null,
+          aeatDescripcionErrorRegistro: null,
+        };
+      },
+      async update(args: unknown) {
+        updateArgs = args;
+
+        return {
+          id: 'verifactu_record_1',
+          status: 'ACCEPTED' as const,
+          aeatEstadoEnvio: 'Incorrecto',
+          aeatEstadoRegistro: 'Incorrecto',
+          aeatCodigoErrorRegistro: '3000',
+          aeatDescripcionErrorRegistro: 'Registro de facturación duplicado',
+        };
+      },
+    },
+  };
+
+  const result = await persistVerifactuSoapSubmissionResponse({
+    client,
+    verifactuRecordId: 'verifactu_record_1',
+    responseXml: duplicateCorrectResponseXml,
+  });
+  const data = (updateArgs as { data: Record<string, unknown> }).data;
+  const parsed = data.aeatSubmissionResult as {
+    respuestaLinea: Array<{
+      registroDuplicado: {
+        idPeticionRegistroDuplicado: string;
+        estadoRegistroDuplicado: string;
+      };
+    }>;
+  };
+
+  assert.equal(result.record.status, 'ACCEPTED');
+  assert.equal(data.status, 'ACCEPTED');
+  assert.equal(data.aeatCodigoErrorRegistro, '3000');
+  assert.deepEqual(parsed.respuestaLinea[0]?.registroDuplicado, {
+    idPeticionRegistroDuplicado: 'ABC123',
+    estadoRegistroDuplicado: 'Correcta',
+  });
 });

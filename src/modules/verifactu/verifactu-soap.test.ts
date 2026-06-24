@@ -20,11 +20,16 @@ const soapResponse = ({
   estadoRegistro,
   codigoErrorRegistro,
   descripcionErrorRegistro,
+  registroDuplicado,
 }: {
   estadoEnvio: string;
   estadoRegistro: string;
   codigoErrorRegistro?: string;
   descripcionErrorRegistro?: string;
+  registroDuplicado?: {
+    idPeticionRegistroDuplicado: string;
+    estadoRegistroDuplicado: string;
+  };
 }) => '<?xml version="1.0" encoding="UTF-8"?>' +
   '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
   'xmlns:sfR="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/' +
@@ -55,6 +60,14 @@ const soapResponse = ({
     : '') +
   (descripcionErrorRegistro
     ? `<sfR:DescripcionErrorRegistro>${descripcionErrorRegistro}</sfR:DescripcionErrorRegistro>`
+    : '') +
+  (registroDuplicado
+    ? '<sfR:RegistroDuplicado>' +
+      `<sf:IdPeticionRegistroDuplicado>${registroDuplicado.idPeticionRegistroDuplicado}` +
+      '</sf:IdPeticionRegistroDuplicado>' +
+      `<sf:EstadoRegistroDuplicado>${registroDuplicado.estadoRegistroDuplicado}` +
+      '</sf:EstadoRegistroDuplicado>' +
+      '</sfR:RegistroDuplicado>'
     : '') +
   '</sfR:RespuestaLinea>' +
   '</sfR:RespuestaRegFactuSistemaFacturacion>' +
@@ -248,6 +261,32 @@ test('parseVerifactuSoapSubmissionResponse parses Incorrecto response fixtures',
   assert.equal(parsed.estadoEnvio, 'Incorrecto');
   assert.equal(parsed.respuestaLinea[0]?.estadoRegistro, 'Incorrecto');
   assert.equal(parsed.respuestaLinea[0]?.codigoErrorRegistro, '5000');
+});
+
+test('parseVerifactuSoapSubmissionResponse maps duplicate correct records to accepted', () => {
+  const parsed = parseVerifactuSoapSubmissionResponse(soapResponse({
+    estadoEnvio: 'Incorrecto',
+    estadoRegistro: 'Incorrecto',
+    codigoErrorRegistro: '3000',
+    descripcionErrorRegistro: 'Registro de facturación duplicado',
+    registroDuplicado: {
+      idPeticionRegistroDuplicado: 'ABC123',
+      estadoRegistroDuplicado: 'Correcta',
+    },
+  }));
+
+  assert.equal(parsed.kind, 'response');
+  assert.equal(verifactuStatusFromSoapSubmission(parsed), 'ACCEPTED');
+
+  if (parsed.kind !== 'response') {
+    throw new Error('Expected response result.');
+  }
+
+  assert.equal(parsed.respuestaLinea[0]?.codigoErrorRegistro, '3000');
+  assert.deepEqual(parsed.respuestaLinea[0]?.registroDuplicado, {
+    idPeticionRegistroDuplicado: 'ABC123',
+    estadoRegistroDuplicado: 'Correcta',
+  });
 });
 
 test('parseVerifactuSoapSubmissionResponse parses SOAP Fault fixtures', () => {

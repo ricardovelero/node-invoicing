@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import {
   buildVerifactuPayload,
   buildVerifactuPayloadForFiscalRecord,
+  resolvePreviousVerifactuRecord,
   VerifactuPayloadValidationError,
   type BuildVerifactuPayloadOptions,
   type InvoiceFiscalRecordWithInvoiceSnapshot,
@@ -472,6 +473,49 @@ test('buildVerifactuPayloadForFiscalRecord resolves the previous valid record', 
       sequenceNumber: {
         lt: 7,
       },
+    },
+  });
+});
+
+test('resolvePreviousVerifactuRecord uses the accepted latest record after duplicate response', async () => {
+  let previousWhere: unknown;
+  let previousOrderBy: unknown;
+  const acceptedDuplicateRecordId = '8b099fc2-225e-4f00-b35a-b1fdc1b62d4e';
+  const client = {
+    verifactuRecord: {
+      async findFirst(args: { where: unknown; orderBy: unknown }) {
+        previousWhere = args.where;
+        previousOrderBy = args.orderBy;
+
+        return {
+          id: acceptedDuplicateRecordId,
+          sellerTaxId: 'B12345678',
+          invoiceNumber: 'INV-2026-0001',
+          issueDate: new Date('2026-05-27T00:00:00.000Z'),
+          huella: previousHuella,
+        };
+      },
+    },
+  };
+
+  const result = await resolvePreviousVerifactuRecord(client as never, {
+    organizationId,
+    sequenceNumber: 8,
+  });
+
+  assert.equal(result.previousVerifactuRecordId, acceptedDuplicateRecordId);
+  assert.deepEqual(previousWhere, {
+    organizationId,
+    status: { not: 'REJECTED' },
+    invoiceFiscalRecord: {
+      sequenceNumber: {
+        lt: 8,
+      },
+    },
+  });
+  assert.deepEqual(previousOrderBy, {
+    invoiceFiscalRecord: {
+      sequenceNumber: 'desc',
     },
   });
 });

@@ -102,27 +102,15 @@ export const persistVerifactuSoapSubmissionResponse = async ({
     throw new Error(`VerifactuRecord not found: ${verifactuRecordId}`);
   }
 
-  if (currentRecord.status === 'ACCEPTED') {
-    return {
-      skipped: true as const,
-      parsed,
-      record: {
-        id: verifactuRecordId,
-        status: currentRecord.status,
-        aeatEstadoEnvio: currentRecord.aeatEstadoEnvio,
-        aeatEstadoRegistro: currentRecord.aeatEstadoRegistro,
-        aeatCodigoErrorRegistro: currentRecord.aeatCodigoErrorRegistro,
-        aeatDescripcionErrorRegistro: currentRecord.aeatDescripcionErrorRegistro,
-      },
-    };
-  }
-
   const firstLine = parsed.kind === 'response' ? parsed.respuestaLinea[0] : undefined;
   const status = verifactuStatusFromSoapSubmission(parsed);
+  const nextStatus = currentRecord.status === 'ACCEPTED' && status === 'REJECTED'
+    ? currentRecord.status
+    : status;
   const record = await client.verifactuRecord.update({
     where: { id: verifactuRecordId },
     data: {
-      status,
+      status: nextStatus,
       aeatSubmissionResponseXml: responseXml,
       aeatSubmissionResult: parsed as Prisma.InputJsonValue,
       aeatEstadoEnvio: parsed.kind === 'response' ? parsed.estadoEnvio : null,
