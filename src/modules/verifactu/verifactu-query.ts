@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import type { Prisma, VerifactuRecordStatus } from '@prisma/client';
 import {
   getVerifactuTestEndpointFromWsdl,
   loadVerifactuSoapConfig,
@@ -51,6 +52,32 @@ export type ParsedVerifactuQueryResponse = {
 export type VerifactuQueryXsdValidationResult =
   | { ok: true }
   | { ok: false; error: string };
+
+export type VerifactuQueryPersistenceClient = {
+  verifactuRecord: {
+    findUnique: (args: {
+      where: { id: string };
+      select: { status: true };
+    }) => Promise<{ status: VerifactuRecordStatus } | null>;
+    update: (args: {
+      where: { id: string };
+      data: Prisma.VerifactuRecordUpdateInput;
+      select: {
+        id: true;
+        status: true;
+        aeatLastQueryEstadoRegistro: true;
+        aeatLastQueryCodigoErrorRegistro: true;
+        aeatLastQueryDescripcionErrorRegistro: true;
+      };
+    }) => Promise<{
+      id: string;
+      status: VerifactuRecordStatus;
+      aeatLastQueryEstadoRegistro: string | null;
+      aeatLastQueryCodigoErrorRegistro: string | null;
+      aeatLastQueryDescripcionErrorRegistro: string | null;
+    }>;
+  };
+};
 
 const escapeXml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -214,6 +241,70 @@ export const queryVerifactuSoapRecord = async ({
     httpStatus: response.status,
     parsedResponse: parseVerifactuQuerySoapResponse(response.body),
   };
+};
+
+const queryStatusFromResponse = (
+  parsed: ParsedVerifactuQueryResponse,
+  currentStatus: VerifactuRecordStatus,
+) => {
+  if (
+    parsed.kind === 'response' &&
+    parsed.resultadoConsulta === 'ConDatos' &&
+    parsed.records[0]?.estadoRegistro === 'Correcto'
+  ) {
+    return 'ACCEPTED' as const;
+  }
+
+  return currentStatus;
+};
+
+export const persistVerifactuQueryResponse = async ({
+  client,
+  verifactuRecordId,
+  responseXml,
+  queriedAt = new Date(),
+}: {
+  client: VerifactuQueryPersistenceClient;
+  verifactuRecordId: string;
+  responseXml: string;
+  queriedAt?: Date;
+}) => {
+  const parsed = parseVerifactuQuerySoapResponse(responseXml);
+  const currentRecord = await client.verifactuRecord.findUnique({
+    where: { id: verifactuRecordId },
+    select: { status: true },
+  });
+
+  if (!currentRecord) {
+    throw new Error(`VerifactuRecord not found: ${verifactuRecordId}`);
+  }
+
+  const firstRecord = parsed.kind === 'response' ? parsed.records[0] : undefined;
+  const record = await client.verifactuRecord.update({
+    where: { id: verifactuRecordId },
+    data: {
+      status: queryStatusFromResponse(parsed, currentRecord.status),
+      aeatLastQueryResponseXml: responseXml,
+      aeatLastQueryResult: parsed as Prisma.InputJsonValue,
+      aeatLastQueryAt: queriedAt,
+      aeatLastQueryEstadoRegistro: firstRecord?.estadoRegistro ?? null,
+      aeatLastQueryCodigoErrorRegistro: parsed.kind === 'fault'
+        ? parsed.faultCode
+        : firstRecord?.codigoErrorRegistro ?? null,
+      aeatLastQueryDescripcionErrorRegistro: parsed.kind === 'fault'
+        ? parsed.faultString
+        : firstRecord?.descripcionErrorRegistro ?? null,
+    },
+    select: {
+      id: true,
+      status: true,
+      aeatLastQueryEstadoRegistro: true,
+      aeatLastQueryCodigoErrorRegistro: true,
+      aeatLastQueryDescripcionErrorRegistro: true,
+    },
+  });
+
+  return { parsed, record };
 };
 
 const queryBodyXml = (xml: string) =>

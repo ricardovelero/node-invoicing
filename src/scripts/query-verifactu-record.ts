@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma';
 import {
   loadVerifactuQuerySoapConfig,
+  persistVerifactuQueryResponse,
   queryVerifactuSoapRecord,
 } from '../modules/verifactu/verifactu-query';
 
@@ -58,14 +59,20 @@ export const queryVerifactuRecordInAeatTest = async ({
     },
     config,
   });
+  const persisted = await persistVerifactuQueryResponse({
+    client,
+    verifactuRecordId: record.id,
+    responseXml: result.responseXml,
+  });
 
   logger.log('[VERIFACTU_AEAT_QUERY_TEST_ENDPOINT]', result.endpoint);
   logger.log('[VERIFACTU_AEAT_QUERY_TEST_REQUEST_XML]', result.requestXml);
   logger.log('[VERIFACTU_AEAT_QUERY_TEST_HTTP_STATUS]', result.httpStatus);
   logger.log('[VERIFACTU_AEAT_QUERY_TEST_RESPONSE_XML]', result.responseXml);
-  logger.log('[VERIFACTU_AEAT_QUERY_TEST_PARSED_RESPONSE]', JSON.stringify(result.parsedResponse));
+  logger.log('[VERIFACTU_AEAT_QUERY_TEST_PARSED_RESPONSE]', JSON.stringify(persisted.parsed));
+  logger.log('[VERIFACTU_AEAT_QUERY_TEST_PERSISTED_STATUS]', persisted.record.status);
 
-  return result;
+  return { result, persisted };
 };
 
 const main = async () => {

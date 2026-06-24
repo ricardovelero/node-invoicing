@@ -350,6 +350,12 @@ model VerifactuRecord {
   aeatEstadoRegistro             String?
   aeatCodigoErrorRegistro        String?
   aeatDescripcionErrorRegistro   String?
+  aeatLastQueryResponseXml              String?
+  aeatLastQueryResult                   Json?
+  aeatLastQueryAt                       DateTime?
+  aeatLastQueryEstadoRegistro           String?
+  aeatLastQueryCodigoErrorRegistro      String?
+  aeatLastQueryDescripcionErrorRegistro String?
   createdAt                      DateTime                @default(now())
   updatedAt                      DateTime                @updatedAt
 
