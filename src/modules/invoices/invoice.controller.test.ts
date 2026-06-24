@@ -235,6 +235,15 @@ const statusInvoice = {
     paymentInstructions: null,
   },
   snapshot: null,
+  lines: [
+    {
+      description: "Consulting services",
+      taxRateBps: 0,
+      taxCents: 0,
+      totalCents: 10000,
+      invoiceDiscountCents: 0,
+    },
+  ],
 };
 
 const printableSnapshot = {
@@ -511,6 +520,15 @@ const mockCreateInvoiceTransaction = ({
               country: null,
             },
             snapshot: null,
+            lines: [
+              {
+                description: "Consulting services",
+                taxRateBps: 2100,
+                taxCents: 2100,
+                totalCents: 10000,
+                invoiceDiscountCents: 0,
+              },
+            ],
           };
           return createdInvoice;
         },

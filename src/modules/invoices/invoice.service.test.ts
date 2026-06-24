@@ -23,6 +23,7 @@ import {
   hashFiscalRecordInput,
   invoiceFiscalRecordHashVersion,
 } from "./invoice-fiscal-records";
+import { VerifactuPayloadValidationError } from "../verifactu/verifactu-payload";
 
 const prismaMock = prisma as unknown as {
   $transaction: unknown;
@@ -80,6 +81,12 @@ type IssuedInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
   };
   invoiceFiscalRecord?: {
     findFirst: (args: unknown) => Promise<unknown>;
+    findUnique?: (args: unknown) => Promise<unknown>;
+    create: (args: unknown) => Promise<unknown>;
+  };
+  verifactuRecord?: {
+    findUnique: (args: unknown) => Promise<unknown>;
+    findFirst: (args: unknown) => Promise<unknown>;
     create: (args: unknown) => Promise<unknown>;
   };
 };
@@ -122,6 +129,30 @@ const defaultOrganizationInvoiceSettings = {
   withholdingEnabled: false,
   defaultWithholdingType: null,
   defaultWithholdingRate: null,
+};
+
+const verifactuOrganizationSettings = {
+  verifactuSoftwareProducerName: "Stored Producer SL",
+  verifactuSoftwareProducerTaxId: "B11223344",
+  verifactuSoftwareName: "Stored SIF",
+  verifactuSoftwareId: "SIF01",
+  verifactuSoftwareVersion: "2.3.4",
+  verifactuSoftwareInstallationNumber: "stored-installation-001",
+  verifactuSoftwareOnlyVerifactu: "S",
+  verifactuSoftwareMultiTaxpayerUse: "N",
+  verifactuSoftwareMultipleTaxpayers: "N",
+};
+
+const verifactuOrganizationSelect = {
+  verifactuSoftwareProducerName: true,
+  verifactuSoftwareProducerTaxId: true,
+  verifactuSoftwareName: true,
+  verifactuSoftwareId: true,
+  verifactuSoftwareVersion: true,
+  verifactuSoftwareInstallationNumber: true,
+  verifactuSoftwareOnlyVerifactu: true,
+  verifactuSoftwareMultiTaxpayerUse: true,
+  verifactuSoftwareMultipleTaxpayers: true,
 };
 
 const assertFiscalRecordCreateArgs = (
@@ -450,6 +481,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
   let createdInvoiceInclude: unknown;
   let snapshotCreateArgs: unknown;
   let fiscalRecordCreateArgs: unknown;
+  let verifactuRecordCreateArgs: unknown;
   let customerFindFirstArgs: unknown;
   let organizationFindFirstArgs: unknown;
   let reservedNumberOrganizationId: unknown;
@@ -489,8 +521,16 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       addressLine1: "1 Seller St",
       city: "Madrid",
       countryCode: "ES",
+      ...verifactuOrganizationSettings,
     },
     snapshot: null,
+    lines: [{
+      description: "Consulting services",
+      taxRateBps: 2100,
+      taxCents: 2100,
+      totalCents: 10000,
+      invoiceDiscountCents: 0,
+    }],
   };
   let snapshotData: unknown = null;
 
@@ -512,7 +552,15 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       organization: {
         async findFirst(args) {
           organizationFindFirstArgs = args;
-          return { billingEmail: "billing@example.com" };
+          return {
+            billingEmail: "billing@example.com",
+            countryCode: "ES",
+            legalForm: "other",
+            withholdingEnabled: false,
+            defaultWithholdingType: null,
+            defaultWithholdingRate: null,
+            ...verifactuOrganizationSettings,
+          };
         },
       },
       invoice: {
@@ -539,9 +587,47 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
         async findFirst() {
           return null;
         },
+        async findUnique() {
+          const fiscalRecordData = (fiscalRecordCreateArgs as { data: Record<string, unknown> }).data;
+
+          return {
+            id: "fiscal_record_1",
+            organizationId: createdInvoice.organizationId,
+            invoiceId: createdInvoice.id,
+            type: "ALTA",
+            sequenceNumber: fiscalRecordData.sequenceNumber,
+            previousHash: fiscalRecordData.previousHash,
+            hash: fiscalRecordData.hash,
+            invoiceType: fiscalRecordData.invoiceType,
+            operationDescription: fiscalRecordData.operationDescription,
+            taxBreakdown: fiscalRecordData.taxBreakdown,
+            organization: verifactuOrganizationSettings,
+            verifactuRecord: null,
+            invoice: {
+              id: createdInvoice.id,
+              organizationId: createdInvoice.organizationId,
+              number: createdInvoice.number,
+              issueDate: createdInvoice.issueDate,
+              currency: createdInvoice.currency,
+              snapshot: snapshotData,
+            },
+          };
+        },
         async create(args) {
           fiscalRecordCreateArgs = args;
           return { id: "fiscal_record_1" };
+        },
+      },
+      verifactuRecord: {
+        async findUnique() {
+          return null;
+        },
+        async findFirst() {
+          return null;
+        },
+        async create(args) {
+          verifactuRecordCreateArgs = args;
+          return { id: "verifactu_record_1" };
         },
       },
     });
@@ -592,6 +678,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
     select: {
       billingEmail: true,
       countryCode: true,
+      ...verifactuOrganizationSelect,
       legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
@@ -692,6 +779,29 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
     previousHash: null,
     createdByUserId: "user_1",
   });
+  const fiscalRecordData = (fiscalRecordCreateArgs as { data: Record<string, unknown> }).data;
+  assert.equal(fiscalRecordData.invoiceType, "F1");
+  assert.equal(fiscalRecordData.operationDescription, "Consulting services");
+  assert.ok(verifactuRecordCreateArgs);
+  assert.match(
+    (verifactuRecordCreateArgs as { data: { xml: string } }).data.xml,
+    /^<\?xml version="1\.0" encoding="UTF-8"\?>/,
+  );
+  assert.equal(
+    (verifactuRecordCreateArgs as { data: { invoiceFiscalRecordId: string } }).data
+      .invoiceFiscalRecordId,
+    "fiscal_record_1",
+  );
+  assert.equal(
+    (verifactuRecordCreateArgs as { data: { previousVerifactuRecordId: string | null } }).data
+      .previousVerifactuRecordId,
+    null,
+  );
+  assert.equal(
+    (verifactuRecordCreateArgs as { data: { previousHuella: string | null } }).data
+      .previousHuella,
+    null,
+  );
 });
 
 test("createIssuedInvoiceRecord rejects email preconditions before creating invoices", async () => {
@@ -1535,7 +1645,13 @@ type StatusTransactionMock = {
   };
   invoiceFiscalRecord: {
     findFirst: (args: unknown) => Promise<unknown>;
+    findUnique: (args: unknown) => Promise<unknown>;
     create: (args: { data: unknown }) => Promise<unknown>;
+  };
+  verifactuRecord: {
+    findUnique: (args: unknown) => Promise<unknown>;
+    findFirst: (args: unknown) => Promise<unknown>;
+    create: (args: unknown) => Promise<unknown>;
   };
 };
 
@@ -1571,7 +1687,15 @@ const invoiceForStatusUpdate = {
     city: "Madrid",
     countryCode: "ES",
     paymentInstructions: "Organization default instructions.",
+    ...verifactuOrganizationSettings,
   },
+  lines: [{
+    description: "Consulting services",
+    taxRateBps: 2100,
+    taxCents: 1890,
+    totalCents: 9000,
+    invoiceDiscountCents: 0,
+  }],
   snapshot: null,
 };
 
@@ -1581,18 +1705,25 @@ const mockStatusTransaction = ({
   onInvoiceUpdate,
   onSnapshotCreate,
   onFiscalRecordCreate,
+  onVerifactuRecordCreate,
+  previousVerifactuRecord = null,
+  existingVerifactuRecord = null,
 }: {
   invoice: unknown;
   onInvoiceFindFirst?: (args: unknown) => void;
   onInvoiceUpdate?: (args: unknown) => void;
   onSnapshotCreate?: (args: { data: unknown }) => void;
   onFiscalRecordCreate?: (args: { data: unknown }) => void;
+  onVerifactuRecordCreate?: (args: unknown) => void;
+  previousVerifactuRecord?: unknown;
+  existingVerifactuRecord?: unknown;
 }) => {
   prismaMock.$transaction = async (callback: (tx: StatusTransactionMock) => Promise<unknown>) =>
     {
       let queryCalls = 0;
       let snapshotData: unknown = null;
       let currentInvoice = invoice;
+      let fiscalRecordData: Record<string, unknown> | null = null;
       const lockedInvoice =
         invoice && typeof invoice === "object"
           ? {
@@ -1661,9 +1792,52 @@ const mockStatusTransaction = ({
           async findFirst() {
             return null;
           },
+          async findUnique() {
+            if (!fiscalRecordData || !currentInvoice || typeof currentInvoice !== "object") {
+              return null;
+            }
+
+            const current = currentInvoice as typeof invoiceForStatusUpdate;
+
+            return {
+              id: "fiscal_record_1",
+              organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+              invoiceId: current.id,
+              type: fiscalRecordData.type,
+              sequenceNumber: fiscalRecordData.sequenceNumber,
+              previousHash: fiscalRecordData.previousHash,
+              hash: fiscalRecordData.hash,
+              invoiceType: fiscalRecordData.invoiceType,
+              operationDescription: fiscalRecordData.operationDescription,
+              taxBreakdown: fiscalRecordData.taxBreakdown,
+              organization: verifactuOrganizationSettings,
+              verifactuRecord: null,
+              invoice: {
+                id: current.id,
+                organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+                number: current.number,
+                issueDate: current.issueDate,
+                currency: current.currency,
+                snapshot: snapshotData ?? current.snapshot,
+              },
+            };
+          },
           async create(args) {
             onFiscalRecordCreate?.(args);
+            fiscalRecordData = args.data as Record<string, unknown>;
             return { id: "fiscal_record_1" };
+          },
+        },
+        verifactuRecord: {
+          async findUnique() {
+            return existingVerifactuRecord;
+          },
+          async findFirst() {
+            return previousVerifactuRecord;
+          },
+          async create(args) {
+            onVerifactuRecordCreate?.(args);
+            return { id: "verifactu_record_1" };
           },
         },
       });
@@ -1858,6 +2032,7 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
           addressLine1: true,
           city: true,
           countryCode: true,
+          ...verifactuOrganizationSelect,
         },
       },
       snapshot: {
@@ -1907,6 +2082,179 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
   });
 });
 
+test("updateInvoiceStatus creates a chained VerifactuRecord for the second issued invoice", async () => {
+  let verifactuRecordCreateArgs: unknown;
+  const previousHuella = "A".repeat(64);
+
+  mockStatusTransaction({
+    invoice: invoiceForStatusUpdate,
+    previousVerifactuRecord: {
+      id: "previous_verifactu_record_1",
+      sellerTaxId: "VAT123",
+      invoiceNumber: "INV-2026-0000",
+      issueDate: new Date("2026-05-26T00:00:00.000Z"),
+      huella: previousHuella,
+    },
+    onVerifactuRecordCreate: (args) => {
+      verifactuRecordCreateArgs = args;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
+    { action: "issue" },
+  );
+
+  const data = (verifactuRecordCreateArgs as { data: Record<string, unknown> }).data;
+
+  assert.deepEqual(result, { ok: true, status: "ISSUED" });
+  assert.equal(data.previousVerifactuRecordId, "previous_verifactu_record_1");
+  assert.equal(data.previousSellerTaxId, "VAT123");
+  assert.equal(data.previousInvoiceNumber, "INV-2026-0000");
+  assert.equal(data.previousHuella, previousHuella);
+});
+
+test("updateInvoiceStatus rejects missing Spanish SIF settings before partial records", async () => {
+  let updateCalls = 0;
+  let snapshotCreateCalls = 0;
+  let fiscalRecordCreateCalls = 0;
+  let verifactuRecordCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      organization: {
+        ...invoiceForStatusUpdate.organization,
+        verifactuSoftwareProducerTaxId: " ",
+      },
+    },
+    onInvoiceUpdate: () => {
+      updateCalls += 1;
+    },
+    onSnapshotCreate: () => {
+      snapshotCreateCalls += 1;
+    },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+    },
+  });
+
+  await assert.rejects(
+    updateInvoiceStatus(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      "user_1",
+      { action: "issue" },
+    ),
+    /requires persisted Organization\.verifactuSoftwareProducerTaxId/,
+  );
+
+  assert.equal(updateCalls, 0);
+  assert.equal(snapshotCreateCalls, 0);
+  assert.equal(fiscalRecordCreateCalls, 0);
+  assert.equal(verifactuRecordCreateCalls, 0);
+});
+
+test("updateInvoiceStatus rejects invalid ALTA fiscal data before fiscal records", async () => {
+  let fiscalRecordCreateCalls = 0;
+  let verifactuRecordCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      lines: [{
+        description: " ",
+        taxRateBps: 2100,
+        taxCents: 1890,
+        totalCents: 9000,
+        invoiceDiscountCents: 0,
+      }],
+    },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+    },
+  });
+
+  await assert.rejects(
+    updateInvoiceStatus(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      "user_1",
+      { action: "issue" },
+    ),
+    /requires persisted invoice line descriptions/,
+  );
+
+  assert.equal(fiscalRecordCreateCalls, 0);
+  assert.equal(verifactuRecordCreateCalls, 0);
+});
+
+test("updateInvoiceStatus does not create duplicates for duplicate issue attempts", async () => {
+  let fiscalRecordCreateCalls = 0;
+  let verifactuRecordCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      status: "ISSUED",
+    },
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
+    { action: "issue" },
+  );
+
+  assert.deepEqual(result, { ok: false, reason: "invalidTransition" });
+  assert.equal(fiscalRecordCreateCalls, 0);
+  assert.equal(verifactuRecordCreateCalls, 0);
+});
+
+test("updateInvoiceStatus propagates Verifactu failures inside the issue transaction", async () => {
+  let fiscalRecordCreateCalls = 0;
+  let verifactuRecordCreateCalls = 0;
+
+  mockStatusTransaction({
+    invoice: invoiceForStatusUpdate,
+    onFiscalRecordCreate: () => {
+      fiscalRecordCreateCalls += 1;
+    },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+      throw new VerifactuPayloadValidationError("forced Veri*Factu failure");
+    },
+  });
+
+  await assert.rejects(
+    updateInvoiceStatus(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      "user_1",
+      { action: "issue" },
+    ),
+    /forced Veri\*Factu failure/,
+  );
+
+  assert.equal(fiscalRecordCreateCalls, 1);
+  assert.equal(verifactuRecordCreateCalls, 1);
+});
+
 test("updateInvoiceStatus does not duplicate an existing invoice snapshot", async () => {
   let snapshotCreateCalls = 0;
   let updateArgs: unknown;
@@ -1915,7 +2263,23 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
   mockStatusTransaction({
     invoice: {
       ...invoiceForStatusUpdate,
-      snapshot: { invoiceId: "invoice_1" },
+      snapshot: {
+        invoiceId: "invoice_1",
+        customerName: "Ada Co",
+        customerTaxId: "CUST-123",
+        customerCountry: "GB",
+        sellerName: "Analytical Engines",
+        sellerLegalName: "Analytical Engines Ltd",
+        sellerTaxId: "VAT123",
+        sellerCountry: "Spain",
+        subtotalCents: 10000,
+        discountCents: 1000,
+        taxCents: 1890,
+        withholdingType: null,
+        withholdingRate: null,
+        withholdingAmountCents: null,
+        totalCents: 10890,
+      },
     },
     onInvoiceUpdate: (args) => {
       updateArgs = args;
@@ -1954,6 +2318,7 @@ test("updateInvoiceStatus does not duplicate an existing invoice snapshot", asyn
 
 test("updateInvoiceStatus allows missing optional billing fields when issuing invoices", async () => {
   let snapshotCreateArgs: unknown;
+  let verifactuRecordCreateCalls = 0;
 
   mockStatusTransaction({
     invoice: {
@@ -1980,6 +2345,9 @@ test("updateInvoiceStatus allows missing optional billing fields when issuing in
     onSnapshotCreate: (args) => {
       snapshotCreateArgs = args;
     },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+    },
   });
 
   const result = await updateInvoiceStatus(
@@ -1990,6 +2358,7 @@ test("updateInvoiceStatus allows missing optional billing fields when issuing in
   );
 
   assert.equal(result.ok, true);
+  assert.equal(verifactuRecordCreateCalls, 0);
   assert.deepEqual(snapshotCreateArgs, {
     data: {
       invoiceId: "invoice_1",

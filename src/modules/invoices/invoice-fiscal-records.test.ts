@@ -51,6 +51,13 @@ const invoiceForHash = {
     withholdingAmountCents: null,
     totalCents: 12100,
   },
+  lines: [{
+    description: 'Consulting services',
+    taxRateBps: 2100,
+    taxCents: 2100,
+    totalCents: 10000,
+    invoiceDiscountCents: 0,
+  }],
 };
 
 const baseHashInput = () =>
@@ -262,6 +269,19 @@ test('createInvoiceFiscalRecord stores hash fields for the first record', async 
   assert.equal(result.data.previousHash, null);
   assert.equal(result.data.hashVersion, invoiceFiscalRecordHashVersion);
   assert.equal(result.data.createdByUserId, 'user_1');
+  assert.equal(result.data.invoiceType, 'F1');
+  assert.equal(result.data.operationDescription, 'Consulting services');
+  assert.deepEqual(result.data.taxBreakdown, [{
+    taxType: '01',
+    taxRegimeKey: '01',
+    operationClassification: 'S1',
+    exemptOperation: null,
+    taxRate: '21.00',
+    taxableBaseAmount: '100.00',
+    taxAmount: '21.00',
+    equivalenceSurchargeRate: null,
+    equivalenceSurchargeAmount: null,
+  }]);
   assert.ok(result.data.hashInput);
   assert.equal(result.data.hash, hashFiscalRecordInput(result.data.hashInput));
 });

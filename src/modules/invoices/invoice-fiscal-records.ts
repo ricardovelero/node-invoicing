@@ -4,6 +4,7 @@ import {
   type InvoiceFiscalRecordType,
   type InvoiceStatus,
 } from '@prisma/client';
+import { VerifactuPayloadValidationError } from '../verifactu/verifactu-payload';
 
 export const invoiceFiscalRecordHashVersion = 'internal-v1';
 
@@ -99,6 +100,16 @@ const fiscalRecordHashInvoiceSelect = Prisma.validator<Prisma.InvoiceSelect>()({
       totalCents: true,
     },
   },
+  lines: {
+    select: {
+      description: true,
+      taxRateBps: true,
+      taxCents: true,
+      totalCents: true,
+      invoiceDiscountCents: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  },
 });
 
 type FiscalRecordHashInvoice = Prisma.InvoiceGetPayload<{
@@ -128,6 +139,69 @@ const formatDecimal = (value: Prisma.Decimal | number | string | null) => {
   }
 
   return new Prisma.Decimal(value).toFixed(fiscalRecordDecimalScale);
+};
+
+const centsToAmount = (value: number) => (value / 100).toFixed(2);
+const bpsToRate = (value: number) => (value / 100).toFixed(2);
+
+const verifactuFiscalError = (message: string) =>
+  new VerifactuPayloadValidationError(message);
+
+const buildAltaFiscalDetailsFromInvoice = (invoice: FiscalRecordHashInvoice) => {
+  if (invoice.lines.length === 0) {
+    throw verifactuFiscalError(
+      'VERI*FACTU ALTA payload requires persisted invoice lines for tax breakdown.',
+    );
+  }
+
+  const descriptions = invoice.lines
+    .map((line) => line.description.trim())
+    .filter(Boolean);
+
+  if (descriptions.length === 0) {
+    throw verifactuFiscalError(
+      'VERI*FACTU ALTA payload requires persisted invoice line descriptions.',
+    );
+  }
+
+  const taxBreakdownByRate = new Map<number, { taxableBaseCents: number; taxCents: number }>();
+
+  invoice.lines.forEach((line) => {
+    const taxableBaseCents = line.totalCents - line.invoiceDiscountCents;
+
+    if (taxableBaseCents < 0 || line.taxCents < 0) {
+      throw verifactuFiscalError(
+        'VERI*FACTU ALTA payload requires non-negative persisted invoice tax amounts.',
+      );
+    }
+
+    const current = taxBreakdownByRate.get(line.taxRateBps) ?? {
+      taxableBaseCents: 0,
+      taxCents: 0,
+    };
+    taxBreakdownByRate.set(line.taxRateBps, {
+      taxableBaseCents: current.taxableBaseCents + taxableBaseCents,
+      taxCents: current.taxCents + line.taxCents,
+    });
+  });
+
+  return {
+    invoiceType: 'F1',
+    operationDescription: descriptions.join('; '),
+    taxBreakdown: [...taxBreakdownByRate.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([taxRateBps, amounts]) => ({
+        taxType: '01',
+        taxRegimeKey: '01',
+        operationClassification: 'S1',
+        exemptOperation: null,
+        taxRate: bpsToRate(taxRateBps),
+        taxableBaseAmount: centsToAmount(amounts.taxableBaseCents),
+        taxAmount: centsToAmount(amounts.taxCents),
+        equivalenceSurchargeRate: null,
+        equivalenceSurchargeAmount: null,
+      })),
+  };
 };
 
 const canonicalizeJsonValue = (value: unknown): CanonicalJsonValue => {
@@ -324,6 +398,9 @@ export const createInvoiceFiscalRecord = async (
     }),
   ) as Prisma.InputJsonValue;
   const hash = hashFiscalRecordInput(hashInput);
+  const altaFiscalDetails = options.type === 'ALTA'
+    ? buildAltaFiscalDetailsFromInvoice(invoice)
+    : null;
 
   return tx.invoiceFiscalRecord.create({
     data: {
@@ -336,6 +413,9 @@ export const createInvoiceFiscalRecord = async (
       hash,
       hashInput,
       hashVersion: invoiceFiscalRecordHashVersion,
+      invoiceType: altaFiscalDetails?.invoiceType ?? null,
+      operationDescription: altaFiscalDetails?.operationDescription ?? null,
+      taxBreakdown: altaFiscalDetails?.taxBreakdown as Prisma.InputJsonValue | undefined,
       createdByUserId: options.createdByUserId ?? null,
     },
   });

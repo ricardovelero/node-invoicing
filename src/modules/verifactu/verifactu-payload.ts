@@ -78,6 +78,23 @@ export type VerifactuSoftwareIdentifier = {
   multipleTaxpayers: 'S' | 'N';
 };
 
+export const verifactuOrganizationSoftwareSelect =
+  Prisma.validator<Prisma.OrganizationSelect>()({
+    verifactuSoftwareProducerName: true,
+    verifactuSoftwareProducerTaxId: true,
+    verifactuSoftwareName: true,
+    verifactuSoftwareId: true,
+    verifactuSoftwareVersion: true,
+    verifactuSoftwareInstallationNumber: true,
+    verifactuSoftwareOnlyVerifactu: true,
+    verifactuSoftwareMultiTaxpayerUse: true,
+    verifactuSoftwareMultipleTaxpayers: true,
+  });
+
+export type VerifactuOrganizationSoftwareSource = Prisma.OrganizationGetPayload<{
+  select: typeof verifactuOrganizationSoftwareSelect;
+}>;
+
 export type VerifactuPreviousRecordIdentity = {
   sellerTaxId: string;
   invoiceNumber: string;
@@ -208,8 +225,8 @@ const validateSoftwareFlag = (value: string | null, fieldName: string) => {
   return text;
 };
 
-const buildSoftware = (
-  organization: InvoiceFiscalRecordWithInvoiceSnapshot['organization'],
+export const buildVerifactuSoftware = (
+  organization: VerifactuOrganizationSoftwareSource,
 ): VerifactuSoftwareIdentifier => ({
   producerName: requiredText(
     organization.verifactuSoftwareProducerName,
@@ -460,7 +477,7 @@ export const buildVerifactuPayload = (
     sellerTaxId,
     sellerLegalName,
     sellerCountry: snapshot.sellerCountry,
-    software: buildSoftware(record.organization),
+    software: buildVerifactuSoftware(record.organization),
     previousRecord,
     generationDateTimeWithTimezone: validateGenerationDateTime(
       options.generationDateTimeWithTimezone,

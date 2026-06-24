@@ -3,6 +3,13 @@ import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
+import { buildVerifactuRecordData } from '../verifactu/verifactu-record';
+import { buildVerifactuXml } from '../verifactu/verifactu-xml';
+import {
+  buildVerifactuPayloadForFiscalRecord,
+  buildVerifactuSoftware,
+  verifactuOrganizationSoftwareSelect,
+} from '../verifactu/verifactu-payload';
 import {
   createInvoiceFiscalRecord,
   verifyInvoiceFiscalRecordChain,
@@ -220,6 +227,7 @@ const findOrganizationEmailSettings = (
     select: {
       billingEmail: true,
       countryCode: true,
+      ...verifactuOrganizationSoftwareSelect,
       legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
@@ -241,6 +249,43 @@ const findOrganizationInvoiceSettings = (
       defaultWithholdingRate: true,
     },
   });
+
+const createVerifactuRecordForFiscalRecord = async (
+  tx: Prisma.TransactionClient,
+  fiscalRecordId: string,
+) => {
+  const existingRecord = await tx.verifactuRecord.findUnique({
+    where: { invoiceFiscalRecordId: fiscalRecordId },
+    select: { id: true },
+  });
+
+  if (existingRecord) {
+    return existingRecord;
+  }
+
+  const { payload, previousVerifactuRecordId } =
+    await buildVerifactuPayloadForFiscalRecord(tx, fiscalRecordId);
+
+  return tx.verifactuRecord.create({
+    data: buildVerifactuRecordData({
+      payload,
+      previousVerifactuRecordId,
+      xml: buildVerifactuXml(payload),
+    }),
+  });
+};
+
+const maybeCreateVerifactuRecordForFiscalRecord = (
+  tx: Prisma.TransactionClient,
+  organizationCountryCode: string | null | undefined,
+  fiscalRecordId: string,
+) => {
+  if (organizationCountryCode !== 'ES') {
+    return null;
+  }
+
+  return createVerifactuRecordForFiscalRecord(tx, fiscalRecordId);
+};
 
 const validateInvoiceReplacement = async (
   tx: Prisma.TransactionClient,
@@ -562,6 +607,10 @@ export const createIssuedInvoiceRecord = async (
       return { ok: false as const, reason: 'missingBillingEmail' as const };
     }
 
+    if (organization.countryCode === 'ES') {
+      buildVerifactuSoftware(organization);
+    }
+
     const replacement = await validateInvoiceReplacement(
       tx,
       organizationId,
@@ -628,12 +677,17 @@ export const createIssuedInvoiceRecord = async (
     });
 
     await captureInvoiceSnapshot(tx, invoice);
-    await createInvoiceFiscalRecord(tx, {
+    const fiscalRecord = await createInvoiceFiscalRecord(tx, {
       invoiceId: invoice.id,
       organizationId,
       type: 'ALTA',
       createdByUserId,
     });
+    await maybeCreateVerifactuRecordForFiscalRecord(
+      tx,
+      organization.countryCode,
+      fiscalRecord.id,
+    );
 
     return { ok: true as const, invoice, customerEmail };
   });
@@ -799,6 +853,8 @@ export const updateInvoiceStatus = async (
       return { ok: false as const, reason: 'invalidTransition' as const };
     }
 
+    let issueOrganizationCountryCode: string | null | undefined;
+
     if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
       const invoice = await tx.invoice.findFirst({
         where: {
@@ -834,6 +890,7 @@ export const updateInvoiceStatus = async (
               addressLine1: true,
               city: true,
               countryCode: true,
+              ...verifactuOrganizationSoftwareSelect,
             },
           },
           snapshot: {
@@ -848,6 +905,11 @@ export const updateInvoiceStatus = async (
         return { ok: false as const, reason: 'notFound' as const };
       }
 
+      if (invoice.organization.countryCode === 'ES') {
+        buildVerifactuSoftware(invoice.organization);
+      }
+      issueOrganizationCountryCode = invoice.organization.countryCode;
+
       await captureInvoiceSnapshot(tx, invoice);
     }
 
@@ -857,12 +919,17 @@ export const updateInvoiceStatus = async (
     });
 
     if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
-      await createInvoiceFiscalRecord(tx, {
+      const fiscalRecord = await createInvoiceFiscalRecord(tx, {
         invoiceId: lockedInvoice.id,
         organizationId,
         type: 'ALTA',
         createdByUserId,
       });
+      await maybeCreateVerifactuRecordForFiscalRecord(
+        tx,
+        issueOrganizationCountryCode,
+        fiscalRecord.id,
+      );
     }
 
     if (lockedInvoice.status === 'ISSUED' && status === 'VOID') {
