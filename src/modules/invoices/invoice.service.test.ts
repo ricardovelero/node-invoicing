@@ -89,6 +89,9 @@ type IssuedInvoiceCreateTransactionMock = InvoiceCreateTransactionMock & {
     findFirst: (args: unknown) => Promise<unknown>;
     create: (args: unknown) => Promise<unknown>;
   };
+  verifactuSoftwareConfig?: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
 };
 
 type DraftUpdateTransactionMock = {
@@ -131,28 +134,16 @@ const defaultOrganizationInvoiceSettings = {
   defaultWithholdingRate: null,
 };
 
-const verifactuOrganizationSettings = {
-  verifactuSoftwareProducerName: "Stored Producer SL",
-  verifactuSoftwareProducerTaxId: "B11223344",
-  verifactuSoftwareName: "Stored SIF",
-  verifactuSoftwareId: "SIF01",
-  verifactuSoftwareVersion: "2.3.4",
-  verifactuSoftwareInstallationNumber: "stored-installation-001",
-  verifactuSoftwareOnlyVerifactu: "S",
-  verifactuSoftwareMultiTaxpayerUse: "N",
-  verifactuSoftwareMultipleTaxpayers: "N",
-};
-
-const verifactuOrganizationSelect = {
-  verifactuSoftwareProducerName: true,
-  verifactuSoftwareProducerTaxId: true,
-  verifactuSoftwareName: true,
-  verifactuSoftwareId: true,
-  verifactuSoftwareVersion: true,
-  verifactuSoftwareInstallationNumber: true,
-  verifactuSoftwareOnlyVerifactu: true,
-  verifactuSoftwareMultiTaxpayerUse: true,
-  verifactuSoftwareMultipleTaxpayers: true,
+const verifactuSoftwareConfig = {
+  producerName: "Stored Producer SL",
+  producerTaxId: "B11223344",
+  softwareName: "Stored SIF",
+  softwareId: "SIF01",
+  softwareVersion: "2.3.4",
+  installationNumber: "stored-installation-001",
+  onlyVerifactu: "S",
+  multiTaxpayerUse: "N",
+  multipleTaxpayers: "N",
 };
 
 const assertFiscalRecordCreateArgs = (
@@ -521,7 +512,6 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       addressLine1: "1 Seller St",
       city: "Madrid",
       countryCode: "ES",
-      ...verifactuOrganizationSettings,
     },
     snapshot: null,
     lines: [{
@@ -559,7 +549,6 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
             withholdingEnabled: false,
             defaultWithholdingType: null,
             defaultWithholdingRate: null,
-            ...verifactuOrganizationSettings,
           };
         },
       },
@@ -601,7 +590,6 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
             invoiceType: fiscalRecordData.invoiceType,
             operationDescription: fiscalRecordData.operationDescription,
             taxBreakdown: fiscalRecordData.taxBreakdown,
-            organization: verifactuOrganizationSettings,
             verifactuRecord: null,
             invoice: {
               id: createdInvoice.id,
@@ -628,6 +616,11 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
         async create(args) {
           verifactuRecordCreateArgs = args;
           return { id: "verifactu_record_1" };
+        },
+      },
+      verifactuSoftwareConfig: {
+        async findFirst() {
+          return verifactuSoftwareConfig;
         },
       },
     });
@@ -675,11 +668,10 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
   });
   assert.deepEqual(organizationFindFirstArgs, {
     where: { id: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
-    select: {
-      billingEmail: true,
-      countryCode: true,
-      ...verifactuOrganizationSelect,
-      legalForm: true,
+      select: {
+        billingEmail: true,
+        countryCode: true,
+        legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
       defaultWithholdingRate: true,
@@ -1653,6 +1645,9 @@ type StatusTransactionMock = {
     findFirst: (args: unknown) => Promise<unknown>;
     create: (args: unknown) => Promise<unknown>;
   };
+  verifactuSoftwareConfig: {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
 };
 
 const invoiceForStatusUpdate = {
@@ -1687,7 +1682,6 @@ const invoiceForStatusUpdate = {
     city: "Madrid",
     countryCode: "ES",
     paymentInstructions: "Organization default instructions.",
-    ...verifactuOrganizationSettings,
   },
   lines: [{
     description: "Consulting services",
@@ -1708,6 +1702,7 @@ const mockStatusTransaction = ({
   onVerifactuRecordCreate,
   previousVerifactuRecord = null,
   existingVerifactuRecord = null,
+  defaultSoftwareConfig = verifactuSoftwareConfig,
 }: {
   invoice: unknown;
   onInvoiceFindFirst?: (args: unknown) => void;
@@ -1717,6 +1712,7 @@ const mockStatusTransaction = ({
   onVerifactuRecordCreate?: (args: unknown) => void;
   previousVerifactuRecord?: unknown;
   existingVerifactuRecord?: unknown;
+  defaultSoftwareConfig?: unknown;
 }) => {
   prismaMock.$transaction = async (callback: (tx: StatusTransactionMock) => Promise<unknown>) =>
     {
@@ -1810,7 +1806,6 @@ const mockStatusTransaction = ({
               invoiceType: fiscalRecordData.invoiceType,
               operationDescription: fiscalRecordData.operationDescription,
               taxBreakdown: fiscalRecordData.taxBreakdown,
-              organization: verifactuOrganizationSettings,
               verifactuRecord: null,
               invoice: {
                 id: current.id,
@@ -1838,6 +1833,11 @@ const mockStatusTransaction = ({
           async create(args) {
             onVerifactuRecordCreate?.(args);
             return { id: "verifactu_record_1" };
+          },
+        },
+        verifactuSoftwareConfig: {
+          async findFirst() {
+            return defaultSoftwareConfig;
           },
         },
       });
@@ -1944,6 +1944,7 @@ test("updateInvoiceStatus rejects impossible status actions without updating", a
 
   mockStatusTransaction({
     invoice: invoiceForStatusUpdate,
+    defaultSoftwareConfig: null,
     onInvoiceUpdate: () => {
       updateCalls += 1;
     },
@@ -2032,7 +2033,6 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
           addressLine1: true,
           city: true,
           countryCode: true,
-          ...verifactuOrganizationSelect,
         },
       },
       snapshot: {
@@ -2116,20 +2116,15 @@ test("updateInvoiceStatus creates a chained VerifactuRecord for the second issue
   assert.equal(data.previousHuella, previousHuella);
 });
 
-test("updateInvoiceStatus rejects missing Spanish SIF settings before partial records", async () => {
+test("updateInvoiceStatus rejects missing default SIF config before partial records", async () => {
   let updateCalls = 0;
   let snapshotCreateCalls = 0;
   let fiscalRecordCreateCalls = 0;
   let verifactuRecordCreateCalls = 0;
 
   mockStatusTransaction({
-    invoice: {
-      ...invoiceForStatusUpdate,
-      organization: {
-        ...invoiceForStatusUpdate.organization,
-        verifactuSoftwareProducerTaxId: " ",
-      },
-    },
+    invoice: invoiceForStatusUpdate,
+    defaultSoftwareConfig: null,
     onInvoiceUpdate: () => {
       updateCalls += 1;
     },
@@ -2151,7 +2146,7 @@ test("updateInvoiceStatus rejects missing Spanish SIF settings before partial re
       "user_1",
       { action: "issue" },
     ),
-    /requires persisted Organization\.verifactuSoftwareProducerTaxId/,
+    /requires a default VerifactuSoftwareConfig/,
   );
 
   assert.equal(updateCalls, 0);

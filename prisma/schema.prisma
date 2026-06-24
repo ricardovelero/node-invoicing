@@ -131,15 +131,6 @@ model Organization {
   withholdingEnabled          Boolean  @default(false)
   defaultWithholdingType      String?
   defaultWithholdingRate      Decimal? @db.Decimal(5, 2)
-  verifactuSoftwareProducerName       String?
-  verifactuSoftwareProducerTaxId      String?
-  verifactuSoftwareName               String?
-  verifactuSoftwareId                 String?
-  verifactuSoftwareVersion            String?
-  verifactuSoftwareInstallationNumber String?
-  verifactuSoftwareOnlyVerifactu      String?
-  verifactuSoftwareMultiTaxpayerUse   String?
-  verifactuSoftwareMultipleTaxpayers  String?
   sessionIdleTimeoutMinutes   Int      @default(30)
   sessionAbsoluteLifetimeDays Int      @default(14)
 
@@ -366,6 +357,24 @@ model VerifactuRecord {
   @@index([invoiceId])
   @@index([organizationId, createdAt])
   @@index([status])
+}
+
+model VerifactuSoftwareConfig {
+  id                 String   @id @default(uuid()) @db.Uuid
+  producerName       String
+  producerTaxId      String
+  softwareName       String
+  softwareId         String
+  softwareVersion    String
+  installationNumber String
+  onlyVerifactu      String
+  multiTaxpayerUse   String
+  multipleTaxpayers  String
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([isDefault, createdAt])
 }
 
 model InvoiceSnapshot {

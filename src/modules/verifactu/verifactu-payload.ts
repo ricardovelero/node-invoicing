@@ -39,19 +39,6 @@ export const verifactuPayloadFiscalRecordSelect =
         },
       },
     },
-    organization: {
-      select: {
-        verifactuSoftwareProducerName: true,
-        verifactuSoftwareProducerTaxId: true,
-        verifactuSoftwareName: true,
-        verifactuSoftwareId: true,
-        verifactuSoftwareVersion: true,
-        verifactuSoftwareInstallationNumber: true,
-        verifactuSoftwareOnlyVerifactu: true,
-        verifactuSoftwareMultiTaxpayerUse: true,
-        verifactuSoftwareMultipleTaxpayers: true,
-      },
-    },
     verifactuRecord: {
       select: {
         generationDateTimeWithTimezone: true,
@@ -78,21 +65,21 @@ export type VerifactuSoftwareIdentifier = {
   multipleTaxpayers: 'S' | 'N';
 };
 
-export const verifactuOrganizationSoftwareSelect =
-  Prisma.validator<Prisma.OrganizationSelect>()({
-    verifactuSoftwareProducerName: true,
-    verifactuSoftwareProducerTaxId: true,
-    verifactuSoftwareName: true,
-    verifactuSoftwareId: true,
-    verifactuSoftwareVersion: true,
-    verifactuSoftwareInstallationNumber: true,
-    verifactuSoftwareOnlyVerifactu: true,
-    verifactuSoftwareMultiTaxpayerUse: true,
-    verifactuSoftwareMultipleTaxpayers: true,
+export const verifactuSoftwareConfigSelect =
+  Prisma.validator<Prisma.VerifactuSoftwareConfigSelect>()({
+    producerName: true,
+    producerTaxId: true,
+    softwareName: true,
+    softwareId: true,
+    softwareVersion: true,
+    installationNumber: true,
+    onlyVerifactu: true,
+    multiTaxpayerUse: true,
+    multipleTaxpayers: true,
   });
 
-export type VerifactuOrganizationSoftwareSource = Prisma.OrganizationGetPayload<{
-  select: typeof verifactuOrganizationSoftwareSelect;
+export type VerifactuSoftwareConfigSource = Prisma.VerifactuSoftwareConfigGetPayload<{
+  select: typeof verifactuSoftwareConfigSelect;
 }>;
 
 export type VerifactuPreviousRecordIdentity = {
@@ -122,6 +109,7 @@ export type VerifactuTaxBreakdownItem = {
 export type BuildVerifactuPayloadOptions = {
   generationDateTimeWithTimezone: string;
   previousRecord: VerifactuPreviousRecordIdentity | null;
+  softwareConfig: VerifactuSoftwareConfigSource;
 };
 
 type VerifactuBasePayload = {
@@ -226,43 +214,43 @@ const validateSoftwareFlag = (value: string | null, fieldName: string) => {
 };
 
 export const buildVerifactuSoftware = (
-  organization: VerifactuOrganizationSoftwareSource,
+  config: VerifactuSoftwareConfigSource,
 ): VerifactuSoftwareIdentifier => ({
   producerName: requiredText(
-    organization.verifactuSoftwareProducerName,
-    'persisted Organization.verifactuSoftwareProducerName',
+    config.producerName,
+    'persisted VerifactuSoftwareConfig.producerName',
   ),
   producerTaxId: requiredText(
-    organization.verifactuSoftwareProducerTaxId,
-    'persisted Organization.verifactuSoftwareProducerTaxId',
+    config.producerTaxId,
+    'persisted VerifactuSoftwareConfig.producerTaxId',
   ),
   name: requiredText(
-    organization.verifactuSoftwareName,
-    'persisted Organization.verifactuSoftwareName',
+    config.softwareName,
+    'persisted VerifactuSoftwareConfig.softwareName',
   ),
   id: requiredText(
-    organization.verifactuSoftwareId,
-    'persisted Organization.verifactuSoftwareId',
+    config.softwareId,
+    'persisted VerifactuSoftwareConfig.softwareId',
   ),
   version: requiredText(
-    organization.verifactuSoftwareVersion,
-    'persisted Organization.verifactuSoftwareVersion',
+    config.softwareVersion,
+    'persisted VerifactuSoftwareConfig.softwareVersion',
   ),
   installationNumber: requiredText(
-    organization.verifactuSoftwareInstallationNumber,
-    'persisted Organization.verifactuSoftwareInstallationNumber',
+    config.installationNumber,
+    'persisted VerifactuSoftwareConfig.installationNumber',
   ),
   onlyVerifactu: validateSoftwareFlag(
-    organization.verifactuSoftwareOnlyVerifactu,
-    'persisted Organization.verifactuSoftwareOnlyVerifactu',
+    config.onlyVerifactu,
+    'persisted VerifactuSoftwareConfig.onlyVerifactu',
   ),
   multiTaxpayerUse: validateSoftwareFlag(
-    organization.verifactuSoftwareMultiTaxpayerUse,
-    'persisted Organization.verifactuSoftwareMultiTaxpayerUse',
+    config.multiTaxpayerUse,
+    'persisted VerifactuSoftwareConfig.multiTaxpayerUse',
   ),
   multipleTaxpayers: validateSoftwareFlag(
-    organization.verifactuSoftwareMultipleTaxpayers,
-    'persisted Organization.verifactuSoftwareMultipleTaxpayers',
+    config.multipleTaxpayers,
+    'persisted VerifactuSoftwareConfig.multipleTaxpayers',
   ),
 });
 
@@ -390,7 +378,7 @@ const buildAltaFiscalData = (record: InvoiceFiscalRecordWithInvoiceSnapshot) => 
 
 type VerifactuPayloadClient = Pick<
   Prisma.TransactionClient,
-  'invoiceFiscalRecord' | 'verifactuRecord'
+  'invoiceFiscalRecord' | 'verifactuRecord' | 'verifactuSoftwareConfig'
 >;
 
 const previousVerifactuRecordSelect =
@@ -445,6 +433,27 @@ export const resolvePreviousVerifactuRecord = async (
   };
 };
 
+export const resolveDefaultVerifactuSoftwareConfig = async (
+  client: Pick<Prisma.TransactionClient, 'verifactuSoftwareConfig'>,
+) => {
+  const config = await client.verifactuSoftwareConfig.findFirst({
+    where: { isDefault: true },
+    orderBy: [
+      { createdAt: 'asc' },
+      { id: 'asc' },
+    ],
+    select: verifactuSoftwareConfigSelect,
+  });
+
+  if (!config) {
+    throw invalidPayload(
+      'VERI*FACTU payload requires a default VerifactuSoftwareConfig.',
+    );
+  }
+
+  return config;
+};
+
 const newGenerationDateTimeWithTimezone = () => new Date().toISOString();
 
 export const buildVerifactuPayload = (
@@ -477,7 +486,7 @@ export const buildVerifactuPayload = (
     sellerTaxId,
     sellerLegalName,
     sellerCountry: snapshot.sellerCountry,
-    software: buildVerifactuSoftware(record.organization),
+    software: buildVerifactuSoftware(options.softwareConfig),
     previousRecord,
     generationDateTimeWithTimezone: validateGenerationDateTime(
       options.generationDateTimeWithTimezone,
@@ -549,8 +558,10 @@ export const buildVerifactuPayloadForFiscalRecord = async (
   }
 
   const previous = await resolvePreviousVerifactuRecord(client, record);
+  const softwareConfig = await resolveDefaultVerifactuSoftwareConfig(client);
   const payload = buildVerifactuPayload(record, {
     previousRecord: previous.previousRecord,
+    softwareConfig,
     generationDateTimeWithTimezone:
       record.verifactuRecord?.generationDateTimeWithTimezone ??
       newGenerationDateTimeWithTimezone(),

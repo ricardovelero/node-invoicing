@@ -8,7 +8,7 @@ import { buildVerifactuXml } from '../verifactu/verifactu-xml';
 import {
   buildVerifactuPayloadForFiscalRecord,
   buildVerifactuSoftware,
-  verifactuOrganizationSoftwareSelect,
+  resolveDefaultVerifactuSoftwareConfig,
 } from '../verifactu/verifactu-payload';
 import {
   createInvoiceFiscalRecord,
@@ -227,7 +227,6 @@ const findOrganizationEmailSettings = (
     select: {
       billingEmail: true,
       countryCode: true,
-      ...verifactuOrganizationSoftwareSelect,
       legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
@@ -608,7 +607,7 @@ export const createIssuedInvoiceRecord = async (
     }
 
     if (organization.countryCode === 'ES') {
-      buildVerifactuSoftware(organization);
+      buildVerifactuSoftware(await resolveDefaultVerifactuSoftwareConfig(tx));
     }
 
     const replacement = await validateInvoiceReplacement(
@@ -890,7 +889,6 @@ export const updateInvoiceStatus = async (
               addressLine1: true,
               city: true,
               countryCode: true,
-              ...verifactuOrganizationSoftwareSelect,
             },
           },
           snapshot: {
@@ -906,7 +904,7 @@ export const updateInvoiceStatus = async (
       }
 
       if (invoice.organization.countryCode === 'ES') {
-        buildVerifactuSoftware(invoice.organization);
+        buildVerifactuSoftware(await resolveDefaultVerifactuSoftwareConfig(tx));
       }
       issueOrganizationCountryCode = invoice.organization.countryCode;
 

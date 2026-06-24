@@ -22,7 +22,7 @@ type VerifactuXmlPreviewLogger = Pick<typeof console, 'log' | 'error'>;
 
 type VerifactuPreviewClient = Pick<
   Prisma.TransactionClient,
-  'invoiceFiscalRecord' | 'verifactuRecord'
+  'invoiceFiscalRecord' | 'verifactuRecord' | 'verifactuSoftwareConfig'
 >;
 
 export type VerifactuXsdValidationResult =

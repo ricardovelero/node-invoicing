@@ -15,6 +15,18 @@ const fiscalRecordId = 'e4cd5d64-124f-4635-9548-2ca1df11fa52';
 const previousHuella = 'A'.repeat(64);
 const previousVerifactuRecordId = '7d099fc2-225e-4f00-b35a-b1fdc1b62d4e';
 
+const storedSoftwareConfig = () => ({
+  producerName: 'Stored Producer SL',
+  producerTaxId: 'B11223344',
+  softwareName: 'Stored SIF',
+  softwareId: 'SIF01',
+  softwareVersion: '2.3.4',
+  installationNumber: 'stored-installation-001',
+  onlyVerifactu: 'S',
+  multiTaxpayerUse: 'N',
+  multipleTaxpayers: 'N',
+} as const);
+
 const storedTaxBreakdown = () => [
   {
     taxType: '01',
@@ -37,6 +49,7 @@ export const baseVerifactuOptions = (): BuildVerifactuPayloadOptions => ({
     issueDate: '2026-05-26T00:00:00.000Z',
     huella: previousHuella,
   },
+  softwareConfig: storedSoftwareConfig(),
 });
 
 const baseRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
@@ -50,17 +63,6 @@ const baseRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   invoiceType: 'F2',
   operationDescription: 'Stored fiscal operation',
   taxBreakdown: storedTaxBreakdown(),
-  organization: {
-    verifactuSoftwareProducerName: 'Stored Producer SL',
-    verifactuSoftwareProducerTaxId: 'B11223344',
-    verifactuSoftwareName: 'Stored SIF',
-    verifactuSoftwareId: 'SIF01',
-    verifactuSoftwareVersion: '2.3.4',
-    verifactuSoftwareInstallationNumber: 'stored-installation-001',
-    verifactuSoftwareOnlyVerifactu: 'S',
-    verifactuSoftwareMultiTaxpayerUse: 'N',
-    verifactuSoftwareMultipleTaxpayers: 'N',
-  },
   verifactuRecord: null,
   invoice: {
     id: invoiceId,
@@ -112,7 +114,7 @@ test('buildVerifactuPayload builds an ALTA payload from a fiscal record snapshot
   assert.match(payload.huella, /^[A-F0-9]{64}$/);
 });
 
-test('buildVerifactuPayload uses persisted organization compliance data', () => {
+test('buildVerifactuPayload uses persisted software config data', () => {
   const payload = buildVerifactuPayload(baseRecord(), baseVerifactuOptions());
 
   assert.deepEqual(payload.software, {
@@ -246,26 +248,32 @@ test('buildVerifactuPayload rejects missing real ALTA fiscal details', () => {
   );
 });
 
-test('buildVerifactuPayload rejects missing persisted organization SIF fields', () => {
-  const record = baseRecord();
-  record.organization.verifactuSoftwareProducerTaxId = '  ';
+test('buildVerifactuPayload rejects missing persisted software config fields', () => {
+  const options = baseVerifactuOptions();
+  options.softwareConfig = {
+    ...storedSoftwareConfig(),
+    producerTaxId: '  ',
+  };
 
   assert.throws(
-    () => buildVerifactuPayload(record, baseVerifactuOptions()),
+    () => buildVerifactuPayload(baseRecord(), options),
     {
       name: 'VerifactuPayloadValidationError',
-      message: /requires persisted Organization\.verifactuSoftwareProducerTaxId/,
+      message: /requires persisted VerifactuSoftwareConfig\.producerTaxId/,
     },
   );
 });
 
-test('buildVerifactuPayload rejects invalid persisted organization SIF flags', () => {
-  const record = baseRecord();
-  record.organization.verifactuSoftwareOnlyVerifactu = 'X';
+test('buildVerifactuPayload rejects invalid persisted software config flags', () => {
+  const options = baseVerifactuOptions();
+  options.softwareConfig = {
+    ...storedSoftwareConfig(),
+    onlyVerifactu: 'X',
+  };
 
   assert.throws(
-    () => buildVerifactuPayload(record, baseVerifactuOptions()),
-    /requires persisted Organization\.verifactuSoftwareOnlyVerifactu to be S or N/,
+    () => buildVerifactuPayload(baseRecord(), options),
+    /requires persisted VerifactuSoftwareConfig\.onlyVerifactu to be S or N/,
   );
 });
 
@@ -406,6 +414,11 @@ test('buildVerifactuPayloadForFiscalRecord supports a first record with no previ
         return null;
       },
     },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return storedSoftwareConfig();
+      },
+    },
   };
 
   const result = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
@@ -434,6 +447,11 @@ test('buildVerifactuPayloadForFiscalRecord resolves the previous valid record', 
           issueDate: new Date('2026-05-26T00:00:00.000Z'),
           huella: previousHuella,
         };
+      },
+    },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return storedSoftwareConfig();
       },
     },
   };
@@ -475,6 +493,11 @@ test('buildVerifactuPayloadForFiscalRecord reuses persisted generation timestamp
         return null;
       },
     },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return storedSoftwareConfig();
+      },
+    },
   };
 
   const first = await buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId);
@@ -489,4 +512,29 @@ test('buildVerifactuPayloadForFiscalRecord reuses persisted generation timestamp
     '2026-05-27T12:30:45+02:00',
   );
   assert.equal(first.payload.huella, second.payload.huella);
+});
+
+test('buildVerifactuPayloadForFiscalRecord rejects missing default software config', async () => {
+  const client = {
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return baseRecord();
+      },
+    },
+    verifactuRecord: {
+      async findFirst() {
+        return null;
+      },
+    },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return null;
+      },
+    },
+  };
+
+  await assert.rejects(
+    buildVerifactuPayloadForFiscalRecord(client as never, fiscalRecordId),
+    /requires a default VerifactuSoftwareConfig/,
+  );
 });

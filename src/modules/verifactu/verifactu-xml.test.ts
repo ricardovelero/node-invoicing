@@ -31,6 +31,18 @@ const software = {
   multipleTaxpayers: 'N' as const,
 };
 
+const softwareConfig = {
+  producerName: software.producerName,
+  producerTaxId: software.producerTaxId,
+  softwareName: software.name,
+  softwareId: software.id,
+  softwareVersion: software.version,
+  installationNumber: software.installationNumber,
+  onlyVerifactu: software.onlyVerifactu,
+  multiTaxpayerUse: software.multiTaxpayerUse,
+  multipleTaxpayers: software.multipleTaxpayers,
+};
+
 const taxBreakdown = [
   {
     taxType: '01',
@@ -113,6 +125,7 @@ const baseAnulacionPayload = (): VerifactuAnulacionPayload => ({
 const payloadOptions = (): BuildVerifactuPayloadOptions => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
   previousRecord: null,
+  softwareConfig,
 });
 
 const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
@@ -126,17 +139,6 @@ const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   invoiceType: 'F1',
   operationDescription: 'Servicios profesionales',
   taxBreakdown,
-  organization: {
-    verifactuSoftwareProducerName: software.producerName,
-    verifactuSoftwareProducerTaxId: software.producerTaxId,
-    verifactuSoftwareName: software.name,
-    verifactuSoftwareId: software.id,
-    verifactuSoftwareVersion: software.version,
-    verifactuSoftwareInstallationNumber: software.installationNumber,
-    verifactuSoftwareOnlyVerifactu: software.onlyVerifactu,
-    verifactuSoftwareMultiTaxpayerUse: software.multiTaxpayerUse,
-    verifactuSoftwareMultipleTaxpayers: software.multipleTaxpayers,
-  },
   verifactuRecord: null,
   invoice: {
     id: baseAltaPayload().invoiceId,
@@ -333,6 +335,21 @@ test('logVerifactuXmlPreviewForFiscalRecord logs XML without persistence or netw
     verifactuRecord: {
       async findFirst() {
         return null;
+      },
+    },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return {
+          producerName: software.producerName,
+          producerTaxId: software.producerTaxId,
+          softwareName: software.name,
+          softwareId: software.id,
+          softwareVersion: software.version,
+          installationNumber: software.installationNumber,
+          onlyVerifactu: software.onlyVerifactu,
+          multiTaxpayerUse: software.multiTaxpayerUse,
+          multipleTaxpayers: software.multipleTaxpayers,
+        };
       },
     },
   };
