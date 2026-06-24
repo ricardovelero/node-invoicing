@@ -14,6 +14,7 @@
     "build:js": "esbuild ./src/public/js/app.ts --bundle --outfile=./public/assets/app.js --minify",
     "start": "node dist/server.js",
     "job:verify-fiscal-chain": "node dist/jobs/verify-fiscal-chain.js",
+    "verifactu:submit-test": "node dist/scripts/submit-verifactu-record.js",
     "test": "NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm build && NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/test node --test \"dist/**/*.test.js\"",
     "test:e2e": "node scripts/test-e2e.mjs",
     "db:test:setup": "node scripts/setup-test-db.mjs",
