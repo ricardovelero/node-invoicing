@@ -2,23 +2,29 @@
 
 A server-rendered invoicing application built with Node.js, Express, TypeScript, Prisma, PostgreSQL, Nunjucks, Tailwind CSS, and a small CSP-safe frontend bundle.
 
-The app currently supports a multi-organization invoicing workflow with:
+The app supports a multi-organization invoicing workflow with:
 
-- User registration, login, logout, and session-based auth.
-- Organization ownership through memberships.
-- Organization-scoped operational dashboard with invoice KPIs, action shortcuts, attention lists, recent-month trends, and recent activity.
-- Organization-scoped customer management, including edit, archive, restore, and delete flows.
-- Draft invoice creation and editing.
-- Invoice status transitions for sending, marking overdue, voiding, and paid states.
-- Derived invoice status badges that can show payment and overdue state together, such as `Partially paid` and `Overdue`.
-- Immutable invoice snapshots when draft invoices are issued.
-- Payment recording with outstanding-balance checks.
-- HTML print view for issued invoices, designed for browser print/save-as-PDF.
-- Postmark invoice email delivery with public tokenized invoice links.
+- Session-based auth, password reset, password changes, and active-session revocation.
+- Organization ownership through memberships and organization switching.
+- Organization-scoped dashboard, customers, catalog items, invoices, payments, and settings.
+- Draft invoice creation/editing, issued invoices with immutable snapshots, voiding, and print views.
+- Payment recording with outstanding-balance checks and separate invoice/payment status display.
+- Postmark invoice email delivery with webhook updates and public tokenized invoice links.
 - Per-invoice currency and organization locale formatting.
-- Organization settings for seller billing data, billing email, default currency, locale, and payment instructions.
-- Server-rendered pages with progressive client-side enhancements.
-- Strict Content Security Policy without inline scripts, `unsafe-eval`, or `unsafe-inline`.
+- Spanish organization support for IRPF withholding and Veri*Factu fiscal records.
+- AEAT Veri*Factu preproduction SOAP submission/query scripts with persisted responses.
+- Server-rendered pages with progressive client-side enhancements and a strict CSP.
+
+## README Maintenance
+
+This README is intentionally a product and operations overview. It should describe stable capabilities, setup, commands, and integration boundaries.
+
+To avoid documentation rot:
+
+- Keep enum values, table columns, and exact validation rules in `prisma/schema.prisma` and module schemas.
+- Keep route-level behavior close to controllers and route files under `src/modules/`.
+- Update this README when a capability appears, disappears, or changes operationally.
+- Avoid duplicating long implementation details here when a code reference is clearer.
 
 ## Tech Stack
 
@@ -65,6 +71,17 @@ PORT=3000
 SESSION_SECRET="replace-this-in-production"
 NODE_ENV="development"
 ```
+
+AEAT Veri*Factu preproduction scripts use optional certificate settings when you run them:
+
+```env
+VERIFACTU_AEAT_ENV="test"
+VERIFACTU_CERT_PATH="/absolute/path/to/certificate.p12"
+VERIFACTU_CERT_PASSPHRASE=""
+VERIFACTU_TEST_ENDPOINT=""
+```
+
+Leave these unset for ordinary local development unless you are testing AEAT preproduction SOAP calls.
 
 Run Prisma migrations:
 
@@ -132,6 +149,19 @@ pnpm start
 Runs the compiled server from `dist/server.js`.
 
 ```sh
+pnpm job:verify-fiscal-chain
+```
+
+Runs the compiled fiscal-chain verification job.
+
+```sh
+pnpm verifactu:submit-test <verifactuRecordId>
+pnpm verifactu:query-test <verifactuRecordId>
+```
+
+Submits or queries a single persisted Veri*Factu record against AEAT preproduction. These scripts require a prior `pnpm build`, `VERIFACTU_AEAT_ENV=test`, and a client certificate path. They log the SOAP endpoint, request XML, HTTP status, response XML, parsed result, and persisted status.
+
+```sh
 pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:studio
@@ -181,55 +211,86 @@ Important behaviors:
 - Customer detail includes invoice and payment history.
 - Issued invoices display customer data from immutable invoice snapshots, so later customer edits do not rewrite historical invoice display.
 
+## Catalog Items
+
+Catalog items are organization-scoped reusable invoice line templates.
+
+They support:
+
+- list, search, sort, pagination, archive, restore, and delete flows
+- default description, unit price, currency, and tax rate values
+- invoice-form autocomplete for existing items
+- inline save-to-catalog behavior for free-text invoice lines
+
 ## Invoices
 
 Invoices are organization-scoped and use organization-scoped invoice numbers.
 
 Current invoice lifecycle:
 
-- `DRAFT` invoices can be edited or voided.
-- `DRAFT` invoices can be marked sent.
-- Sending a draft invoice creates an immutable `InvoiceSnapshot`.
-- `SENT` and `PARTIALLY_PAID` invoices can be marked overdue or voided.
-- `OVERDUE` invoices can be voided.
-- `PAID` and `VOID` invoices have no further status actions.
+- `DRAFT` invoices can be edited, issued, or voided.
+- Issuing a draft invoice creates an immutable `InvoiceSnapshot`.
+- `ISSUED` invoices can be voided and can receive payments.
+- `VOID` invoices have no further invoice-status actions.
 
 Draft invoices use live customer and organization data in the app. Issued invoices use snapshot customer and seller billing data for display and print output.
 
-Invoice status display intentionally separates business-facing payment state from overdue state where possible. A partially paid invoice that is overdue can display both `Partially paid` and `Overdue` badges, even though the stored `Invoice.status` remains a single enum value.
+Invoice status display intentionally separates the invoice lifecycle from payment state. `Invoice.status` tracks draft/issued/void, while `Invoice.paymentStatus` tracks unpaid/partially paid/paid.
 
-The invoice list status filter keeps the existing enum-style query values, with one derived behavior: `status=partially_paid` filters by payment state (`paid > 0` and `paid < total`) so overdue partially paid invoices still appear. This is currently implemented with a Prisma fetch-plus-filter path; if invoice volume grows, this should be revisited as a raw SQL aggregate for better database-side filtering before count and pagination.
+The invoice list supports filtering by invoice status, payment status, overdue state, search text, sorting, and pagination.
 
-Invoice line items, discounts, taxes, invoice-level discounts, and totals are calculated as integer minor units. The app does not use floating-point values for stored money calculations.
+Invoice line items, discounts, taxes, IRPF withholding, invoice-level discounts, and totals are calculated as integer minor units. The app does not use floating-point values for stored money calculations.
 
 Invoice notes are internal/back-office notes. They appear on the app invoice detail page, but they are not rendered on the printable invoice.
 
 ## Payments
 
-Payments can be recorded for open issued invoices:
-
-- `SENT`
-- `PARTIALLY_PAID`
-- `OVERDUE`
+Payments can be recorded for issued invoices that still have an outstanding balance.
 
 Payment recording:
 
 - locks the invoice row during the transaction
 - rejects payments when the invoice is already paid
 - rejects overpayments above the outstanding balance
-- marks invoices `PAID` when the balance is covered
-- marks invoices `PARTIALLY_PAID` or keeps them `OVERDUE` when a balance remains
+- marks the payment state `PAID` when the balance is covered
+- marks the payment state `PARTIALLY_PAID` when a balance remains
 
 The invoice detail page shows paid and outstanding totals and hides the payment form when the outstanding balance is zero.
 
+## Fiscal Records And Veri*Factu
+
+Spanish organizations create fiscal evidence when invoices are issued or voided:
+
+- issuing creates an `ALTA` fiscal record
+- voiding an issued invoice creates an `ANULACION` fiscal record
+- fiscal records are organization-scoped and hash-chained
+- the chain can be verified with `pnpm job:verify-fiscal-chain`
+
+For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status.
+
+The current AEAT integration is deliberately limited to preproduction scripts:
+
+- `pnpm verifactu:submit-test <verifactuRecordId>` sends one persisted record to AEAT preproduction.
+- `pnpm verifactu:query-test <verifactuRecordId>` queries one persisted record in AEAT preproduction.
+- Submission responses persist raw XML, parsed result metadata, AEAT shipment/record statuses, and record-level errors.
+- Query responses persist the last raw XML, parsed result metadata, query timestamp, and record-level query status/error fields.
+- Accepted records are not downgraded by later submission or query responses.
+- A query only sets or keeps local `ACCEPTED` when AEAT returns `ConDatos` with `EstadoRegistro=Correcto`.
+- `SinDatos` and SOAP faults are stored as evidence but do not mark the record rejected.
+- Known production AEAT endpoints are blocked by the SOAP config guard.
+
+Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`; one default config is required before Spanish invoice issuance can build a Veri*Factu payload.
+
+This is not yet a background reconciliation system. There is no production submission mode, retry queue, UI workflow, or automatic remediation flow in the app.
+
 ## Snapshots And Printing
 
-When a draft invoice is marked sent, the app captures an immutable invoice snapshot with:
+When a draft invoice is issued, the app captures an immutable invoice snapshot with:
 
 - customer billing data
 - seller billing data from the organization
 - payment instructions
-- subtotal, discount, tax, and total amounts
+- subtotal, discount, tax, withholding, and total amounts
 
 Issued invoices can be printed at:
 
@@ -269,11 +330,11 @@ Form validation uses Zod on the server. Invalid submissions re-render the same t
 
 Examples:
 
-- register validates email, password strength, and organization name
+- auth forms validate email, password strength, reset tokens, and password confirmation
 - customer forms validate required and optional customer fields
 - invoice forms validate customer ownership, supported currency, dates, line items, discounts, and taxes
 - payment forms validate amount and paid date
-- settings forms validate supported currency and locale
+- settings forms validate profile, organization, locale, session timeout, and password fields
 
 Passwords are never rendered back into forms after validation failures.
 
@@ -284,9 +345,13 @@ Flash messages are used for completed actions across redirects. Field-level vali
 The frontend bundle is intentionally small and CSP-safe. It uses plain TypeScript and `data-*` hooks for:
 
 - invoice total calculation
+- IRPF withholding controls
+- catalog autocomplete and inline save-to-catalog behavior
 - locale-aware money previews
 - flash message auto-dismiss
-- register form inline validation
+- form validation enhancements
+- unsaved changes guards
+- native confirmation dialogs
 - password visibility toggle
 - print button behavior
 
@@ -317,7 +382,9 @@ src/
     customers/
     dashboard/
     invoices/
+    items/
     settings/
+    verifactu/
   public/
     assets/
     css/
@@ -340,6 +407,8 @@ docs/
 - Scope organization-owned data by `req.auth!.organization.id`.
 - Preserve strict CSP; use frontend `data-*` hooks instead of inline handlers.
 - Run `pnpm test` before committing auth, session, validation, invoice, payment, or template changes.
+- Run `pnpm test` before committing fiscal-record or Veri*Factu changes.
+- Keep AEAT production behavior explicit; current Veri*Factu SOAP scripts are preproduction-only.
 
 ## Roadmap
 
