@@ -2,6 +2,10 @@
 
 A server-rendered invoicing application built with Node.js, Express, TypeScript, Prisma, PostgreSQL, Nunjucks, Tailwind CSS, and a small CSP-safe frontend bundle.
 
+For Spanish organizations, the app includes Veri*Factu fiscal records, chained hashes
+(huellas), and SOAP submission/query tools for AEAT preproduction. See
+[Veri*Factu support and current scope](#fiscal-records-and-verifactu).
+
 The app supports a multi-organization invoicing workflow with:
 
 - Session-based auth, password reset, password changes, and active-session revocation.
@@ -259,6 +263,12 @@ The invoice detail page shows paid and outstanding totals and hides the payment 
 
 ## Fiscal Records And Veri*Factu
 
+Veri*Factu support covers local record creation and AEAT preproduction testing for
+Spanish organizations. Issuing an invoice creates its local records; submission to
+AEAT is a separate, manual step.
+
+### Local Fiscal Records
+
 Spanish organizations create fiscal evidence when invoices are issued or voided:
 
 - issuing creates an `ALTA` fiscal record
@@ -267,6 +277,10 @@ Spanish organizations create fiscal evidence when invoices are issued or voided:
 - the chain can be verified with `pnpm job:verify-fiscal-chain`
 
 For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status.
+
+Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`; one default config is required before Spanish invoice issuance can build a Veri*Factu payload.
+
+### AEAT Preproduction Testing
 
 The current AEAT integration is deliberately limited to preproduction scripts:
 
@@ -279,9 +293,11 @@ The current AEAT integration is deliberately limited to preproduction scripts:
 - `SinDatos` and SOAP faults are stored as evidence but do not mark the record rejected.
 - Known production AEAT endpoints are blocked by the SOAP config guard.
 
-Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`; one default config is required before Spanish invoice issuance can build a Veri*Factu payload.
+### Current Limitations
 
-This is not yet a background reconciliation system. There is no production submission mode, retry queue, UI workflow, or automatic remediation flow in the app.
+AEAT submission and queries currently run manually through these scripts. Production
+submission, background retries, reconciliation, and a Veri*Factu UI workflow are not
+implemented.
 
 ## Snapshots And Printing
 
