@@ -14,6 +14,7 @@ import {
   renderEditInvoice,
   renderNewInvoice,
   showInvoice,
+  subsanarInvoiceVerifactuController,
   updateInvoiceMetadataController,
   updateInvoiceStatusController,
 } from "./invoice.controller";
@@ -1253,6 +1254,7 @@ test("showInvoice renders invoice details and available actions", async () => {
     allowedActions: ["issue", "void"],
     canEditInvoice: true,
     canRecordPayment: false,
+    canSubsanarVerifactu: false,
     isEffectivelyOverdue: false,
     invoiceStatusBadge: {
       label: "Draft",
@@ -1314,6 +1316,7 @@ test("showInvoice disables payment recording when open invoices are fully paid o
       snapshot: null,
       lines: [],
       payments,
+      verifactuRecords: [],
     };
     prismaMock.invoice.findFirst = async () => invoice;
     const req = createRequest({}, { invoiceId: invoice.id });
@@ -1832,6 +1835,7 @@ test("updateInvoiceMetadataController re-renders invoice detail for validation e
     snapshot: printableSnapshot,
     lines: [],
     payments: [],
+    verifactuRecords: [],
   };
   prismaMock.invoice.findFirst = async () => invoice;
   const req = createRequest(
@@ -2021,6 +2025,35 @@ test("updateInvoiceMetadataController updates issued invoice snapshot payment in
   assert.equal(res.redirectedTo, `/invoices/${printableInvoice.id}`);
 });
 
+test("subsanarInvoiceVerifactuController handles missing and blocked invoices", async () => {
+  const invoiceId = "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c";
+  const lockedInvoices = [[], [{ id: invoiceId, status: "ISSUED" }]];
+  const responses = [];
+
+  for (const lockedInvoice of lockedInvoices) {
+    prismaMock.$transaction = async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        $queryRaw: async () => lockedInvoice,
+        invoiceFiscalRecord: {
+          async findFirst() {
+            return { subsanacionNumber: 0, verifactuRecord: { status: "ACCEPTED" } };
+          },
+        },
+      });
+    const req = createRequest({}, { invoiceId });
+    const res = createResponse();
+
+    await subsanarInvoiceVerifactuController(req, res, () => undefined);
+    responses.push({ req, res });
+  }
+
+  assert.equal(responses[0]!.res.statusCode, 404);
+  assert.deepEqual(responses[1]!.req.flashMessages.error, [
+    "This invoice has no Veri*Factu record that can be corrected.",
+  ]);
+  assert.equal(responses[1]!.res.redirectedTo, `/invoices/${invoiceId}`);
+});
+
 test("updateInvoiceStatusController redirects with flash error for invalid transitions", async () => {
   mockStatusTransaction({
     invoice: {
@@ -2161,6 +2194,7 @@ test("recordInvoicePaymentController re-renders invoice detail for invalid payme
     customer: { id: "customer_1", name: "Ada Co" },
     lines: [],
     payments: [],
+    verifactuRecords: [],
   };
   prismaMock.invoice.findFirst = async () => invoice;
   const req = createRequest(
@@ -2190,6 +2224,7 @@ test("recordInvoicePaymentController re-renders invoice detail for overpayments"
     customer: { id: "customer_1", name: "Ada Co" },
     lines: [],
     payments: [{ amountCents: 9000 }],
+    verifactuRecords: [],
   };
   prismaMock.invoice.findFirst = async () => invoice;
   prismaMock.$transaction = async (

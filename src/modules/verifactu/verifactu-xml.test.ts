@@ -60,6 +60,8 @@ const taxBreakdown = [
 const baseAltaPayload = (): VerifactuAltaPayload => ({
   payloadVersion: '1.0',
   recordType: 'ALTA',
+  subsanacion: null,
+  rechazoPrevio: null,
   fiscalRecordId: 'e4cd5d64-124f-4635-9548-2ca1df11fa52',
   organizationId: '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab',
   invoiceId: '5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c',
@@ -136,6 +138,7 @@ const fiscalRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   sequenceNumber: 1,
   previousHash: null,
   hash: baseAltaPayload().internalHash,
+  subsanacionNumber: 0,
   invoiceType: 'F1',
   operationDescription: 'Servicios profesionales',
   taxBreakdown,
@@ -267,6 +270,25 @@ test('validateVerifactuXmlWithXsd validates generated XML against local XSD', as
   const result = await validateVerifactuXmlWithXsd(buildVerifactuXml(baseAltaPayload()));
 
   assert.deepEqual(result, { ok: true });
+});
+
+test('buildVerifactuXml adds subsanación flags after NombreRazonEmisor', async () => {
+  const xml = buildVerifactuXml({
+    ...baseAltaPayload(),
+    subsanacion: 'S',
+    rechazoPrevio: 'X',
+  });
+  const order = indexOrder(xml, [
+    'sf:NombreRazonEmisor',
+    'sf:Subsanacion',
+    'sf:RechazoPrevio',
+    'sf:TipoFactura',
+  ]);
+
+  assert.match(xml, /<sf:Subsanacion>S<\/sf:Subsanacion><sf:RechazoPrevio>X<\/sf:RechazoPrevio>/);
+  assert.deepEqual(order, [...order].sort((left, right) => left - right));
+  assert.deepEqual(await validateVerifactuXmlWithXsd(xml), { ok: true });
+  assert.doesNotMatch(buildVerifactuXml(baseAltaPayload()), /Subsanacion|RechazoPrevio/);
 });
 
 test('validateVerifactuXmlWithXsd rejects schema-invalid XML', async () => {

@@ -29,6 +29,7 @@ import {
   getInvoiceFormOptions,
   getInvoices,
   recordInvoicePayment,
+  subsanarInvoiceVerifactuRecord,
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
   updateInvoiceStatus,
@@ -478,6 +479,34 @@ export const updateInvoiceStatusController: RequestHandler = async (
   }
 
   req.flash('success', req.t('invoices.flash.statusUpdated'));
+  return res.redirect(invoicePath);
+};
+
+export const subsanarInvoiceVerifactuController: RequestHandler = async (
+  req,
+  res,
+) => {
+  const invoiceId = String(req.params.invoiceId);
+  const invoicePath = `/invoices/${invoiceId}`;
+  const result = await subsanarInvoiceVerifactuRecord(
+    req.auth!.organization.id,
+    invoiceId,
+    req.auth!.user.id,
+  );
+
+  if (!result.ok && result.reason === 'notFound') {
+    return res.status(404).render('pages/errors/not-found.njk', {
+      title: 'Not found',
+      path: req.path,
+    });
+  }
+
+  if (!result.ok) {
+    req.flash('error', req.t('invoices.errors.verifactuSubsanacionNotAllowed'));
+    return res.redirect(invoicePath);
+  }
+
+  req.flash('success', req.t('invoices.flash.verifactuSubsanacionCreated'));
   return res.redirect(invoicePath);
 };
 

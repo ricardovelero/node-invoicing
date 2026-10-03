@@ -16,6 +16,7 @@ type CreateInvoiceFiscalRecordOptions = {
   invoiceId: string;
   organizationId: string;
   type: InvoiceFiscalRecordType;
+  subsanacionNumber?: number;
   createdByUserId?: string | null;
 };
 
@@ -416,6 +417,7 @@ export const createInvoiceFiscalRecord = async (
       invoiceType: altaFiscalDetails?.invoiceType ?? null,
       operationDescription: altaFiscalDetails?.operationDescription ?? null,
       taxBreakdown: altaFiscalDetails?.taxBreakdown as Prisma.InputJsonValue | undefined,
+      subsanacionNumber: options.subsanacionNumber ?? 0,
       createdByUserId: options.createdByUserId ?? null,
     },
   });

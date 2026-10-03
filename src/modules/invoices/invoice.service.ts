@@ -3,7 +3,10 @@ import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
-import { buildVerifactuRecordData } from '../verifactu/verifactu-record';
+import {
+  buildVerifactuRecordData,
+  canSubsanarVerifactuRecord,
+} from '../verifactu/verifactu-record';
 import { buildVerifactuXml } from '../verifactu/verifactu-xml';
 import { verifactuQrRecordsInclude } from '../verifactu/verifactu-qr';
 import {
@@ -784,6 +787,24 @@ type InvoiceSnapshotSource = {
   snapshot: { invoiceId: string } | null;
 };
 
+const invoiceSnapshotPartyData = ({
+  customer,
+  organization,
+}: Pick<InvoiceSnapshotSource, 'customer' | 'organization'>) => ({
+  customerName: customer.name,
+  customerEmail: customer.email,
+  customerTaxId: customer.taxId,
+  customerAddressLine1: customer.addressLine1,
+  customerCity: customer.city,
+  customerCountry: customer.country,
+  sellerName: organization.name,
+  sellerLegalName: organization.legalName,
+  sellerTaxId: organization.taxId,
+  sellerAddressLine1: organization.addressLine1,
+  sellerCity: organization.city,
+  sellerCountry: getOrganizationCountryLabel(organization.countryCode),
+});
+
 const captureInvoiceSnapshot = (
   tx: Prisma.TransactionClient,
   invoice: InvoiceSnapshotSource,
@@ -795,18 +816,7 @@ const captureInvoiceSnapshot = (
   return tx.invoiceSnapshot.create({
     data: {
       invoiceId: invoice.id,
-      customerName: invoice.customer.name,
-      customerEmail: invoice.customer.email,
-      customerTaxId: invoice.customer.taxId,
-      customerAddressLine1: invoice.customer.addressLine1,
-      customerCity: invoice.customer.city,
-      customerCountry: invoice.customer.country,
-      sellerName: invoice.organization.name,
-      sellerLegalName: invoice.organization.legalName,
-      sellerTaxId: invoice.organization.taxId,
-      sellerAddressLine1: invoice.organization.addressLine1,
-      sellerCity: invoice.organization.city,
-      sellerCountry: getOrganizationCountryLabel(invoice.organization.countryCode),
+      ...invoiceSnapshotPartyData(invoice),
       paymentInstructions: invoice.paymentInstructions,
       subtotalCents: invoice.subtotalCents,
       discountCents: invoice.discountCents,
@@ -957,6 +967,91 @@ export const updateInvoiceStatus = async (
     return { ok: true as const, status };
   });
 };
+
+// Generates an ALTA de subsanación for an issued invoice whose latest ALTA record
+// AEAT rejected or flagged, or that failed pre-flight. The snapshot's customer and
+// seller data are re-read first, so corrections made to them are what gets sent.
+export const subsanarInvoiceVerifactuRecord = async (
+  organizationId: string,
+  invoiceId: string,
+  createdByUserId: string | null,
+) =>
+  prisma.$transaction(async (tx) => {
+    const lockedInvoices = await tx.$queryRaw<LockedInvoiceStatusRow[]>`
+      SELECT "id", "status"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId}::uuid
+        AND "organizationId" = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+    const lockedInvoice = lockedInvoices[0];
+
+    if (!lockedInvoice) {
+      return { ok: false as const, reason: 'notFound' as const };
+    }
+
+    const latestAlta = await tx.invoiceFiscalRecord.findFirst({
+      where: { invoiceId: lockedInvoice.id, organizationId, type: 'ALTA' },
+      orderBy: { sequenceNumber: 'desc' },
+      select: {
+        subsanacionNumber: true,
+        verifactuRecord: { select: { status: true } },
+      },
+    });
+
+    if (
+      lockedInvoice.status !== 'ISSUED' ||
+      !latestAlta ||
+      !canSubsanarVerifactuRecord(latestAlta.verifactuRecord?.status)
+    ) {
+      return { ok: false as const, reason: 'notSubsanable' as const };
+    }
+
+    const invoice = await tx.invoice.findFirst({
+      where: { id: lockedInvoice.id, organizationId },
+      select: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+          },
+        },
+        organization: {
+          select: {
+            name: true,
+            legalName: true,
+            taxId: true,
+            addressLine1: true,
+            city: true,
+            countryCode: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return { ok: false as const, reason: 'notFound' as const };
+    }
+
+    await tx.invoiceSnapshot.update({
+      where: { invoiceId: lockedInvoice.id },
+      data: invoiceSnapshotPartyData(invoice),
+    });
+    const fiscalRecord = await createInvoiceFiscalRecord(tx, {
+      invoiceId: lockedInvoice.id,
+      organizationId,
+      type: 'ALTA',
+      subsanacionNumber: latestAlta.subsanacionNumber + 1,
+      createdByUserId,
+    });
+    await createVerifactuRecordForFiscalRecord(tx, fiscalRecord.id);
+
+    return { ok: true as const };
+  });
 
 export const updateInvoiceMetadata = async (
   organizationId: string,

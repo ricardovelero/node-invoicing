@@ -379,11 +379,13 @@ test("getPublicInvoiceByToken looks up invoices by token hash", async () => {
           },
           verifactuRecords: {
             where: { recordType: "ALTA" },
+            orderBy: { invoiceFiscalRecord: { sequenceNumber: "desc" } },
             select: {
               sellerTaxId: true,
               invoiceNumber: true,
               issueDate: true,
               xml: true,
+              status: true,
             },
             take: 1,
           },
