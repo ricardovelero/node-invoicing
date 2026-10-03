@@ -13,6 +13,7 @@ import * as authService from "../auth/auth.service";
 import {
   createOrganizationController,
   redirectGeneralSettings,
+  redirectSecurityRateLimited,
   renderLocalizationSettings,
   renderNewOrganizationSettings,
   renderOrganizationSettings,
@@ -253,6 +254,18 @@ test("redirectGeneralSettings keeps the legacy route compatible", () => {
   redirectGeneralSettings(req, res, () => undefined);
 
   assert.equal(res.redirectedTo, "/settings/profile");
+});
+
+test("redirectSecurityRateLimited flashes an error and returns to security settings", () => {
+  const req = createRequest();
+  const res = createResponse();
+
+  redirectSecurityRateLimited(req, res, () => undefined);
+
+  assert.deepEqual(req.flashMessages.error, [
+    "Too many attempts. Please wait a moment and try again.",
+  ]);
+  assert.equal(res.redirectedTo, "/settings/security");
 });
 
 test("renderProfileSettings renders the current user profile", async () => {

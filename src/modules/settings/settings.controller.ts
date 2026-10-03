@@ -422,6 +422,11 @@ export const updateSecuritySettingsController: RequestHandler = async (req, res)
   res.redirect("/settings/security");
 };
 
+export const redirectSecurityRateLimited: RequestHandler = (req, res) => {
+  req.flash("error", req.t("auth.flash.rateLimited"));
+  return res.redirect("/settings/security");
+};
+
 export const updatePasswordController: RequestHandler = async (req, res, next) => {
   const result = changePasswordSchema.safeParse(req.body);
 

@@ -58,7 +58,7 @@ const getValidationLabel = (input: HTMLInputElement) => {
     ? document.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)
     : null;
 
-  return (label?.textContent ?? '').replace('*', '').trim().toLowerCase() || 'value';
+  return (label?.textContent ?? '').replaceAll('*', '').trim().toLowerCase() || 'value';
 };
 
 const getValidationMessage = (input: HTMLInputElement) => {

@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { requireOrganizationRole } from "../../middleware/auth";
+import { createAuthRateLimiter } from "../../middleware/rate-limit";
 import {
   createOrganizationController,
   redirectGeneralSettings,
+  redirectSecurityRateLimited,
   renderLocalizationSettings,
   renderNewOrganizationSettings,
   renderOrganizationSettings,
@@ -38,6 +40,18 @@ settingsRouter.get("/localization", renderLocalizationSettings);
 settingsRouter.post("/localization", updateLocalizationSettingsController);
 settingsRouter.get("/security", renderSecuritySettings);
 settingsRouter.post("/security", updateSecuritySettingsController);
-settingsRouter.post("/security/password", updatePasswordController);
-settingsRouter.post("/security/sessions/revoke-others", revokeOtherSessionsController);
-settingsRouter.post("/security/sessions/:sessionId/revoke", revokeSessionController);
+settingsRouter.post(
+  "/security/password",
+  createAuthRateLimiter(redirectSecurityRateLimited),
+  updatePasswordController,
+);
+settingsRouter.post(
+  "/security/sessions/revoke-others",
+  createAuthRateLimiter(redirectSecurityRateLimited),
+  revokeOtherSessionsController,
+);
+settingsRouter.post(
+  "/security/sessions/:sessionId/revoke",
+  createAuthRateLimiter(redirectSecurityRateLimited),
+  revokeSessionController,
+);
