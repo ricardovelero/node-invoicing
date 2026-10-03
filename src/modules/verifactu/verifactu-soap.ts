@@ -317,15 +317,16 @@ export const parseVerifactuSoapSubmissionResponse = (
 // current status must be kept rather than treating a transport error as rejection.
 export const verifactuStatusFromSoapSubmission = (
   parsed: ParsedVerifactuSoapSubmission,
+  lineIndex = 0,
 ): VerifactuRecordStatus | null => {
   if (parsed.kind === 'fault') {
     return null;
   }
 
-  const estadoRegistro = parsed.respuestaLinea[0]?.estadoRegistro;
-  const firstLine = parsed.respuestaLinea[0];
+  const line = parsed.respuestaLinea[lineIndex];
+  const estadoRegistro = line?.estadoRegistro;
 
-  if (isAcceptedDuplicateVerifactuResponse(firstLine)) {
+  if (isAcceptedDuplicateVerifactuResponse(line)) {
     return 'ACCEPTED';
   }
 

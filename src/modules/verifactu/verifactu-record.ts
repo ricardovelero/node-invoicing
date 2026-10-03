@@ -81,10 +81,13 @@ export const persistVerifactuSoapSubmissionResponse = async ({
   client,
   verifactuRecordId,
   responseXml,
+  lineIndex = 0,
 }: {
   client: VerifactuSoapSubmissionPersistenceClient;
   verifactuRecordId: string;
   responseXml: string;
+  // Batched submissions answer with one RespuestaLinea per record.
+  lineIndex?: number;
 }) => {
   const parsed = parseVerifactuSoapSubmissionResponse(responseXml);
   const currentRecord = await client.verifactuRecord.findUnique({
@@ -102,8 +105,8 @@ export const persistVerifactuSoapSubmissionResponse = async ({
     throw new Error(`VerifactuRecord not found: ${verifactuRecordId}`);
   }
 
-  const firstLine = parsed.kind === 'response' ? parsed.respuestaLinea[0] : undefined;
-  const status = verifactuStatusFromSoapSubmission(parsed);
+  const line = parsed.kind === 'response' ? parsed.respuestaLinea[lineIndex] : undefined;
+  const status = verifactuStatusFromSoapSubmission(parsed, lineIndex);
   const nextStatus = status === null ||
     (currentRecord.status === 'ACCEPTED' && status === 'REJECTED')
     ? currentRecord.status
@@ -115,13 +118,13 @@ export const persistVerifactuSoapSubmissionResponse = async ({
       aeatSubmissionResponseXml: responseXml,
       aeatSubmissionResult: parsed as Prisma.InputJsonValue,
       aeatEstadoEnvio: parsed.kind === 'response' ? parsed.estadoEnvio : null,
-      aeatEstadoRegistro: firstLine?.estadoRegistro ?? null,
+      aeatEstadoRegistro: line?.estadoRegistro ?? null,
       aeatCodigoErrorRegistro: parsed.kind === 'fault'
         ? parsed.faultCode
-        : firstLine?.codigoErrorRegistro ?? null,
+        : line?.codigoErrorRegistro ?? null,
       aeatDescripcionErrorRegistro: parsed.kind === 'fault'
         ? parsed.faultString
-        : firstLine?.descripcionErrorRegistro ?? null,
+        : line?.descripcionErrorRegistro ?? null,
     },
     select: {
       id: true,

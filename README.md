@@ -159,6 +159,13 @@ pnpm job:verify-fiscal-chain
 Runs the compiled fiscal-chain verification job.
 
 ```sh
+pnpm job:verifactu-submit
+pnpm job:verifactu-submit -- --once
+```
+
+Runs the compiled Veri*Factu submission worker against AEAT preproduction (same `VERIFACTU_*` settings as the test scripts). Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
+
+```sh
 pnpm verifactu:submit-test <verifactuRecordId>
 pnpm verifactu:query-test <verifactuRecordId>
 ```
