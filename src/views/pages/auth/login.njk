@@ -18,7 +18,7 @@
       </div>
       <div>
         {{ labelField('password', t('auth.fields.password'), required=true) }}
-        {{ passwordField('password', autocomplete='current-password', error=errors.password, required=true, validate='password') }}
+        {{ passwordField('password', autocomplete='current-password', error=errors.password, required=true, validate='required') }}
       </div>
 
       <p class="text-right text-sm -mt-4">

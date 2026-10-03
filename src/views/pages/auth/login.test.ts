@@ -24,8 +24,10 @@ test("login password keeps the forgot link and inline validation hooks", () => {
   assert.match(template, /href="\/auth\/forgot"/);
   assert.match(
     template,
-    /passwordField\('password', autocomplete='current-password', error=errors\.password, required=true, validate='password'\)/,
+    /passwordField\('password', autocomplete='current-password', error=errors\.password, required=true, validate='required'\)/,
   );
+  // Strength rules belong to new passwords; login must let the server report wrong credentials.
+  assert.doesNotMatch(template, /validate='password'/);
   assert.match(template, /auth\.login\.forgotPassword/);
   assert.match(template, /auth\.login\.registerLink/);
 });
