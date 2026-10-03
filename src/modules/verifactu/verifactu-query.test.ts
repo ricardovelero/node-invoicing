@@ -205,7 +205,7 @@ test('persistVerifactuQueryResponse accepts ConDatos Correcto responses', async 
   const client = {
     verifactuRecord: {
       async findUnique() {
-        return { status: 'GENERATED' as const };
+        return { status: 'GENERATED' as const, recordType: 'ALTA' as const };
       },
       async update(args: unknown) {
         updateArgs = args;
@@ -244,7 +244,7 @@ test('persistVerifactuQueryResponse stores SinDatos without rejecting the record
   const client = {
     verifactuRecord: {
       async findUnique() {
-        return { status: 'GENERATED' as const };
+        return { status: 'GENERATED' as const, recordType: 'ALTA' as const };
       },
       async update(args: unknown) {
         updateArgs = args;
@@ -278,7 +278,7 @@ test('persistVerifactuQueryResponse stores SOAP faults without rejecting the rec
   const client = {
     verifactuRecord: {
       async findUnique() {
-        return { status: 'SUBMITTED' as const };
+        return { status: 'SUBMITTED' as const, recordType: 'ALTA' as const };
       },
       async update(args: unknown) {
         updateArgs = args;
@@ -313,7 +313,7 @@ test('persistVerifactuQueryResponse does not downgrade accepted records', async 
   const client = {
     verifactuRecord: {
       async findUnique() {
-        return { status: 'ACCEPTED' as const };
+        return { status: 'ACCEPTED' as const, recordType: 'ALTA' as const };
       },
       async update(args: unknown) {
         updateArgs = args;

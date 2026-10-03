@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { Prisma, VerifactuRecordStatus } from '@prisma/client';
+import type { InvoiceFiscalRecordType, Prisma, VerifactuRecordStatus } from '@prisma/client';
 import {
   getVerifactuTestEndpointFromWsdl,
   loadVerifactuSoapConfig,
@@ -57,8 +57,11 @@ export type VerifactuQueryPersistenceClient = {
   verifactuRecord: {
     findUnique: (args: {
       where: { id: string };
-      select: { status: true };
-    }) => Promise<{ status: VerifactuRecordStatus } | null>;
+      select: { status: true; recordType: true };
+    }) => Promise<{
+      status: VerifactuRecordStatus;
+      recordType: InvoiceFiscalRecordType;
+    } | null>;
     update: (args: {
       where: { id: string };
       data: Prisma.VerifactuRecordUpdateInput;
@@ -243,19 +246,34 @@ export const queryVerifactuSoapRecord = async ({
   };
 };
 
+// The query returns the invoice's current state at AEAT. An alta is registered if
+// the invoice exists, even when later annulled; an anulación only once it is Anulado.
 const queryStatusFromResponse = (
   parsed: ParsedVerifactuQueryResponse,
-  currentStatus: VerifactuRecordStatus,
-) => {
-  if (
-    parsed.kind === 'response' &&
-    parsed.resultadoConsulta === 'ConDatos' &&
-    parsed.records[0]?.estadoRegistro === 'Correcto'
-  ) {
-    return 'ACCEPTED' as const;
+  current: { status: VerifactuRecordStatus; recordType: InvoiceFiscalRecordType },
+): VerifactuRecordStatus => {
+  if (parsed.kind === 'fault') {
+    return current.status;
   }
 
-  return currentStatus;
+  const estadoRegistro = parsed.resultadoConsulta === 'ConDatos'
+    ? parsed.records[0]?.estadoRegistro
+    : null;
+
+  if (current.recordType === 'ANULACION') {
+    if (estadoRegistro === 'Anulado') {
+      return 'ACCEPTED';
+    }
+  } else if (estadoRegistro === 'Correcto' || estadoRegistro === 'Anulado') {
+    return 'ACCEPTED';
+  } else if (estadoRegistro === 'AceptadoConErrores') {
+    return 'ACCEPTED_WITH_ERRORS';
+  }
+
+  // AEAT has not registered a SUBMITTED record: queue it for resubmission.
+  const notRegistered = parsed.resultadoConsulta === 'SinDatos' || Boolean(estadoRegistro);
+
+  return current.status === 'SUBMITTED' && notRegistered ? 'GENERATED' : current.status;
 };
 
 export const persistVerifactuQueryResponse = async ({
@@ -272,7 +290,7 @@ export const persistVerifactuQueryResponse = async ({
   const parsed = parseVerifactuQuerySoapResponse(responseXml);
   const currentRecord = await client.verifactuRecord.findUnique({
     where: { id: verifactuRecordId },
-    select: { status: true },
+    select: { status: true, recordType: true },
   });
 
   if (!currentRecord) {
@@ -283,7 +301,7 @@ export const persistVerifactuQueryResponse = async ({
   const record = await client.verifactuRecord.update({
     where: { id: verifactuRecordId },
     data: {
-      status: queryStatusFromResponse(parsed, currentRecord.status),
+      status: queryStatusFromResponse(parsed, currentRecord),
       aeatLastQueryResponseXml: responseXml,
       aeatLastQueryResult: parsed as Prisma.InputJsonValue,
       aeatLastQueryAt: queriedAt,
