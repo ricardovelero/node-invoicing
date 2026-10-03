@@ -150,8 +150,12 @@ const assignActiveOrganizationSession = (
   );
 };
 
-const getSafeReturnPath = (path: string | undefined) =>
-  path && path.startsWith("/") && !path.startsWith("//") ? path : "/";
+// Resolve like a browser would (`\` acts as `/`, tabs are dropped) and only keep same-origin paths.
+const getSafeReturnPath = (path: string | undefined) => {
+  const base = "http://localhost";
+
+  return path?.startsWith("/") && new URL(path, base).origin === base ? path : "/";
+};
 
 const createOrganizationMembershipViews = (
   memberships: OrganizationMembershipView[],
@@ -416,6 +420,11 @@ export const updateSecuritySettingsController: RequestHandler = async (req, res)
   await updateSecuritySettings(req.auth!.organization.id, result.data);
   req.flash("success", req.t("settings.flash.securityUpdated"));
   res.redirect("/settings/security");
+};
+
+export const redirectSecurityRateLimited: RequestHandler = (req, res) => {
+  req.flash("error", req.t("auth.flash.rateLimited"));
+  return res.redirect("/settings/security");
 };
 
 export const updatePasswordController: RequestHandler = async (req, res, next) => {
