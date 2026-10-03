@@ -1,4 +1,4 @@
-import { passwordRequirementsMessage } from '../../modules/auth/auth.schema';
+import { passwordRequirementsMessage } from '../../modules/auth/password-requirements';
 import { setFieldError } from './form-errors';
 
 const getEmailValidationMessage = (input: HTMLInputElement) => {
