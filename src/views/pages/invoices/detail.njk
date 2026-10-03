@@ -374,6 +374,19 @@
         {% else %}
           <p class="mt-3 text-sm text-muted">{{ t('invoices.detail.noStatusActions') }}</p>
         {% endif %}
+        {% if canSubsanarVerifactu %}
+          <button class="mt-3 btn btn-full btn-secondary" type="button" data-dialog-open="subsanar-verifactu-dialog">{{ t('invoices.actions.subsanarVerifactu') }}</button>
+          {{ confirmDialog(
+            'subsanar-verifactu-dialog',
+            t('invoices.dialogs.subsanarVerifactu.title'),
+            t('invoices.dialogs.subsanarVerifactu.description'),
+            t('invoices.actions.subsanarVerifactu'),
+            t('common.actions.cancel'),
+            '/invoices/' ~ invoice.id ~ '/verifactu/subsanacion',
+            'post',
+            csrfToken
+          ) }}
+        {% endif %}
       </div>
     </aside>
   </div>

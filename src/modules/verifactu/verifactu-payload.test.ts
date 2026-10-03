@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Prisma } from '@prisma/client';
+import { Prisma, type VerifactuRecordStatus } from '@prisma/client';
 import {
   buildVerifactuPayload,
   buildVerifactuPayloadForFiscalRecord,
   resolvePreviousVerifactuRecord,
+  resolveVerifactuRechazoPrevio,
   VerifactuPayloadValidationError,
   type BuildVerifactuPayloadOptions,
   type InvoiceFiscalRecordWithInvoiceSnapshot,
@@ -61,6 +62,7 @@ const baseRecord = (): InvoiceFiscalRecordWithInvoiceSnapshot => ({
   sequenceNumber: 7,
   previousHash: 'previous-internal-hash',
   hash: 'current-internal-hash',
+  subsanacionNumber: 0,
   invoiceType: 'F2',
   operationDescription: 'Stored fiscal operation',
   taxBreakdown: storedTaxBreakdown(),
@@ -469,7 +471,6 @@ test('buildVerifactuPayloadForFiscalRecord resolves the previous valid record', 
   });
   assert.deepEqual(previousWhere, {
     organizationId,
-    status: { not: 'REJECTED' },
     invoiceFiscalRecord: {
       sequenceNumber: {
         lt: 7,
@@ -507,7 +508,6 @@ test('resolvePreviousVerifactuRecord uses the accepted latest record after dupli
   assert.equal(result.previousVerifactuRecordId, acceptedDuplicateRecordId);
   assert.deepEqual(previousWhere, {
     organizationId,
-    status: { not: 'REJECTED' },
     invoiceFiscalRecord: {
       sequenceNumber: {
         lt: 8,
@@ -519,6 +519,84 @@ test('resolvePreviousVerifactuRecord uses the accepted latest record after dupli
       sequenceNumber: 'desc',
     },
   });
+});
+
+test('resolveVerifactuRechazoPrevio picks the AEAT subsanación operation', async () => {
+  const cases: Array<[VerifactuRecordStatus[], string | null]> = [
+    [['REJECTED'], 'X'],
+    [['PREFLIGHT_FAILED', 'REJECTED'], 'X'],
+    [['ACCEPTED_WITH_ERRORS'], null],
+    [['PREFLIGHT_FAILED', 'ACCEPTED'], null],
+    [['REJECTED', 'ACCEPTED_WITH_ERRORS'], 'S'],
+  ];
+
+  for (const [statuses, expected] of cases) {
+    let findManyArgs: unknown;
+    const client = {
+      verifactuRecord: {
+        async findMany(args: unknown) {
+          findManyArgs = args;
+
+          return statuses.map((status) => ({ status }));
+        },
+      },
+    };
+
+    const result = await resolveVerifactuRechazoPrevio(client as never, {
+      invoiceId,
+      sequenceNumber: 9,
+    });
+
+    assert.equal(result, expected, statuses.join(','));
+    assert.deepEqual(findManyArgs, {
+      where: {
+        invoiceId,
+        recordType: 'ALTA',
+        invoiceFiscalRecord: { sequenceNumber: { lt: 9 } },
+      },
+      orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },
+      select: { status: true },
+    });
+  }
+});
+
+test('buildVerifactuPayloadForFiscalRecord flags subsanación ALTA records', async () => {
+  const client = (subsanacionNumber: number) => ({
+    invoiceFiscalRecord: {
+      async findUnique() {
+        return { ...baseRecord(), subsanacionNumber };
+      },
+    },
+    verifactuRecord: {
+      async findFirst() {
+        return null;
+      },
+      async findMany() {
+        return [{ status: 'REJECTED' }];
+      },
+    },
+    verifactuSoftwareConfig: {
+      async findFirst() {
+        return storedSoftwareConfig();
+      },
+    },
+  });
+
+  const original = await buildVerifactuPayloadForFiscalRecord(client(0) as never, fiscalRecordId);
+  const subsanacion = await buildVerifactuPayloadForFiscalRecord(
+    client(1) as never,
+    fiscalRecordId,
+  );
+
+  assert.equal(original.payload.recordType, 'ALTA');
+  assert.equal(subsanacion.payload.recordType, 'ALTA');
+
+  if (original.payload.recordType === 'ALTA' && subsanacion.payload.recordType === 'ALTA') {
+    assert.equal(original.payload.subsanacion, null);
+    assert.equal(original.payload.rechazoPrevio, null);
+    assert.equal(subsanacion.payload.subsanacion, 'S');
+    assert.equal(subsanacion.payload.rechazoPrevio, 'X');
+  }
 });
 
 test('buildVerifactuPayloadForFiscalRecord reuses persisted generation timestamp', async () => {

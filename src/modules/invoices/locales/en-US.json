@@ -21,12 +21,17 @@
     "recordPayment": "Record payment",
     "retry": "Retry",
     "saveCatalogItem": "Save",
-    "saveForFutureUse": "Save for future use?"
+    "saveForFutureUse": "Save for future use?",
+    "subsanarVerifactu": "Correct Veri*Factu record"
   },
   "dialogs": {
     "void": {
       "title": "Void invoice?",
       "description": "This will void the invoice and remove it from active collection workflows. This action cannot be undone."
+    },
+    "subsanarVerifactu": {
+      "title": "Correct the Veri*Factu record?",
+      "description": "This re-reads the current customer and organization details and generates a correction (subsanación) record to send to AEAT. Fix the wrong details first."
     }
   },
   "form": {
@@ -186,7 +191,8 @@
     "savedAndSent": "Invoice issued and sent to the customer's email address.",
     "statusUpdated": "Invoice status updated.",
     "detailsUpdated": "Invoice details updated.",
-    "paymentRecorded": "Payment recorded."
+    "paymentRecorded": "Payment recorded.",
+    "verifactuSubsanacionCreated": "Correction record generated. It will be sent to AEAT with the next submission."
   },
   "errors": {
     "chooseCustomer": "Choose a customer.",
@@ -203,6 +209,7 @@
     "overpayment": "Payment cannot exceed the outstanding balance.",
     "paymentNotAllowed": "Payments can only be recorded for open invoices.",
     "notEditable": "Only draft invoices can be edited.",
-    "notFound": "Invoice Not Found"
+    "notFound": "Invoice Not Found",
+    "verifactuSubsanacionNotAllowed": "This invoice has no Veri*Factu record that can be corrected."
   }
 }

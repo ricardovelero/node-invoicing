@@ -307,6 +307,8 @@ model InvoiceFiscalRecord {
   invoiceType          String?
   operationDescription String?
   taxBreakdown         Json?
+  // 0 for the original record; 1, 2, ... for each ALTA de subsanación.
+  subsanacionNumber    Int                     @default(0)
   createdByUserId      String?
   createdAt            DateTime                @default(now())
 
@@ -317,9 +319,8 @@ model InvoiceFiscalRecord {
   createdByUser  User?                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   verifactuRecord VerifactuRecord?
 
-  // MVP constraint: one ALTA and one ANULACION per invoice. Revisit when
-  // corrections, substitutions, or reprocessing workflows are introduced.
-  @@unique([invoiceId, type])
+  // One original ALTA and one ANULACION per invoice, plus numbered subsanaciones.
+  @@unique([invoiceId, type, subsanacionNumber])
   @@unique([organizationId, sequenceNumber])
   @@index([invoiceId])
   @@index([organizationId, createdAt])

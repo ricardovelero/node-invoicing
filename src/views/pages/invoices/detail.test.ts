@@ -134,3 +134,12 @@ test('invoice detail confirms void action in a dialog before submitting', () => 
     /<form method="post" action="\/invoices\/{{ invoice\.id }}\/status">\s*<input type="hidden" name="_csrf" value="{{ csrfToken }}">\s*<input type="hidden" name="action" value="void">\s*<button class="btn btn-full btn-danger" type="submit">/,
   );
 });
+
+test('invoice detail confirms Veri*Factu subsanación in a dialog before submitting', () => {
+  const template = readTemplate('detail.njk');
+
+  assert.match(template, /if canSubsanarVerifactu/);
+  assert.match(template, /data-dialog-open="subsanar-verifactu-dialog"/);
+  assert.match(template, /t\('invoices\.dialogs\.subsanarVerifactu\.description'\)/);
+  assert.match(template, /'\/invoices\/' ~ invoice\.id ~ '\/verifactu\/subsanacion'/);
+});

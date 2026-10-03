@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type VerifactuRecordStatus } from '@prisma/client';
 import { calculateVerifactuHuella } from './verifactu-huella';
 
 export const verifactuPayloadVersion = '1.0';
@@ -12,6 +12,7 @@ export const verifactuPayloadFiscalRecordSelect =
     sequenceNumber: true,
     previousHash: true,
     hash: true,
+    subsanacionNumber: true,
     invoice: {
       select: {
         id: true,
@@ -106,10 +107,14 @@ export type VerifactuTaxBreakdownItem = {
   equivalenceSurchargeAmount: string | null;
 };
 
+// N (the default) is sent by omitting RechazoPrevio.
+export type VerifactuRechazoPrevio = 'S' | 'X';
+
 export type BuildVerifactuPayloadOptions = {
   generationDateTimeWithTimezone: string;
   previousRecord: VerifactuPreviousRecordIdentity | null;
   softwareConfig: VerifactuSoftwareConfigSource;
+  rechazoPrevio?: VerifactuRechazoPrevio | null;
 };
 
 type VerifactuBasePayload = {
@@ -133,6 +138,8 @@ type VerifactuBasePayload = {
 
 export type VerifactuAltaPayload = VerifactuBasePayload & {
   recordType: 'ALTA';
+  subsanacion: 'S' | null;
+  rechazoPrevio: VerifactuRechazoPrevio | null;
   customer: VerifactuCustomerIdentity;
   customerCountry: string | null;
   currency: string;
@@ -412,7 +419,6 @@ export const resolvePreviousVerifactuRecord = async (
   const previousRecord = await client.verifactuRecord.findFirst({
     where: {
       organizationId: record.organizationId,
-      status: { not: 'REJECTED' },
       invoiceFiscalRecord: {
         sequenceNumber: {
           lt: record.sequenceNumber,
@@ -431,6 +437,32 @@ export const resolvePreviousVerifactuRecord = async (
     previousVerifactuRecordId: previousRecord?.id ?? null,
     previousRecord: buildPreviousRecordIdentity(previousRecord),
   };
+};
+
+const aeatRegisteredStatuses: VerifactuRecordStatus[] = ['ACCEPTED', 'ACCEPTED_WITH_ERRORS'];
+
+// Picks the AEAT operation for an ALTA de subsanación from the invoice's earlier
+// ALTA records: X when AEAT never registered the invoice (rejected or never sent),
+// S when it did but the last subsanación was rejected, and none otherwise.
+export const resolveVerifactuRechazoPrevio = async (
+  client: VerifactuPayloadClient,
+  record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'invoiceId' | 'sequenceNumber'>,
+): Promise<VerifactuRechazoPrevio | null> => {
+  const earlierRecords = await client.verifactuRecord.findMany({
+    where: {
+      invoiceId: record.invoiceId,
+      recordType: 'ALTA',
+      invoiceFiscalRecord: { sequenceNumber: { lt: record.sequenceNumber } },
+    },
+    orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },
+    select: { status: true },
+  });
+
+  if (!earlierRecords.some((earlier) => aeatRegisteredStatuses.includes(earlier.status))) {
+    return 'X';
+  }
+
+  return earlierRecords[0]?.status === 'REJECTED' ? 'S' : null;
 };
 
 export const resolveDefaultVerifactuSoftwareConfig = async (
@@ -501,6 +533,8 @@ export const buildVerifactuPayload = (
     const payloadWithoutHuella = {
       ...basePayload,
       recordType: 'ALTA' as const,
+      subsanacion: record.subsanacionNumber > 0 ? 'S' as const : null,
+      rechazoPrevio: record.subsanacionNumber > 0 ? options.rechazoPrevio ?? null : null,
       customer: {
         name: snapshot.customerName,
         nif: snapshot.customerTaxId,
@@ -562,9 +596,13 @@ export const buildVerifactuPayloadForFiscalRecord = async (
 
   const previous = await resolvePreviousVerifactuRecord(client, record);
   const softwareConfig = await resolveDefaultVerifactuSoftwareConfig(client);
+  const rechazoPrevio = record.type === 'ALTA' && record.subsanacionNumber > 0
+    ? await resolveVerifactuRechazoPrevio(client, record)
+    : null;
   const payload = buildVerifactuPayload(record, {
     previousRecord: previous.previousRecord,
     softwareConfig,
+    rechazoPrevio,
     generationDateTimeWithTimezone:
       record.verifactuRecord?.generationDateTimeWithTimezone ??
       newGenerationDateTimeWithTimezone(),

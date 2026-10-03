@@ -137,6 +137,8 @@ const buildRegistroAltaXml = (payload: VerifactuAltaPayload) =>
   element('sf:IDVersion', payload.payloadVersion) +
   buildIdFacturaAltaXml(payload) +
   element('sf:NombreRazonEmisor', payload.sellerLegalName) +
+  optionalElement('sf:Subsanacion', payload.subsanacion) +
+  optionalElement('sf:RechazoPrevio', payload.rechazoPrevio) +
   element('sf:TipoFactura', payload.invoiceType) +
   element('sf:DescripcionOperacion', payload.operationDescription) +
   buildDestinatariosXml(payload) +

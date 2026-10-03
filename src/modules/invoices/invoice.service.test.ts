@@ -14,6 +14,7 @@ import {
   isInvoiceOverdue,
   recordInvoicePayment,
   recalculateInvoicePaymentStatus,
+  subsanarInvoiceVerifactuRecord,
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
   updateInvoiceStatus,
@@ -1373,11 +1374,13 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
       },
       verifactuRecords: {
         where: { recordType: "ALTA" },
+        orderBy: { invoiceFiscalRecord: { sequenceNumber: "desc" } },
         select: {
           sellerTaxId: true,
           invoiceNumber: true,
           issueDate: true,
           xml: true,
+          status: true,
         },
         take: 1,
       },
@@ -2494,6 +2497,185 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
   assert.equal(data.previousVerifactuRecordId, "alta_verifactu_record_1");
   assert.equal(data.previousHuella, altaHuella);
   assert.match(data.xml as string, /<sf:RegistroAnulacion>/);
+});
+
+const mockSubsanacionTransaction = ({
+  invoiceStatus = "ISSUED",
+  latestAltaStatus,
+  earlierAltaStatuses = [latestAltaStatus],
+}: {
+  invoiceStatus?: InvoiceStatus;
+  latestAltaStatus: string | null;
+  earlierAltaStatuses?: Array<string | null>;
+}) => {
+  const calls = {
+    snapshotUpdates: [] as unknown[],
+    fiscalRecordCreates: [] as Array<{ data: Record<string, unknown> }>,
+    verifactuRecordCreates: [] as Array<{ data: Record<string, unknown> }>,
+  };
+  const snapshot = {
+    sellerName: "Analytical Engines",
+    sellerLegalName: "Analytical Engines Ltd",
+    sellerTaxId: "B12345674",
+    sellerCountry: "Spain",
+    customerName: "Ada Co",
+    customerTaxId: "B12345678",
+    customerCountry: "ES",
+    subtotalCents: 10000,
+    discountCents: 1000,
+    taxCents: 1890,
+    withholdingType: null,
+    withholdingRate: null,
+    withholdingAmountCents: null,
+    totalCents: 10890,
+  };
+  const invoice = {
+    ...invoiceForStatusUpdate,
+    status: invoiceStatus,
+    customer: { ...invoiceForStatusUpdate.customer, taxId: "A87654323" },
+    snapshot,
+  };
+
+  prismaMock.$transaction = async (callback: (tx: unknown) => Promise<unknown>) => {
+    let queryCalls = 0;
+    let fiscalRecordData: Record<string, unknown> | null = null;
+
+    return callback({
+      $queryRaw: async () => {
+        queryCalls += 1;
+
+        return queryCalls === 1
+          ? [{ id: invoice.id, status: invoice.status }]
+          : [{ reservedValue: 12 }];
+      },
+      invoice: {
+        async findFirst() {
+          return invoice;
+        },
+      },
+      invoiceSnapshot: {
+        async update(args: { data: Record<string, unknown> }) {
+          calls.snapshotUpdates.push(args);
+          Object.assign(snapshot, args.data);
+          return snapshot;
+        },
+      },
+      invoiceFiscalRecord: {
+        async findFirst() {
+          return latestAltaStatus === undefined
+            ? null
+            : {
+                id: "fiscal_record_11",
+                hash: "previous-internal-hash",
+                subsanacionNumber: 0,
+                verifactuRecord: latestAltaStatus ? { status: latestAltaStatus } : null,
+              };
+        },
+        async findUnique() {
+          return {
+            id: "fiscal_record_12",
+            organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+            invoiceId: invoice.id,
+            ...fiscalRecordData,
+            verifactuRecord: null,
+            invoice: {
+              id: invoice.id,
+              organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+              number: invoice.number,
+              issueDate: invoice.issueDate,
+              currency: invoice.currency,
+              snapshot,
+            },
+          };
+        },
+        async create(args: { data: Record<string, unknown> }) {
+          calls.fiscalRecordCreates.push(args);
+          fiscalRecordData = args.data;
+          return { id: "fiscal_record_12" };
+        },
+      },
+      verifactuRecord: {
+        async findUnique() {
+          return null;
+        },
+        async findFirst() {
+          return {
+            id: "verifactu_record_11",
+            sellerTaxId: "B12345674",
+            invoiceNumber: invoice.number,
+            issueDate: invoice.issueDate,
+            huella: "B".repeat(64),
+          };
+        },
+        async findMany() {
+          return earlierAltaStatuses.map((status) => ({ status }));
+        },
+        async create(args: { data: Record<string, unknown> }) {
+          calls.verifactuRecordCreates.push(args);
+          return { id: "verifactu_record_12" };
+        },
+      },
+      verifactuSoftwareConfig: {
+        async findFirst() {
+          return verifactuSoftwareConfig;
+        },
+      },
+    });
+  };
+
+  return calls;
+};
+
+test("subsanarInvoiceVerifactuRecord generates a subsanación with fresh party data", async () => {
+  const calls = mockSubsanacionTransaction({ latestAltaStatus: "REJECTED" });
+
+  const result = await subsanarInvoiceVerifactuRecord(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
+  );
+  const fiscalRecordData = calls.fiscalRecordCreates[0]!.data;
+  const verifactuRecordData = calls.verifactuRecordCreates[0]!.data;
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(
+    (calls.snapshotUpdates[0] as { data: { customerTaxId: string } }).data.customerTaxId,
+    "A87654323",
+  );
+  assert.equal(fiscalRecordData.type, "ALTA");
+  assert.equal(fiscalRecordData.subsanacionNumber, 1);
+  assert.equal(fiscalRecordData.createdByUserId, "user_1");
+  assert.equal(verifactuRecordData.recordType, "ALTA");
+  assert.equal(verifactuRecordData.previousVerifactuRecordId, "verifactu_record_11");
+  assert.match(
+    verifactuRecordData.xml as string,
+    /<sf:Subsanacion>S<\/sf:Subsanacion><sf:RechazoPrevio>X<\/sf:RechazoPrevio>/,
+  );
+  assert.match(verifactuRecordData.xml as string, /<sf:NIF>A87654323<\/sf:NIF>/);
+});
+
+test("subsanarInvoiceVerifactuRecord rejects invoices without a correctable record", async () => {
+  const cases: Array<Parameters<typeof mockSubsanacionTransaction>[0]> = [
+    { latestAltaStatus: "ACCEPTED" },
+    { latestAltaStatus: "SUBMITTED" },
+    { latestAltaStatus: "GENERATED" },
+    { latestAltaStatus: null },
+    { invoiceStatus: "VOID", latestAltaStatus: "REJECTED" },
+  ];
+
+  for (const options of cases) {
+    const calls = mockSubsanacionTransaction(options);
+
+    const result = await subsanarInvoiceVerifactuRecord(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      "user_1",
+    );
+
+    assert.deepEqual(result, { ok: false, reason: "notSubsanable" }, JSON.stringify(options));
+    assert.equal(calls.snapshotUpdates.length, 0);
+    assert.equal(calls.fiscalRecordCreates.length, 0);
+  }
 });
 
 test("updateInvoiceStatus rejects missing invoices", async () => {

@@ -171,6 +171,8 @@ pnpm job:verifactu-reconcile
 
 Queries AEAT for Veri*Factu records still `SUBMITTED` 15 minutes after submission (no matching response line), up to 100 per run, oldest first. Registered records become `ACCEPTED` or `ACCEPTED_WITH_ERRORS`; records AEAT has no trace of go back to `GENERATED` for the submission worker to resend. Faults and network errors leave records `SUBMITTED` for the next run and make the job exit non-zero. Run it from cron, e.g. every 15 minutes.
 
+When an issued invoice's latest ALTA record is `REJECTED`, `ACCEPTED_WITH_ERRORS` or `PREFLIGHT_FAILED`, the invoice page offers **Subsanar registro Veri*Factu**. Fix the customer or organization data first: the action re-reads both into the invoice snapshot and generates a new chained ALTA record with `Subsanacion=S`, for the submission worker to send. `RechazoPrevio` is `X` when AEAT never registered the invoice, `S` when it did but the last subsanación was rejected, and omitted otherwise. Rejected records stay in the chain: each record links to the one generated immediately before it.
+
 ```sh
 pnpm verifactu:submit-test <verifactuRecordId>
 pnpm verifactu:query-test <verifactuRecordId>

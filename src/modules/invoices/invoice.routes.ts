@@ -9,6 +9,7 @@ import {
   renderEditInvoice,
   renderNewInvoice,
   showInvoice,
+  subsanarInvoiceVerifactuController,
   updateInvoiceMetadataController,
   updateInvoiceStatusController,
 } from './invoice.controller';
@@ -32,3 +33,4 @@ invoiceRouter.get('/:invoiceId', showInvoice);
 invoiceRouter.post('/:invoiceId/metadata', updateInvoiceMetadataController);
 invoiceRouter.post('/:invoiceId/status', updateInvoiceStatusController);
 invoiceRouter.post('/:invoiceId/payments', recordInvoicePaymentController);
+invoiceRouter.post('/:invoiceId/verifactu/subsanacion', subsanarInvoiceVerifactuController);

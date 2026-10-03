@@ -21,12 +21,17 @@
     "recordPayment": "Registrar pago",
     "retry": "Reintentar",
     "saveCatalogItem": "Guardar",
-    "saveForFutureUse": "¿Guardar para usarlo más adelante?"
+    "saveForFutureUse": "¿Guardar para usarlo más adelante?",
+    "subsanarVerifactu": "Subsanar registro Veri*Factu"
   },
   "dialogs": {
     "void": {
       "title": "¿Anular factura?",
       "description": "Esto anulará la factura y la quitará de los flujos de cobro activos. Esta acción no se puede deshacer."
+    },
+    "subsanarVerifactu": {
+      "title": "¿Subsanar el registro Veri*Factu?",
+      "description": "Se volverán a leer los datos actuales del cliente y de tu organización y se generará un registro de alta de subsanación para enviarlo a la AEAT. Corrige antes los datos erróneos."
     }
   },
   "form": {
@@ -186,7 +191,8 @@
     "savedAndSent": "Factura emitida y enviada al correo del cliente.",
     "statusUpdated": "Estado de la factura actualizado.",
     "detailsUpdated": "Detalles de la factura actualizados.",
-    "paymentRecorded": "Pago registrado."
+    "paymentRecorded": "Pago registrado.",
+    "verifactuSubsanacionCreated": "Registro de subsanación generado. Se enviará a la AEAT en el próximo envío."
   },
   "errors": {
     "chooseCustomer": "Elige un cliente.",
@@ -203,6 +209,7 @@
     "overpayment": "El pago no puede superar el saldo pendiente.",
     "paymentNotAllowed": "Solo se pueden registrar pagos en facturas abiertas.",
     "notEditable": "Solo se pueden editar facturas en borrador.",
-    "notFound": "Factura no encontrada"
+    "notFound": "Factura no encontrada",
+    "verifactuSubsanacionNotAllowed": "Esta factura no tiene un registro Veri*Factu que se pueda subsanar."
   }
 }

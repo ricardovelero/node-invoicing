@@ -17,10 +17,12 @@ export const verifactuQrSourceSelect = Prisma.validator<Prisma.VerifactuRecordSe
   xml: true,
 });
 
-// The invoice's ALTA record is the one registered with AEAT and encoded in the QR.
+// The invoice's latest ALTA record, a subsanación if any, is encoded in the QR.
+// Its status tells the invoice page whether a subsanación can be generated.
 export const verifactuQrRecordsInclude = {
   where: { recordType: 'ALTA' },
-  select: verifactuQrSourceSelect,
+  orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },
+  select: { ...verifactuQrSourceSelect, status: true },
   take: 1,
 } satisfies Prisma.InvoiceInclude['verifactuRecords'];
 

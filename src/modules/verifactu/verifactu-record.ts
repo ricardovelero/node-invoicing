@@ -5,6 +5,17 @@ import {
   verifactuStatusFromSoapSubmission,
 } from './verifactu-soap';
 
+// Records an ALTA de subsanación can correct: errors reported by AEAT and records
+// that never reached AEAT because they failed pre-flight validation.
+const verifactuSubsanableStatuses: VerifactuRecordStatus[] = [
+  'ACCEPTED_WITH_ERRORS',
+  'REJECTED',
+  'PREFLIGHT_FAILED',
+];
+
+export const canSubsanarVerifactuRecord = (status: VerifactuRecordStatus | null | undefined) =>
+  !!status && verifactuSubsanableStatuses.includes(status);
+
 export const buildVerifactuRecordData = ({
   payload,
   xml,

@@ -5,6 +5,7 @@ import type {
 } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
 import type { VerifactuQr } from '../verifactu/verifactu-qr';
+import { canSubsanarVerifactuRecord } from '../verifactu/verifactu-record';
 import { createCurrencyOptions, defaultCurrency } from '../../lib/currencies';
 import {
   formatRateLabel,
@@ -475,6 +476,9 @@ export const invoiceDetailView = (
     invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
     allowedActions: getAllowedInvoiceStatusActions(invoice.status),
     canEditInvoice: canEditInvoice(invoice.status),
+    canSubsanarVerifactu:
+      invoice.status === 'ISSUED' &&
+      canSubsanarVerifactuRecord(invoice.verifactuRecords[0]?.status),
     canRecordPayment:
       canRecordInvoicePayment(invoice.status) &&
       paymentSummary.outstandingCents > 0,
