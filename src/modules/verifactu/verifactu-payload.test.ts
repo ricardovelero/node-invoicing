@@ -107,7 +107,8 @@ test('buildVerifactuPayload builds an ALTA payload from a fiscal record snapshot
   assert.equal(payload.invoiceType, 'F2');
   assert.equal(payload.operationDescription, 'Stored fiscal operation');
   assert.equal(payload.taxAmount, '19.95');
-  assert.equal(payload.totalAmount, '99.95');
+  // ImporteTotal is base + VAT; the IRPF withholding (15.00) is not deducted.
+  assert.equal(payload.totalAmount, '114.95');
   assert.deepEqual(payload.taxBreakdown, storedTaxBreakdown());
   assert.equal(payload.internalFiscalSequenceNumber, 7);
   assert.equal(payload.internalPreviousHash, 'previous-internal-hash');

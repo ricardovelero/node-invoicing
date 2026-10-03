@@ -283,3 +283,51 @@ test('persistVerifactuSoapSubmissionResponse restores accepted status for correc
     estadoRegistroDuplicado: 'Correcta',
   });
 });
+
+test('persistVerifactuSoapSubmissionResponse keeps status on SOAP faults', async () => {
+  let updateArgs: unknown;
+  const faultResponseXml = '<soapenv:Envelope ' +
+    'xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body>' +
+    '<soapenv:Fault>' +
+    '<faultcode>soapenv:Server</faultcode>' +
+    '<faultstring>Service unavailable</faultstring>' +
+    '</soapenv:Fault>' +
+    '</soapenv:Body></soapenv:Envelope>';
+  const client = {
+    verifactuRecord: {
+      async findUnique() {
+        return {
+          status: 'GENERATED' as const,
+          aeatEstadoEnvio: null,
+          aeatEstadoRegistro: null,
+          aeatCodigoErrorRegistro: null,
+          aeatDescripcionErrorRegistro: null,
+        };
+      },
+      async update(args: unknown) {
+        updateArgs = args;
+
+        return {
+          id: 'verifactu_record_1',
+          status: 'GENERATED' as const,
+          aeatEstadoEnvio: null,
+          aeatEstadoRegistro: null,
+          aeatCodigoErrorRegistro: 'soapenv:Server',
+          aeatDescripcionErrorRegistro: 'Service unavailable',
+        };
+      },
+    },
+  };
+
+  await persistVerifactuSoapSubmissionResponse({
+    client,
+    verifactuRecordId: 'verifactu_record_1',
+    responseXml: faultResponseXml,
+  });
+  const data = (updateArgs as { data: Record<string, unknown> }).data;
+
+  assert.equal(data.status, 'GENERATED');
+  assert.equal(data.aeatSubmissionResponseXml, faultResponseXml);
+  assert.equal(data.aeatCodigoErrorRegistro, 'soapenv:Server');
+  assert.equal(data.aeatDescripcionErrorRegistro, 'Service unavailable');
+});

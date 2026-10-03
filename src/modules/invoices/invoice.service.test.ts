@@ -2385,6 +2385,7 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
   let updateArgs: unknown;
   let snapshotCreateCalls = 0;
   let fiscalRecordCreateArgs: unknown;
+  let verifactuRecordCreateCalls = 0;
 
   mockStatusTransaction({
     invoice: {
@@ -2401,6 +2402,9 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
     onFiscalRecordCreate: (args) => {
       fiscalRecordCreateArgs = args;
     },
+    onVerifactuRecordCreate: () => {
+      verifactuRecordCreateCalls += 1;
+    },
   });
 
   const result = await updateInvoiceStatus(
@@ -2412,6 +2416,7 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
 
   assert.deepEqual(result, { ok: true, status: "VOID" });
   assert.equal(snapshotCreateCalls, 0);
+  assert.equal(verifactuRecordCreateCalls, 0);
   assert.deepEqual(updateArgs, {
     where: { id: "invoice_1" },
     data: { status: "VOID" },
@@ -2425,6 +2430,60 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
     previousHash: null,
     createdByUserId: "user_1",
   });
+});
+
+test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a registered invoice", async () => {
+  let verifactuRecordCreateArgs: unknown;
+  const altaHuella = "B".repeat(64);
+
+  mockStatusTransaction({
+    invoice: {
+      ...invoiceForStatusUpdate,
+      status: "ISSUED",
+      snapshot: {
+        sellerName: "Analytical Engines",
+        sellerLegalName: "Analytical Engines Ltd",
+        sellerTaxId: "VAT123",
+        sellerCountry: "Spain",
+        customerName: "Ada Co",
+        customerTaxId: "CUST-123",
+        customerCountry: "GB",
+        subtotalCents: 10000,
+        discountCents: 1000,
+        taxCents: 1890,
+        withholdingType: null,
+        withholdingRate: null,
+        withholdingAmountCents: null,
+        totalCents: 10890,
+      },
+    },
+    previousVerifactuRecord: {
+      id: "alta_verifactu_record_1",
+      sellerTaxId: "VAT123",
+      invoiceNumber: "INV-2026-0001",
+      issueDate: new Date("2026-05-27T00:00:00.000Z"),
+      huella: altaHuella,
+    },
+    onVerifactuRecordCreate: (args) => {
+      verifactuRecordCreateArgs = args;
+    },
+  });
+
+  const result = await updateInvoiceStatus(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+    "user_1",
+    { action: "void" },
+  );
+
+  const data = (verifactuRecordCreateArgs as { data: Record<string, unknown> }).data;
+
+  assert.deepEqual(result, { ok: true, status: "VOID" });
+  assert.equal(data.recordType, "ANULACION");
+  assert.equal(data.invoiceNumber, "INV-2026-0001");
+  assert.equal(data.previousVerifactuRecordId, "alta_verifactu_record_1");
+  assert.equal(data.previousHuella, altaHuella);
+  assert.match(data.xml as string, /<sf:RegistroAnulacion>/);
 });
 
 test("updateInvoiceStatus rejects missing invoices", async () => {

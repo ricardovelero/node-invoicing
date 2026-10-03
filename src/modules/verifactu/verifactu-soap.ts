@@ -313,11 +313,13 @@ export const parseVerifactuSoapSubmissionResponse = (
   };
 };
 
+// Returns null for SOAP faults: they carry no AEAT verdict on the record, so the
+// current status must be kept rather than treating a transport error as rejection.
 export const verifactuStatusFromSoapSubmission = (
   parsed: ParsedVerifactuSoapSubmission,
-): VerifactuRecordStatus => {
+): VerifactuRecordStatus | null => {
   if (parsed.kind === 'fault') {
-    return 'REJECTED';
+    return null;
   }
 
   const estadoRegistro = parsed.respuestaLinea[0]?.estadoRegistro;

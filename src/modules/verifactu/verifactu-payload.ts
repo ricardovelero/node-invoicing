@@ -518,7 +518,10 @@ export const buildVerifactuPayload = (
       withholdingAmountCents: snapshot.withholdingAmountCents,
       totalCents: snapshot.totalCents,
       taxAmount: centsToAmount(snapshot.taxCents),
-      totalAmount: centsToAmount(snapshot.totalCents),
+      // AEAT ImporteTotal excludes withholdings, so add back the IRPF deducted from totalCents.
+      totalAmount: centsToAmount(
+        snapshot.totalCents + (snapshot.withholdingAmountCents ?? 0),
+      ),
       internalFiscalSequenceNumber: record.sequenceNumber,
     };
 
