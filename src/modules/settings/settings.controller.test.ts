@@ -593,6 +593,17 @@ test("switchOrganizationController rejects unauthorized switches", async () => {
   assert.equal(res.redirectedTo, "/");
 });
 
+test("switchOrganizationController ignores returnTo values browsers resolve off-site", async () => {
+  for (const returnTo of ["/\\evil.example", "/\t/evil.example", "https://evil.example"]) {
+    const req = createRequest({ organizationId: "not-a-uuid", returnTo });
+    const res = createResponse();
+
+    await switchOrganizationController(req, res, () => undefined);
+
+    assert.equal(res.redirectedTo, "/", returnTo);
+  }
+});
+
 test("renderOrganizationSettings renders current organization values", () => {
   const req = createRequest();
   const res = createResponse();
