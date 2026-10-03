@@ -1,6 +1,7 @@
 import type { InvoiceFiscalRecordType, VerifactuRecordStatus } from '@prisma/client';
 import type { prisma } from '../../db/prisma';
 import { formatVerifactuDate } from './verifactu-huella';
+import { isValidSpanishNif } from './verifactu-nif';
 import { persistVerifactuSoapSubmissionResponse } from './verifactu-record';
 import {
   type ParsedVerifactuSoapSubmission,
@@ -9,6 +10,7 @@ import {
   sendVerifactuSoapRequest,
   submitVerifactuSoapXml,
 } from './verifactu-soap';
+import { validateVerifactuXmlWithXsd } from './verifactu-xml';
 
 // AEAT accepts up to 1000 records per request. A smaller batch keeps the stored
 // response XML, which is copied onto every record in the batch, reasonably small.
@@ -28,6 +30,27 @@ type VerifactuBatchRecord = {
   recordType: InvoiceFiscalRecordType;
   invoiceNumber: string;
   issueDate: Date;
+};
+
+// Captures each NIF with its parent element, e.g. ObligadoEmision or RegistroAnterior.
+const nifElementPattern = new RegExp(
+  '<sf:(\\w+)>(?:<sf:NombreRazon>[^<]*</sf:NombreRazon>)?' +
+    '<sf:(?:NIF|IDEmisorFactura|IDEmisorFacturaAnulada)>([^<]*)<',
+  'gu',
+);
+
+// Catches records AEAT would reject outright before they fault a whole batch.
+export const preflightVerifactuRecordXml = async (xml: string) => {
+  const errors = [...xml.matchAll(nifElementPattern)]
+    .filter(([, , nif]) => !isValidSpanishNif(nif!))
+    .map(([, parent, nif]) => `Invalid NIF in ${parent}: ${nif}`);
+  const validation = await validateVerifactuXmlWithXsd(xml);
+
+  if (!validation.ok) {
+    errors.push(`XSD validation failed: ${validation.error}`);
+  }
+
+  return errors;
 };
 
 const cabeceraPattern = /<sfLR:Cabecera>[\s\S]*?<\/sfLR:Cabecera>/u;
@@ -93,8 +116,9 @@ const waitSecondsFromResponse = (parsed: ParsedVerifactuSoapSubmission) => {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : verifactuDefaultWaitSeconds;
 };
 
-// Records are sent in fiscal chain order. The batch stops before the first record
-// whose Cabecera differs, so a seller name or NIF change starts a new request.
+// Records are sent in fiscal chain order. Records failing pre-flight are marked
+// PREFLIGHT_FAILED and left out. The batch stops before the first record whose
+// Cabecera differs, so a seller name or NIF change starts a new request.
 const loadPendingBatch = async (
   client: VerifactuSubmissionClient,
   organizationId: string,
@@ -111,12 +135,31 @@ const loadPendingBatch = async (
       issueDate: true,
     },
   });
-  const cabecera = records[0]?.xml.match(cabeceraPattern)?.[0];
-  const sameCabeceraCount = records.findIndex(
+  const validRecords: typeof records = [];
+
+  for (const record of records) {
+    const errors = await preflightVerifactuRecordXml(record.xml);
+
+    if (!errors.length) {
+      validRecords.push(record);
+      continue;
+    }
+
+    await client.verifactuRecord.update({
+      where: { id: record.id },
+      data: { status: 'PREFLIGHT_FAILED', preflightError: errors.join('\n') },
+    });
+  }
+
+  const cabecera = validRecords[0]?.xml.match(cabeceraPattern)?.[0];
+  const sameCabeceraCount = validRecords.findIndex(
     (record) => record.xml.match(cabeceraPattern)?.[0] !== cabecera,
   );
 
-  return sameCabeceraCount === -1 ? records : records.slice(0, sameCabeceraCount);
+  return {
+    records: sameCabeceraCount === -1 ? validRecords : validRecords.slice(0, sameCabeceraCount),
+    preflightFailedCount: records.length - validRecords.length,
+  };
 };
 
 export const submitPendingVerifactuBatch = async ({
@@ -130,10 +173,10 @@ export const submitPendingVerifactuBatch = async ({
   config: VerifactuSoapConfig;
   transport?: VerifactuSoapTransport;
 }) => {
-  const records = await loadPendingBatch(client, organizationId);
+  const { records, preflightFailedCount } = await loadPendingBatch(client, organizationId);
 
   if (!records.length) {
-    return { submittedCount: 0, waitSeconds: 0, faulted: false };
+    return { submittedCount: 0, waitSeconds: 0, faulted: false, preflightFailedCount };
   }
 
   const result = await submitVerifactuSoapXml({
@@ -158,6 +201,7 @@ export const submitPendingVerifactuBatch = async ({
     submittedCount: records.length,
     waitSeconds: waitSecondsFromResponse(result.parsedResponse),
     faulted: result.parsedResponse.kind === 'fault',
+    preflightFailedCount,
     httpStatus: result.httpStatus,
     statuses,
   };

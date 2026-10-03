@@ -30,6 +30,7 @@ enum VerifactuRecordStatus {
   ACCEPTED
   ACCEPTED_WITH_ERRORS
   REJECTED
+  PREFLIGHT_FAILED
 }
 
 enum OrganizationRole {
@@ -344,6 +345,7 @@ model VerifactuRecord {
   payloadVersion                 String
   xml                            String
   status                         VerifactuRecordStatus   @default(GENERATED)
+  preflightError                 String?
   aeatSubmissionResponseXml      String?
   aeatSubmissionResult           Json?
   aeatEstadoEnvio                String?

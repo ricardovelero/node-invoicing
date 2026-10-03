@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import type { VerifactuRecordStatus } from '@prisma/client';
 import {
   buildVerifactuBatchXml,
+  preflightVerifactuRecordXml,
   runVerifactuSubmissionPass,
   verifactuSubmissionBatchSize,
 } from './verifactu-submission';
@@ -12,7 +13,7 @@ import type { VerifactuSoapConfig, VerifactuSoapTransportRequest } from './verif
 
 const software = {
   producerName: 'Asienta Software SL',
-  producerTaxId: 'B87654321',
+  producerTaxId: 'B87654323',
   name: 'Asienta',
   id: 'AS',
   version: '1.0.0',
@@ -30,7 +31,7 @@ const altaPayload = (invoiceNumber: string): VerifactuAltaPayload => ({
   invoiceId: '5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c',
   invoiceNumber,
   issueDate: '2026-05-27T00:00:00.000Z',
-  sellerTaxId: 'B12345678',
+  sellerTaxId: 'B12345674',
   sellerLegalName: 'Seller Legal SL',
   sellerCountry: 'Spain',
   software,
@@ -38,7 +39,7 @@ const altaPayload = (invoiceNumber: string): VerifactuAltaPayload => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
   huellaType: '01',
   huella: 'B'.repeat(64),
-  customer: { name: 'Customer SA', nif: 'A87654321' },
+  customer: { name: 'Customer SA', nif: 'A87654323' },
   customerCountry: 'Spain',
   currency: 'EUR',
   invoiceType: 'F1',
@@ -77,12 +78,12 @@ const anulacionPayload = (invoiceNumber: string): VerifactuAnulacionPayload => (
   invoiceNumber,
   issueDate: '2026-05-27T00:00:00.000Z',
   cancellationSequenceNumber: 2,
-  sellerTaxId: 'B12345678',
+  sellerTaxId: 'B12345674',
   sellerLegalName: 'Seller Legal SL',
   sellerCountry: 'Spain',
   software,
   previousRecord: {
-    sellerTaxId: 'B12345678',
+    sellerTaxId: 'B12345674',
     invoiceNumber,
     issueDate: '2026-05-27T00:00:00.000Z',
     huella: 'B'.repeat(64),
@@ -105,7 +106,7 @@ const responseLine = (
   operacion: 'Alta' | 'Anulacion',
   estadoRegistro: string,
 ) => '<tikR:RespuestaLinea>' +
-  '<tikR:IDFactura><tik:IDEmisorFactura>B12345678</tik:IDEmisorFactura>' +
+  '<tikR:IDFactura><tik:IDEmisorFactura>B12345674</tik:IDEmisorFactura>' +
   `<tik:NumSerieFactura>${invoiceNumber}</tik:NumSerieFactura>` +
   '<tik:FechaExpedicionFactura>27-05-2026</tik:FechaExpedicionFactura></tikR:IDFactura>' +
   `<tikR:Operacion><tik:TipoOperacion>${operacion}</tik:TipoOperacion></tikR:Operacion>` +
@@ -135,6 +136,7 @@ type FakeRecord = {
   invoiceNumber: string;
   issueDate: Date;
   status: VerifactuRecordStatus;
+  preflightError?: string;
 };
 
 const fakeRecord = (
@@ -188,17 +190,22 @@ const fakeClient = (records: FakeRecord[]) => {
       },
       async update({ where, data }: {
         where: { id: string };
-        data: { status: VerifactuRecordStatus; aeatEstadoRegistro: string | null };
+        data: {
+          status: VerifactuRecordStatus;
+          aeatEstadoRegistro?: string | null;
+          preflightError?: string;
+        };
       }) {
         const record = records.find((candidate) => candidate.id === where.id)!;
 
         record.status = data.status;
+        record.preflightError = data.preflightError;
 
         return {
           id: record.id,
           status: record.status,
           aeatEstadoEnvio: null,
-          aeatEstadoRegistro: data.aeatEstadoRegistro,
+          aeatEstadoRegistro: data.aeatEstadoRegistro ?? null,
           aeatCodigoErrorRegistro: null,
           aeatDescripcionErrorRegistro: null,
         };
@@ -281,6 +288,95 @@ test('runVerifactuSubmissionPass submits pending records in chain order as one b
   assert.deepEqual(findManyCalls[1]?.orderBy, { invoiceFiscalRecord: { sequenceNumber: 'asc' } });
   assert.equal(findManyCalls[1]?.take, verifactuSubmissionBatchSize);
   assert.equal(nextSubmissionAt.get('org_1'), 1_000 + 30_000);
+});
+
+test('preflightVerifactuRecordXml flags invalid NIFs and XSD errors', async () => {
+  assert.deepEqual(
+    await preflightVerifactuRecordXml(buildVerifactuXml(altaPayload('INV-2026-0001'))),
+    [],
+  );
+
+  const errors = await preflightVerifactuRecordXml(buildVerifactuXml({
+    ...altaPayload('INV-2026-0001'),
+    sellerTaxId: 'ES56712340987',
+    customer: { name: 'Customer SA', nif: 'A87654321' },
+  }));
+
+  assert.deepEqual(errors.slice(0, 3), [
+    'Invalid NIF in ObligadoEmision: ES56712340987',
+    'Invalid NIF in IDFactura: ES56712340987',
+    'Invalid NIF in IDDestinatario: A87654321',
+  ]);
+  assert.match(errors[3]!, /^XSD validation failed: /);
+});
+
+test('runVerifactuSubmissionPass leaves pre-flight failures out of the batch', async () => {
+  const invalidCustomer = {
+    ...altaPayload('INV-2026-0002'),
+    customer: { name: 'Customer SA', nif: 'A87654321' },
+  };
+  const records = [
+    fakeRecord('record_1', 1, altaPayload('INV-2026-0001')),
+    fakeRecord('record_2', 2, invalidCustomer),
+    fakeRecord('record_3', 3, altaPayload('INV-2026-0003')),
+  ];
+  const { client } = fakeClient(records);
+  const requests: VerifactuSoapTransportRequest[] = [];
+
+  const result = await runVerifactuSubmissionPass({
+    client,
+    config,
+    nextSubmissionAt: new Map(),
+    logger: silentLogger,
+    now: () => 0,
+    async transport(request) {
+      requests.push(request);
+
+      return {
+        status: 200,
+        body: responseXml([
+          responseLine('INV-2026-0001', 'Alta', 'Correcto'),
+          responseLine('INV-2026-0003', 'Alta', 'Correcto'),
+        ]),
+      };
+    },
+  });
+
+  assert.deepEqual(result, { organizationCount: 1, submittedCount: 2 });
+  assert.deepEqual(
+    [...requests[0]!.body.matchAll(/<sf:NumSerieFactura>([^<]+)</g)].map((match) => match[1]),
+    ['INV-2026-0001', 'INV-2026-0003'],
+  );
+  assert.deepEqual(
+    Object.fromEntries(records.map((record) => [record.id, record.status])),
+    { record_1: 'ACCEPTED', record_2: 'PREFLIGHT_FAILED', record_3: 'ACCEPTED' },
+  );
+  assert.equal(records[1]!.preflightError, 'Invalid NIF in IDDestinatario: A87654321');
+});
+
+test('runVerifactuSubmissionPass skips AEAT when every record fails pre-flight', async () => {
+  const records = [
+    fakeRecord('record_1', 1, { ...altaPayload('INV-2026-0001'), sellerTaxId: 'B12345678' }),
+  ];
+  const { client } = fakeClient(records);
+  let transportCalls = 0;
+
+  const result = await runVerifactuSubmissionPass({
+    client,
+    config,
+    nextSubmissionAt: new Map(),
+    logger: silentLogger,
+    now: () => 0,
+    async transport() {
+      transportCalls += 1;
+
+      return { status: 200, body: responseXml([]) };
+    },
+  });
+
+  assert.deepEqual(result, { organizationCount: 1, submittedCount: 0 });
+  assert.equal(transportCalls, 0);
+  assert.equal(records[0]!.status, 'PREFLIGHT_FAILED');
 });
 
 test('runVerifactuSubmissionPass waits for the AEAT TiempoEsperaEnvio window', async () => {
