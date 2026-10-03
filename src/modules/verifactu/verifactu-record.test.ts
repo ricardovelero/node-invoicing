@@ -93,7 +93,7 @@ const payload = (): VerifactuAltaPayload => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
   huellaType: '01',
   huella,
-  customer: { name: 'Customer SA', nif: 'A87654321' },
+  customer: { name: 'Customer SA', nif: 'A87654321', idOtro: null },
   customerCountry: 'Spain',
   currency: 'EUR',
   invoiceType: 'F1',
