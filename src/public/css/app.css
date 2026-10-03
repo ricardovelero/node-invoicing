@@ -48,6 +48,30 @@
 }
 
 /*
+  Page transitions
+  ----------------
+  Cross-document view transitions: crossfade between pages, header swaps
+  without animating. Browsers without support navigate normally.
+*/
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(app-header) {
+  display: none;
+}
+
+::view-transition-new(app-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+/*
   Components
   ----------
   Reusable app-level classes live here. This is where button styles,
