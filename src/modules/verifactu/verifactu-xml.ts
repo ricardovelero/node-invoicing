@@ -68,15 +68,31 @@ const buildIdFacturaAnulacionXml = (payload: VerifactuAnulacionPayload) =>
   element('sf:FechaExpedicionFacturaAnulada', formatVerifactuDate(payload.issueDate)) +
   '</sf:IDFactura>';
 
+const buildRecipientIdXml = ({ nif, idOtro }: VerifactuAltaPayload['customer']) => {
+  if (nif) {
+    return element('sf:NIF', nif);
+  }
+
+  return idOtro
+    ? '<sf:IDOtro>' +
+      element('sf:CodigoPais', idOtro.codigoPais) +
+      element('sf:IDType', idOtro.idType) +
+      element('sf:ID', idOtro.id) +
+      '</sf:IDOtro>'
+    : '';
+};
+
 const buildDestinatariosXml = (payload: VerifactuAltaPayload) => {
-  if (!payload.customer.nif) {
+  const recipientIdXml = buildRecipientIdXml(payload.customer);
+
+  if (!recipientIdXml) {
     return '';
   }
 
   return '<sf:Destinatarios>' +
     '<sf:IDDestinatario>' +
     element('sf:NombreRazon', payload.customer.name) +
-    element('sf:NIF', payload.customer.nif) +
+    recipientIdXml +
     '</sf:IDDestinatario>' +
     '</sf:Destinatarios>';
 };

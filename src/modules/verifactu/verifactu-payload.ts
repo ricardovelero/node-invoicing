@@ -1,4 +1,8 @@
 import { Prisma, type VerifactuRecordStatus } from '@prisma/client';
+import {
+  buildVerifactuRecipientId,
+  type VerifactuRecipientId,
+} from './verifactu-destinatario';
 import { calculateVerifactuHuella } from './verifactu-huella';
 
 export const verifactuPayloadVersion = '1.0';
@@ -90,9 +94,8 @@ export type VerifactuPreviousRecordIdentity = {
   huella: string;
 };
 
-export type VerifactuCustomerIdentity = {
+export type VerifactuCustomerIdentity = VerifactuRecipientId & {
   name: string;
-  nif: string | null;
 };
 
 export type VerifactuTaxBreakdownItem = {
@@ -537,7 +540,9 @@ export const buildVerifactuPayload = (
       rechazoPrevio: record.subsanacionNumber > 0 ? options.rechazoPrevio ?? null : null,
       customer: {
         name: snapshot.customerName,
-        nif: snapshot.customerTaxId,
+        ...(snapshot.customerTaxId
+          ? buildVerifactuRecipientId(snapshot.customerTaxId, snapshot.customerCountry)
+          : { nif: null, idOtro: null }),
       },
       customerCountry: snapshot.customerCountry,
       currency: record.invoice.currency,

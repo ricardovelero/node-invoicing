@@ -2532,7 +2532,7 @@ const mockSubsanacionTransaction = ({
   const invoice = {
     ...invoiceForStatusUpdate,
     status: invoiceStatus,
-    customer: { ...invoiceForStatusUpdate.customer, taxId: "A87654323" },
+    customer: { ...invoiceForStatusUpdate.customer, taxId: "A87654323", country: "ES" },
     snapshot,
   };
 

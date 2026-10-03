@@ -41,7 +41,7 @@ const altaPayload = (invoiceNumber: string): VerifactuAltaPayload => ({
   generationDateTimeWithTimezone: '2026-05-27T10:15:30+02:00',
   huellaType: '01',
   huella: 'B'.repeat(64),
-  customer: { name: 'Customer SA', nif: 'A87654323' },
+  customer: { name: 'Customer SA', nif: 'A87654323', idOtro: null },
   customerCountry: 'Spain',
   currency: 'EUR',
   invoiceType: 'F1',
@@ -301,7 +301,7 @@ test('preflightVerifactuRecordXml flags invalid NIFs and XSD errors', async () =
   const errors = await preflightVerifactuRecordXml(buildVerifactuXml({
     ...altaPayload('INV-2026-0001'),
     sellerTaxId: 'ES56712340987',
-    customer: { name: 'Customer SA', nif: 'A87654321' },
+    customer: { name: 'Customer SA', nif: 'A87654321', idOtro: null },
   }));
 
   assert.deepEqual(errors.slice(0, 3), [
@@ -315,7 +315,7 @@ test('preflightVerifactuRecordXml flags invalid NIFs and XSD errors', async () =
 test('runVerifactuSubmissionPass leaves pre-flight failures out of the batch', async () => {
   const invalidCustomer = {
     ...altaPayload('INV-2026-0002'),
-    customer: { name: 'Customer SA', nif: 'A87654321' },
+    customer: { name: 'Customer SA', nif: 'A87654321', idOtro: null },
   };
   const records = [
     fakeRecord('record_1', 1, altaPayload('INV-2026-0001')),

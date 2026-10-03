@@ -78,6 +78,7 @@ const baseAltaPayload = (): VerifactuAltaPayload => ({
   customer: {
     name: 'Customer SA',
     nif: 'A87654321',
+    idOtro: null,
   },
   customerCountry: 'Spain',
   currency: 'EUR',
@@ -208,6 +209,7 @@ test('buildVerifactuXml escapes XML special characters', () => {
     customer: {
       name: "Customer's > Name",
       nif: 'A87654321',
+      idOtro: null,
     },
   });
 
@@ -289,6 +291,27 @@ test('buildVerifactuXml adds subsanación flags after NombreRazonEmisor', async 
   assert.deepEqual(order, [...order].sort((left, right) => left - right));
   assert.deepEqual(await validateVerifactuXmlWithXsd(xml), { ok: true });
   assert.doesNotMatch(buildVerifactuXml(baseAltaPayload()), /Subsanacion|RechazoPrevio/);
+});
+
+test('buildVerifactuXml identifies foreign recipients with IDOtro', async () => {
+  const xml = buildVerifactuXml({
+    ...baseAltaPayload(),
+    customer: {
+      name: 'Customer Inc',
+      nif: null,
+      idOtro: { codigoPais: 'US', idType: '04', id: 'US123456789-0' },
+    },
+  });
+
+  assert.match(
+    xml,
+    new RegExp(
+      '<sf:IDDestinatario><sf:NombreRazon>Customer Inc</sf:NombreRazon><sf:IDOtro>' +
+        '<sf:CodigoPais>US</sf:CodigoPais><sf:IDType>04</sf:IDType>' +
+        '<sf:ID>US123456789-0</sf:ID></sf:IDOtro></sf:IDDestinatario>',
+    ),
+  );
+  assert.deepEqual(await validateVerifactuXmlWithXsd(xml), { ok: true });
 });
 
 test('validateVerifactuXmlWithXsd rejects schema-invalid XML', async () => {
