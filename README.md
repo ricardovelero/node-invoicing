@@ -276,7 +276,7 @@ Spanish organizations create fiscal evidence when invoices are issued or voided:
 - fiscal records are organization-scoped and hash-chained
 - the chain can be verified with `pnpm job:verify-fiscal-chain`
 
-For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status.
+For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status. Voiding an invoice that has a Veri*Factu `ALTA` record creates a chained `ANULACION` Veri*Factu record.
 
 Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`; one default config is required before Spanish invoice issuance can build a Veri*Factu payload.
 

@@ -931,12 +931,25 @@ export const updateInvoiceStatus = async (
     }
 
     if (lockedInvoice.status === 'ISSUED' && status === 'VOID') {
-      await createInvoiceFiscalRecord(tx, {
+      const fiscalRecord = await createInvoiceFiscalRecord(tx, {
         invoiceId: lockedInvoice.id,
         organizationId,
         type: 'ANULACION',
         createdByUserId,
       });
+      // Only invoices registered with an ALTA VerifactuRecord can be cancelled in AEAT.
+      const altaVerifactuRecord = await tx.verifactuRecord.findFirst({
+        where: {
+          invoiceId: lockedInvoice.id,
+          organizationId,
+          recordType: 'ALTA',
+        },
+        select: { id: true },
+      });
+
+      if (altaVerifactuRecord) {
+        await createVerifactuRecordForFiscalRecord(tx, fiscalRecord.id);
+      }
     }
 
     return { ok: true as const, status };

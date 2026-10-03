@@ -104,7 +104,8 @@ export const persistVerifactuSoapSubmissionResponse = async ({
 
   const firstLine = parsed.kind === 'response' ? parsed.respuestaLinea[0] : undefined;
   const status = verifactuStatusFromSoapSubmission(parsed);
-  const nextStatus = currentRecord.status === 'ACCEPTED' && status === 'REJECTED'
+  const nextStatus = status === null ||
+    (currentRecord.status === 'ACCEPTED' && status === 'REJECTED')
     ? currentRecord.status
     : status;
   const record = await client.verifactuRecord.update({

@@ -293,7 +293,7 @@ test('parseVerifactuSoapSubmissionResponse parses SOAP Fault fixtures', () => {
   const parsed = parseVerifactuSoapSubmissionResponse(soapFaultResponse);
 
   assert.equal(parsed.kind, 'fault');
-  assert.equal(verifactuStatusFromSoapSubmission(parsed), 'REJECTED');
+  assert.equal(verifactuStatusFromSoapSubmission(parsed), null);
 
   if (parsed.kind !== 'fault') {
     throw new Error('Expected fault result.');
