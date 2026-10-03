@@ -12,6 +12,7 @@ import {
   sendInvoiceEmail,
 } from './invoice-email.service';
 import { invoiceEmailView, publicInvoiceView } from './invoice.presenter';
+import { buildVerifactuQr } from '../verifactu/verifactu-qr';
 
 export const renderInvoiceEmailForm: RequestHandler = async (req, res) => {
   const invoiceId = String(req.params.invoiceId);
@@ -113,7 +114,7 @@ export const showPublicInvoice: RequestHandler = async (req, res) => {
 
   return res.render(
     'pages/public/invoices/print.njk',
-    publicInvoiceView(invoice),
+    publicInvoiceView(invoice, await buildVerifactuQr(invoice.verifactuRecords[0])),
   );
 };
 

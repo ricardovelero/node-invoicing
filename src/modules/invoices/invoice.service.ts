@@ -5,6 +5,7 @@ import { calculateInvoiceTotals } from '../../lib/money';
 import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
 import { buildVerifactuRecordData } from '../verifactu/verifactu-record';
 import { buildVerifactuXml } from '../verifactu/verifactu-xml';
+import { verifactuQrRecordsInclude } from '../verifactu/verifactu-qr';
 import {
   buildVerifactuPayloadForFiscalRecord,
   buildVerifactuSoftware,
@@ -500,6 +501,7 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
         orderBy: { createdAt: 'desc' },
         take: 10,
       },
+      verifactuRecords: verifactuQrRecordsInclude,
     },
   });
 

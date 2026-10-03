@@ -269,6 +269,12 @@ const printableSnapshot = {
 };
 
 const printableInvoice = {
+  verifactuRecords: [] as Array<{
+    sellerTaxId: string;
+    invoiceNumber: string;
+    issueDate: Date;
+    xml: string;
+  }>,
   id: "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
   number: "INV-2026-0001",
   status: "ISSUED",
@@ -1594,7 +1600,36 @@ test("printInvoice renders issued invoices with snapshot data", async () => {
       outstandingCents: 10890,
       isPaid: false,
     },
+    verifactuQr: null,
   });
+});
+
+test("printInvoice renders the VERI*FACTU QR for registered invoices", async () => {
+  prismaMock.invoice.findFirst = async () => ({
+    ...printableInvoice,
+    verifactuRecords: [{
+      sellerTaxId: "B12345678",
+      invoiceNumber: "INV-2026-0001",
+      issueDate: new Date("2026-05-27T00:00:00.000Z"),
+      xml: "<sf:ImporteTotal>108.90</sf:ImporteTotal>",
+    }],
+  });
+  const req = createRequest({}, { invoiceId: printableInvoice.id });
+  const res = createResponse();
+
+  await printInvoice(req, res, () => undefined);
+
+  const { verifactuQr } = res.renderedData as {
+    verifactuQr: { url: string; svg: string } | null;
+  };
+
+  assert.ok(verifactuQr);
+  assert.equal(
+    verifactuQr.url,
+    "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345678" +
+      "&numserie=INV-2026-0001&fecha=27-05-2026&importe=108.90",
+  );
+  assert.match(verifactuQr.svg, /^<svg/);
 });
 
 test("downloadInvoicePdf renders the existing print URL with Playwright and returns an attachment", async () => {

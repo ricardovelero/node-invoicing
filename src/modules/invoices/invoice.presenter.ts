@@ -4,6 +4,7 @@ import type {
   PaymentStatus,
 } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
+import type { VerifactuQr } from '../verifactu/verifactu-qr';
 import { createCurrencyOptions, defaultCurrency } from '../../lib/currencies';
 import {
   formatRateLabel,
@@ -520,7 +521,10 @@ export const invoiceEmailView = (
   errors,
 });
 
-export const invoicePrintView = (invoice: InvoiceDisplaySource) => {
+export const invoicePrintView = (
+  invoice: InvoiceDisplaySource,
+  verifactuQr: VerifactuQr | null = null,
+) => {
   const invoiceDisplay = createInvoiceDisplay(invoice);
 
   return {
@@ -530,10 +534,14 @@ export const invoicePrintView = (invoice: InvoiceDisplaySource) => {
     invoiceLineDisplays: createInvoiceLineDisplays(invoice.lines),
     snapshot: invoiceDisplay.snapshot,
     paymentSummary: calculateInvoicePaymentSummary(invoice),
+    verifactuQr,
   };
 };
 
-export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
+export const publicInvoiceView = (
+  invoice: InvoiceDisplaySource,
+  verifactuQr: VerifactuQr | null = null,
+) => ({
   title: `Invoice ${invoice.number}`,
   invoice,
   invoiceDisplay: createInvoiceDisplay(invoice),
@@ -542,4 +550,5 @@ export const publicInvoiceView = (invoice: InvoiceDisplaySource) => ({
   isEffectivelyOverdue: isInvoiceOverdue(invoice),
   paymentSummary: calculateInvoicePaymentSummary(invoice),
   currentOrganization: invoice.organization,
+  verifactuQr,
 });
