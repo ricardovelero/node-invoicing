@@ -132,6 +132,24 @@
     @apply mx-auto mb-6 bg-white text-[0.75rem] shadow-2xl;
   }
 
+  /*
+    AEAT QR spec: 30-40mm square, at least 2mm quiet zone, labels no smaller than
+    the invoice text. Sizes stay in range after the 0.9 PDF scale.
+  */
+  .verifactu-qr {
+    @apply flex flex-col items-center text-sm leading-none font-semibold;
+  }
+
+  .verifactu-qr-code {
+    @apply block bg-white;
+    padding: 2.5mm;
+  }
+
+  .verifactu-qr-code svg {
+    width: 36mm;
+    height: 36mm;
+  }
+
   /* Invoice catalog combobox */
   [data-invoice-catalog-option][aria-selected='true'] {
     @apply bg-panel;

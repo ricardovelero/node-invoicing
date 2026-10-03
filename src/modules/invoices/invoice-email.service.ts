@@ -7,6 +7,7 @@ import { prisma } from '../../db/prisma';
 import { formatDate } from '../../lib/dates';
 import { formatMoney } from '../../lib/money';
 import type { InvoiceEmailForm } from './invoice-email.schema';
+import { verifactuQrRecordsInclude } from '../verifactu/verifactu-qr';
 import { createInvoiceDisplay } from './invoice.presenter';
 import {
   calculateInvoicePaymentSummary,
@@ -178,6 +179,7 @@ const invoiceEmailInclude = {
     orderBy: { createdAt: 'desc' },
     take: 10,
   },
+  verifactuRecords: verifactuQrRecordsInclude,
 } satisfies Prisma.InvoiceInclude;
 
 export const getEmailInvoice = (organizationId: string, invoiceId: string) =>

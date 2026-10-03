@@ -377,6 +377,16 @@ test("getPublicInvoiceByToken looks up invoices by token hash", async () => {
             orderBy: { createdAt: "desc" },
             take: 10,
           },
+          verifactuRecords: {
+            where: { recordType: "ALTA" },
+            select: {
+              sellerTaxId: true,
+              invoiceNumber: true,
+              issueDate: true,
+              xml: true,
+            },
+            take: 1,
+          },
         },
       },
     },

@@ -65,3 +65,18 @@ test('invoice print template includes printable invoice sections and action', ()
   assert.match(printBody, /paymentSummary\.outstandingCents/);
   assert.match(printBody, /Payment instructions/);
 });
+
+test('invoice print body shows the VERI*FACTU QR beside seller and customer', () => {
+  const printBody = readFileSync(
+    path.join(process.cwd(), 'src', 'views', 'components', 'invoice-print-body.njk'),
+    'utf8',
+  );
+  const qrBlockStart = printBody.indexOf('class="verifactu-qr"');
+
+  assert.notEqual(qrBlockStart, -1);
+  assert.ok(printBody.indexOf('</header>') < qrBlockStart);
+  assert.ok(printBody.indexOf('>Customer</h2>') < qrBlockStart);
+  assert.ok(qrBlockStart < printBody.indexOf('Invoice Number:'));
+  assert.match(printBody, /verifactuQr %}sm:grid-cols-\[1fr_1fr_auto\]/);
+  assert.match(printBody, /QR tributario:[\s\S]*verifactuQr\.svg \| safe[\s\S]*VERI\*FACTU/);
+});

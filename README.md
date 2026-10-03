@@ -278,6 +278,8 @@ Spanish organizations create fiscal evidence when invoices are issued or voided:
 
 For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status. Voiding an invoice that has a Veri*Factu `ALTA` record creates a chained `ANULACION` Veri*Factu record.
 
+Invoices with a Veri*Factu `ALTA` record show the AEAT tax QR ("QR tributario:" / "VERI*FACTU") beside the seller and customer details on the print view, PDF, and public invoice link. The QR points to AEAT preproduction unless `VERIFACTU_AEAT_ENV=production`, and its amount is read from the registered record XML.
+
 Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`; one default config is required before Spanish invoice issuance can build a Veri*Factu payload.
 
 ### AEAT Preproduction Testing

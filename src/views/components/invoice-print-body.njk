@@ -9,7 +9,7 @@
     </div>
   </header>
 
-  <section class="mt-8 grid gap-8 sm:grid-cols-2">
+  <section class="mt-8 grid gap-8 {% if verifactuQr %}sm:grid-cols-[1fr_1fr_auto]{% else %}sm:grid-cols-2{% endif %}">
     <div>
       <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">Seller</h2>
       <div class="mt-3 space-y-1 text-sm">
@@ -33,6 +33,13 @@
         {% endif %}
       </div>
     </div>
+    {% if verifactuQr %}
+      <div class="verifactu-qr" aria-label="QR tributario">
+        <p>QR tributario:</p>
+        <a class="verifactu-qr-code" href="{{ verifactuQr.url }}">{{ verifactuQr.svg | safe }}</a>
+        <p>VERI*FACTU</p>
+      </div>
+    {% endif %}
   </section>
 
   <section class="mt-6 max-w-sm text-sm">

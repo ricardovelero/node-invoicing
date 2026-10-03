@@ -43,6 +43,7 @@ import {
 } from './invoice.presenter';
 import { sendInvoiceEmail } from './invoice-email.service';
 import { generateInvoicePdfFromPrintUrl } from './invoice-pdf.service';
+import { buildVerifactuQr } from '../verifactu/verifactu-qr';
 
 type InvoiceFormCustomers = Awaited<ReturnType<typeof getInvoiceFormOptions>>;
 type InvoiceDetails = NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>;
@@ -409,7 +410,10 @@ export const printInvoice: RequestHandler = async (req, res) => {
     return res.redirect(`/invoices/${invoiceId}`);
   }
 
-  return res.render('pages/invoices/print.njk', invoicePrintView(invoice));
+  return res.render(
+    'pages/invoices/print.njk',
+    invoicePrintView(invoice, await buildVerifactuQr(invoice.verifactuRecords[0])),
+  );
 };
 
 export const downloadInvoicePdf: RequestHandler = async (req, res) => {
