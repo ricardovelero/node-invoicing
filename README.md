@@ -166,6 +166,12 @@ pnpm job:verifactu-submit -- --once
 Runs the compiled Veri*Factu submission worker against AEAT preproduction (same `VERIFACTU_*` settings as the test scripts). Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. Before sending, each record is checked against the AEAT XSD and its NIFs' control characters; failures are marked `PREFLIGHT_FAILED` with the reason in `preflightError` and left out of the request, so they don't fault the rest of the batch. Set a record back to `GENERATED` to retry it. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
 
 ```sh
+pnpm job:verifactu-reconcile
+```
+
+Queries AEAT for Veri*Factu records still `SUBMITTED` 15 minutes after submission (no matching response line), up to 100 per run, oldest first. Registered records become `ACCEPTED` or `ACCEPTED_WITH_ERRORS`; records AEAT has no trace of go back to `GENERATED` for the submission worker to resend. Faults and network errors leave records `SUBMITTED` for the next run and make the job exit non-zero. Run it from cron, e.g. every 15 minutes.
+
+```sh
 pnpm verifactu:submit-test <verifactuRecordId>
 pnpm verifactu:query-test <verifactuRecordId>
 ```
