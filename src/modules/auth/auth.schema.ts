@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { passwordRequirementsMessage } from './password-requirements';
 
-export const passwordRequirementsMessage =
-  'Use at least 8 characters with uppercase, lowercase and a number.';
+export { passwordRequirementsMessage };
 
 const stringInput = (schema: z.ZodType<string>) =>
   z.preprocess((value) => (typeof value === 'string' ? value : ''), schema);
