@@ -1,6 +1,11 @@
 # Agent Guidelines
 
-This repository is a TypeScript Express invoicing app with server-rendered Nunjucks views, Prisma/PostgreSQL persistence, and a small CSP-safe frontend bundle. Follow the patterns below when making changes.
+Asienta is a multi-tenant, organization-scoped invoicing app built with TypeScript, Express,
+server-rendered Nunjucks views, Prisma/PostgreSQL, and a small CSP-safe frontend bundle.
+Users can belong to multiple organizations through role-based memberships, with one active
+organization per session. Customers, invoices, and invoice numbering belong to the organization,
+not the individual user. All business data access must be scoped to the active organization.
+Follow the patterns below when making changes.
 
 ## Project Shape
 
