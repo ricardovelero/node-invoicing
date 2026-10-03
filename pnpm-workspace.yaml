@@ -23,3 +23,6 @@ overrides:
   # Patch transitive shell-quote (via concurrently, dev-only) for GHSA-w7jw-789q-3m8p
   # (quote() does not escape newlines in object .op values).
   'shell-quote': ^1.8.4
+  # Patch transitive fast-uri (via ajv in Prisma's local dev tooling) for host
+  # confusion via an unclosed bracket in the URI authority.
+  'fast-uri': ^3.1.7
