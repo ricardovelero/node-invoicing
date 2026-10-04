@@ -472,6 +472,62 @@ test('runVerifactuSubmissionPass keeps records pending on SOAP faults and backs 
   assert.equal(nextSubmissionAt.get('org_1'), 60_000);
 });
 
+test('runVerifactuSubmissionPass fails records on SOAP client faults', async () => {
+  const records = [
+    fakeRecord('record_1', 1, altaPayload('INV-2026-0001')),
+    fakeRecord('record_2', 2, {
+      ...altaPayload('INV-2026-0002'),
+      sellerTaxId: 'B87654323',
+    }),
+  ];
+  const { client } = fakeClient(records);
+  const nextSubmissionAt = new Map<string, number>();
+  const requests: string[] = [];
+  const clientFaultXml = faultXml
+    .replace('env:Server', 'env:Client')
+    .replace(
+      'Codigo[100].Error tecnico',
+      'Codigo[4112].El titular del certificado debe ser Obligado Emisión',
+    );
+  const transport = async (request: VerifactuSoapTransportRequest) => {
+    requests.push(request.body);
+
+    return request.body.includes('INV-2026-0001')
+      ? { status: 500, body: clientFaultXml }
+      : {
+          status: 200,
+          body: responseXml([responseLine('INV-2026-0002', 'Alta', 'Correcto')]),
+        };
+  };
+  const pass = (now: number) => runVerifactuSubmissionPass({
+    client,
+    aeatEnvironment: 'TEST',
+    loadConfig: async () => config,
+    nextSubmissionAt,
+    logger: silentLogger,
+    now: () => now,
+    transport,
+  });
+
+  await pass(0);
+
+  assert.equal(records[0]!.status, 'PREFLIGHT_FAILED');
+  assert.equal(
+    records[0]!.preflightError,
+    'AEAT rejected the request (env:Client): ' +
+      'Codigo[4112].El titular del certificado debe ser Obligado Emisión',
+  );
+  assert.equal(records[1]!.status, 'GENERATED');
+  assert.equal(nextSubmissionAt.get('org_1'), 60_000);
+
+  await pass(60_000);
+
+  assert.equal(requests.length, 2);
+  assert.match(requests[1]!, /INV-2026-0002/);
+  assert.doesNotMatch(requests[1]!, /INV-2026-0001/);
+  assert.equal(records[1]!.status, 'ACCEPTED');
+});
+
 test('runVerifactuSubmissionPass keeps records pending on unrecognized responses', async () => {
   const records = [fakeRecord('record_1', 1, altaPayload('INV-2026-0001'))];
   const { client } = fakeClient(records);

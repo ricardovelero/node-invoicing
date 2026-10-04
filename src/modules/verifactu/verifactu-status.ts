@@ -95,31 +95,47 @@ export const getVerifactuIssues = async (
   });
 };
 
-// Sends an invoice's latest record again when it failed pre-flight validation,
-// as after a validator fix. Earlier failures were superseded by a later record,
-// such as a subsanación, and records AEAT rejected need a subsanación instead.
-// Run it holding the invoice's row lock, as subsanaciones are created under it.
+// Sends an invoice's latest record again when it failed pre-flight validation or
+// a client fault, as after a validator or certificate fix. Failed records right
+// before it go too, back to the invoice's current ALTA: a fault fails a whole
+// request, which can hold both an ALTA and its ANULACION. Older records were
+// superseded, such as by a subsanación, and records AEAT rejected need a
+// subsanación instead. Run it holding the invoice's row lock, as subsanaciones
+// are created under it.
 export const retryVerifactuPreflightFailures = async (
   client: VerifactuStatusClient,
   organizationId: string,
   invoiceId: string,
 ) => {
-  const latest = await client.invoiceFiscalRecord.findFirst({
+  const records = await client.invoiceFiscalRecord.findMany({
     where: {
       organizationId,
       invoiceId,
       verifactuRecord: { is: { aeatEnvironment: currentVerifactuAeatEnvironment() } },
     },
     orderBy: { sequenceNumber: 'desc' },
-    select: { verifactuRecord: { select: { id: true, status: true } } },
+    select: { type: true, verifactuRecord: { select: { id: true, status: true } } },
   });
+  const ids: string[] = [];
 
-  if (latest?.verifactuRecord?.status !== 'PREFLIGHT_FAILED') {
+  for (const record of records) {
+    if (record.verifactuRecord?.status !== 'PREFLIGHT_FAILED') {
+      break;
+    }
+
+    ids.push(record.verifactuRecord.id);
+
+    if (record.type === 'ALTA') {
+      break;
+    }
+  }
+
+  if (!ids.length) {
     return 0;
   }
 
   const { count } = await client.verifactuRecord.updateMany({
-    where: { id: latest.verifactuRecord.id, status: 'PREFLIGHT_FAILED' },
+    where: { id: { in: ids }, status: 'PREFLIGHT_FAILED' },
     data: { status: 'GENERATED', preflightError: null },
   });
 

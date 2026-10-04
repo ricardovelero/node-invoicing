@@ -114,6 +114,14 @@ export const findVerifactuResponseLineIndex = (
     line.operacion?.startsWith(tipoOperacion(record.recordType)));
 };
 
+// A client fault means AEAT refused the request itself, for example because the
+// certificate can't submit for the seller NIF. Resending can't succeed, and the
+// records would hold back every later record, so they leave the queue as issues.
+const isVerifactuClientFault = (
+  parsed: ParsedVerifactuSoapSubmission,
+): parsed is Extract<ParsedVerifactuSoapSubmission, { kind: 'fault' }> =>
+  parsed.kind === 'fault' && /(?:^|:)(?:Client|Sender)$/u.test(parsed.faultCode?.trim() ?? '');
+
 const waitSecondsFromResponse = (parsed: ParsedVerifactuSoapSubmission) => {
   const seconds = parsed.kind === 'response' ? Number(parsed.tiempoEsperaEnvio) : NaN;
 
@@ -205,6 +213,9 @@ export const submitPendingVerifactuBatch = async ({
   }
 
   const statuses: Partial<Record<VerifactuRecordStatus, number>> = {};
+  const clientFault = isVerifactuClientFault(result.parsedResponse)
+    ? result.parsedResponse
+    : null;
 
   for (const record of records) {
     const persisted = await persistVerifactuSoapSubmissionResponse({
@@ -213,8 +224,21 @@ export const submitPendingVerifactuBatch = async ({
       responseXml: result.responseXml,
       lineIndex: findVerifactuResponseLineIndex(result.parsedResponse, record),
     });
+    let status = persisted.record.status;
 
-    statuses[persisted.record.status] = (statuses[persisted.record.status] ?? 0) + 1;
+    if (clientFault) {
+      status = 'PREFLIGHT_FAILED';
+      await client.verifactuRecord.update({
+        where: { id: record.id },
+        data: {
+          status,
+          preflightError: `AEAT rejected the request (${clientFault.faultCode}): ` +
+            (clientFault.faultString ?? ''),
+        },
+      });
+    }
+
+    statuses[status] = (statuses[status] ?? 0) + 1;
   }
 
   return {

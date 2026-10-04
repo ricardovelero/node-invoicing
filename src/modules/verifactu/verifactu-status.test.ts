@@ -56,21 +56,27 @@ test('getVerifactuIssues skips the history query without failing records', async
   assert.deepEqual(await getVerifactuIssues(client as never, organizationId), []);
 });
 
-const retryClient = (latestStatus: VerifactuRecordStatus) => {
+type RetryRecord = {
+  type: 'ALTA' | 'ANULACION';
+  verifactuRecord: { id: string; status: VerifactuRecordStatus };
+};
+
+// Records are given newest first, as the query orders them.
+const retryClient = (records: RetryRecord[]) => {
   const calls: Record<string, unknown> = {};
   const client = {
     invoiceFiscalRecord: {
-      async findFirst(args: unknown) {
-        calls.findFirst = args;
+      async findMany(args: unknown) {
+        calls.findMany = args;
 
-        return { verifactuRecord: { id: 'record_latest', status: latestStatus } };
+        return records;
       },
     },
     verifactuRecord: {
-      async updateMany(args: unknown) {
+      async updateMany(args: { where: { id: { in: string[] } } }) {
         calls.updateMany = args;
 
-        return { count: 1 };
+        return { count: args.where.id.in.length };
       },
     },
   };
@@ -78,28 +84,67 @@ const retryClient = (latestStatus: VerifactuRecordStatus) => {
   return { client: client as never, calls };
 };
 
+const retryRecord = (
+  id: string,
+  type: RetryRecord['type'],
+  status: VerifactuRecordStatus,
+): RetryRecord => ({ type, verifactuRecord: { id, status } });
+
 test('retryVerifactuPreflightFailures requeues the latest record when it failed', async () => {
-  const { client, calls } = retryClient('PREFLIGHT_FAILED');
+  const { client, calls } = retryClient([
+    retryRecord('record_alta', 'ALTA', 'PREFLIGHT_FAILED'),
+  ]);
 
   assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 1);
-  assert.deepEqual(calls.findFirst, {
+  assert.deepEqual(calls.findMany, {
     where: {
       organizationId,
       invoiceId: 'inv_1',
       verifactuRecord: { is: { aeatEnvironment: 'TEST' } },
     },
     orderBy: { sequenceNumber: 'desc' },
-    select: { verifactuRecord: { select: { id: true, status: true } } },
+    select: { type: true, verifactuRecord: { select: { id: true, status: true } } },
   });
   assert.deepEqual(calls.updateMany, {
-    where: { id: 'record_latest', status: 'PREFLIGHT_FAILED' },
+    where: { id: { in: ['record_alta'] }, status: 'PREFLIGHT_FAILED' },
     data: { status: 'GENERATED', preflightError: null },
   });
 });
 
+test('retryVerifactuPreflightFailures requeues an ALTA failed with its ANULACION', async () => {
+  // A client fault failed the request that held both records.
+  const { client, calls } = retryClient([
+    retryRecord('record_anulacion', 'ANULACION', 'PREFLIGHT_FAILED'),
+    retryRecord('record_alta', 'ALTA', 'PREFLIGHT_FAILED'),
+  ]);
+
+  assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 2);
+  assert.deepEqual(
+    (calls.updateMany as { where: unknown }).where,
+    { id: { in: ['record_anulacion', 'record_alta'] }, status: 'PREFLIGHT_FAILED' },
+  );
+});
+
+test('retryVerifactuPreflightFailures stops at the current ALTA', async () => {
+  // Both the original ALTA and its subsanación failed; only the subsanación is current.
+  const { client, calls } = retryClient([
+    retryRecord('record_subsanacion', 'ALTA', 'PREFLIGHT_FAILED'),
+    retryRecord('record_original', 'ALTA', 'PREFLIGHT_FAILED'),
+  ]);
+
+  assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 1);
+  assert.deepEqual(
+    (calls.updateMany as { where: unknown }).where,
+    { id: { in: ['record_subsanacion'] }, status: 'PREFLIGHT_FAILED' },
+  );
+});
+
 test('retryVerifactuPreflightFailures leaves failures superseded by a later record', async () => {
   // The original ALTA failed pre-flight, then an accepted subsanación replaced it.
-  const { client, calls } = retryClient('ACCEPTED');
+  const { client, calls } = retryClient([
+    retryRecord('record_subsanacion', 'ALTA', 'ACCEPTED'),
+    retryRecord('record_original', 'ALTA', 'PREFLIGHT_FAILED'),
+  ]);
 
   assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 0);
   assert.equal(calls.updateMany, undefined);
