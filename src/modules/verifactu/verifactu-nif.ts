@@ -37,6 +37,12 @@ export const isValidSpanishNif = (value: string) => {
     return nif[8] === dniLetter(nif.slice(1, 8));
   }
 
+  // Newer K/L/M NIFs have alphanumeric bodies, whose control letter rule AEAT
+  // doesn't publish, so only their format is checked.
+  if (/^[KLM][0-9A-Z]{7}[A-Z]$/u.test(nif)) {
+    return true;
+  }
+
   if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/u.test(nif)) {
     const control = cifControlDigit(nif.slice(1, 8));
     const controlChar = nif[8]!;
