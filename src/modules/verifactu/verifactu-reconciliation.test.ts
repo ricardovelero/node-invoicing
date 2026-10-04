@@ -141,6 +141,7 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
     fakeRecord('record_fault', 'INV-1'),
     fakeRecord('record_error', 'INV-2'),
     fakeRecord('record_ok', 'INV-3'),
+    fakeRecord('record_html', 'INV-4'),
   ];
   const { client } = fakeClient(records);
   const errors: unknown[][] = [];
@@ -164,16 +165,29 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
         throw new Error('ECONNRESET');
       }
 
+      if (request.body.includes('INV-4')) {
+        return { status: 502, body: '<html><body>Bad Gateway</body></html>' };
+      }
+
       return { status: 200, body: queryResponseXml('Correcto') };
     },
   });
 
   assert.deepEqual(
     Object.fromEntries(records.map((record) => [record.id, record.status])),
-    { record_fault: 'SUBMITTED', record_error: 'SUBMITTED', record_ok: 'ACCEPTED' },
+    {
+      record_fault: 'SUBMITTED',
+      record_error: 'SUBMITTED',
+      record_ok: 'ACCEPTED',
+      record_html: 'SUBMITTED',
+    },
   );
-  assert.equal(result.errorCount, 1);
-  assert.equal(errors[0]![1], 'record_error');
+  assert.deepEqual(result.statuses, { ACCEPTED: 1 });
+  assert.equal(result.errorCount, 3);
+  assert.deepEqual(
+    errors.map((args) => args[1]),
+    ['record_fault', 'record_error', 'record_html'],
+  );
 });
 
 test('reconcileSubmittedVerifactuRecords queries with each organization config', async () => {
