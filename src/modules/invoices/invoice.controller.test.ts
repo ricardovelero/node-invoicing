@@ -2075,9 +2075,9 @@ test("retryInvoiceVerifactuController requeues pre-flight failures", async () =>
           return [];
         },
         invoiceFiscalRecord: {
-          async findFirst() {
+          async findMany() {
             assert.match(lockSql, /FOR UPDATE/);
-            return { verifactuRecord: { id: "record_1", status } };
+            return [{ type: "ALTA", verifactuRecord: { id: "record_1", status } }];
           },
         },
         verifactuRecord: {
