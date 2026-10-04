@@ -432,7 +432,7 @@ test('runVerifactuSubmissionPass keeps records pending on unrecognized responses
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt,
     logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
     now: () => 0,
