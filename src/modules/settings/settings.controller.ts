@@ -651,6 +651,7 @@ const createVerifactuSettingsViewModel = async (
     usesVerifactu: usesVerifactu(organization),
     certificate,
     certificateExpired: !!certificate && certificate.validTo <= new Date(),
+    certificateUnreadable: !!certificate && !certificate.readable,
     nifMismatchMessage: nifMismatch
       ? req.t("settings.verifactu.nifMismatch", {
           certificateNif: certificate.holderNif!,

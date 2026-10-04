@@ -42,6 +42,9 @@
         {% if certificateExpired %}
           <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" data-verifactu-certificate-expired>{{ t('settings.verifactu.expired') }}</p>
         {% endif %}
+        {% if certificateUnreadable %}
+          <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" data-verifactu-certificate-unreadable>{{ t('settings.verifactu.unreadable') }}</p>
+        {% endif %}
         {% if nifMismatchMessage %}
           <p class="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-700" data-verifactu-nif-mismatch>{{ nifMismatchMessage }}</p>
         {% endif %}

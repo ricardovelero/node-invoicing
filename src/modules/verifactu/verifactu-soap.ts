@@ -131,11 +131,11 @@ export const buildVerifactuSoapEnvelope = (regFactuXml: string) => {
     '</soapenv:Envelope>';
 };
 
-const validateTestEndpoint = (endpoint: string) => {
+const validateTestEndpoint = (endpoint: string, name = 'VERIFACTU_TEST_ENDPOINT') => {
   const parsedEndpoint = new URL(endpoint);
 
   if (parsedEndpoint.protocol !== 'https:') {
-    throw new Error('VERIFACTU_TEST_ENDPOINT must use https.');
+    throw new Error(`${name} must use https.`);
   }
 
   if (productionHosts.has(parsedEndpoint.hostname)) {
@@ -163,7 +163,9 @@ export const loadVerifactuSoapEnvironment = (
         defaultTestEndpoint,
     ),
     sealEndpoint: validateTestEndpoint(
-      getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+      envSource.VERIFACTU_TEST_SEAL_ENDPOINT?.trim() ||
+        getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+      'VERIFACTU_TEST_SEAL_ENDPOINT',
     ),
   };
 };

@@ -61,7 +61,6 @@ export const createApp = () => {
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
-  app.use(parseMultipartForm);
   app.use('/webhooks', postmarkWebhookRouter);
   app.use(cookieParser());
   app.use(
@@ -94,6 +93,8 @@ export const createApp = () => {
   );
   app.use(loadAuthContext);
   app.use(localeMiddleware);
+  // After locale so its errors can render, before CSRF so _csrf is read.
+  app.use(parseMultipartForm);
   app.use(csrfProtection);
 
   app.use((req, res, next) => {

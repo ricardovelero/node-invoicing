@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import {
   decryptVerifactuCertificate,
   encryptVerifactuCertificate,
+  getOrganizationVerifactuCertificate,
   inspectVerifactuCertificate,
   loadOrganizationVerifactuSoapConfig,
   saveOrganizationVerifactuCertificate,
@@ -172,4 +173,24 @@ test('loadOrganizationVerifactuSoapConfig uses the stored certificate and endpoi
     }),
     (error) => error instanceof VerifactuCertificateError && error.reason === 'expired',
   );
+});
+
+test('getOrganizationVerifactuCertificate flags certificates the key cannot decrypt', async () => {
+  const { client } = fakeCertificateClient();
+
+  await saveOrganizationVerifactuCertificate(
+    client,
+    'org_1',
+    { pfx: fixture('seal'), passphrase },
+    envSource,
+  );
+
+  const rotatedKey = { VERIFACTU_CERT_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64') };
+  const current = await getOrganizationVerifactuCertificate(client, 'org_1', envSource);
+  const rotated = await getOrganizationVerifactuCertificate(client, 'org_1', rotatedKey);
+
+  assert.equal(current?.readable, true);
+  assert.equal(rotated?.readable, false);
+  assert.equal('encryptedPayload' in current!, false);
+  assert.equal(await getOrganizationVerifactuCertificate(client, 'org_missing', envSource), null);
 });

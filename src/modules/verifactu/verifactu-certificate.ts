@@ -179,13 +179,42 @@ export const verifactuCertificateSummarySelect = {
   updatedAt: true,
 } satisfies Prisma.VerifactuCertificateSelect;
 
-export const getOrganizationVerifactuCertificate = (
+const isVerifactuCertificateReadable = (
+  organizationId: string,
+  payload: Uint8Array,
+  envSource: NodeJS.ProcessEnv,
+) => {
+  try {
+    decryptVerifactuCertificate(organizationId, payload, envSource);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// readable is false when the server key no longer decrypts the stored file, as
+// after VERIFACTU_CERT_ENCRYPTION_KEY changes; it has to be uploaded again.
+export const getOrganizationVerifactuCertificate = async (
   client: VerifactuCertificateClient,
   organizationId: string,
-) => client.verifactuCertificate.findUnique({
-  where: { organizationId },
-  select: verifactuCertificateSummarySelect,
-});
+  envSource: NodeJS.ProcessEnv = process.env,
+) => {
+  const certificate = await client.verifactuCertificate.findUnique({
+    where: { organizationId },
+    select: { ...verifactuCertificateSummarySelect, encryptedPayload: true },
+  });
+
+  if (!certificate) {
+    return null;
+  }
+
+  const { encryptedPayload, ...summary } = certificate;
+
+  return {
+    ...summary,
+    readable: isVerifactuCertificateReadable(organizationId, encryptedPayload, envSource),
+  };
+};
 
 export const saveOrganizationVerifactuCertificate = (
   client: VerifactuCertificateClient,

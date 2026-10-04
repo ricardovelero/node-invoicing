@@ -83,7 +83,10 @@ VERIFACTU_AEAT_ENV="test"
 VERIFACTU_CERT_PATH="/absolute/path/to/certificate.p12"
 VERIFACTU_CERT_PASSPHRASE=""
 VERIFACTU_TEST_ENDPOINT=""
+VERIFACTU_TEST_SEAL_ENDPOINT=""
 ```
+
+`VERIFACTU_TEST_ENDPOINT` overrides the preproduction endpoint used with personal and representative certificates, and `VERIFACTU_TEST_SEAL_ENDPOINT` the one used with seal certificates. Both default to the endpoints in the AEAT WSDL.
 
 Leave these unset for ordinary local development unless you are testing AEAT preproduction SOAP calls.
 
@@ -302,7 +305,7 @@ Spanish organizations choose their invoicing regime in the organization settings
 
 Organizations outside Spain invoice without Veri*Factu.
 
-OWNER and ADMIN users upload the organization's `.p12`/`.pfx` certificate and password in **Settings → Veri*Factu**. On upload the file is opened with the password, and expired files, files without a private key, and legacy RC2-encrypted files are rejected. The page shows the holder, NIF, certificate type and expiry, and warns when the certificate NIF differs from the organization's. The file and password are stored together, encrypted with AES-256-GCM, and never shown again. The invoice list warns Veri*Factu organizations that have no valid certificate.
+OWNER and ADMIN users upload the organization's `.p12`/`.pfx` certificate and password in **Settings → Veri*Factu**. On upload the file is opened with the password, and expired or not-yet-valid files, files without a private key, and legacy RC2-encrypted files are rejected. The page shows the holder, NIF, certificate type and expiry, and warns when the certificate NIF differs from the organization's or when the server's encryption key can no longer read the stored file. The file and password are stored together, encrypted with AES-256-GCM, and never shown again. The invoice list warns Veri*Factu organizations whose certificate is missing, expired or unreadable.
 
 ### Local Fiscal Records
 

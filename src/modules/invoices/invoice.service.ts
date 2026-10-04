@@ -525,7 +525,7 @@ export const isVerifactuCertificateMissing = async (
 
   const certificate = await getOrganizationVerifactuCertificate(prisma, organization.id);
 
-  return !certificate || certificate.validTo <= new Date();
+  return !certificate || certificate.validTo <= new Date() || !certificate.readable;
 };
 
 export const verifyOrganizationFiscalRecordChain = (organizationId: string) =>

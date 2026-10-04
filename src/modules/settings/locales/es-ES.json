@@ -162,6 +162,7 @@
     "validUntil": "Válido hasta",
     "uploadedAt": "Subido el",
     "expired": "Este certificado ha caducado. Sube uno nuevo para seguir enviando registros a la AEAT.",
+    "unreadable": "No se puede leer este certificado con la clave de cifrado actual del servidor. Vuelve a subirlo para seguir enviando registros a la AEAT.",
     "nifMismatch": "El NIF del certificado ({certificateNif}) no coincide con el NIF de la organización ({organizationNif}). La AEAT solo aceptará los envíos si el titular puede presentarlos en nombre de la organización.",
     "uploadTitle": "Subir certificado",
     "replaceTitle": "Sustituir certificado",

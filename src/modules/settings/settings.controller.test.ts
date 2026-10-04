@@ -12,6 +12,7 @@ import {
   type Translate,
 } from "../../lib/i18n";
 import * as authService from "../auth/auth.service";
+import { encryptVerifactuCertificate } from "../verifactu/verifactu-certificate";
 import {
   createOrganizationController,
   redirectGeneralSettings,
@@ -1330,17 +1331,23 @@ test("uploadVerifactuCertificateController shows field errors without saving", a
   assert.equal(upsertCalls, 0);
 });
 
+const storedCertificate = (encryptedPayload: Buffer) => ({
+  holderName: "EMPRESA PRUEBA SL",
+  holderNif: "B12345674",
+  isSeal: true,
+  validFrom: new Date("2026-01-01T00:00:00.000Z"),
+  validTo: new Date("2099-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-10-03T00:00:00.000Z"),
+  encryptedPayload,
+});
+
 test("renderVerifactuSettings warns when the certificate NIF differs", async () => {
   await withVerifactuCertificateMock({
     async findUnique() {
-      return {
-        holderName: "EMPRESA PRUEBA SL",
-        holderNif: "B12345674",
-        isSeal: true,
-        validFrom: new Date("2026-01-01T00:00:00.000Z"),
-        validTo: new Date("2099-01-01T00:00:00.000Z"),
-        updatedAt: new Date("2026-10-03T00:00:00.000Z"),
-      };
+      return storedCertificate(encryptVerifactuCertificate(
+        "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+        { pfx: certificateFixture("seal"), passphrase: "test-password" },
+      ));
     },
   }, async () => {
     const req = createRequest();
@@ -1359,12 +1366,34 @@ test("renderVerifactuSettings warns when the certificate NIF differs", async () 
 
     assert.equal(data.usesVerifactu, true);
     assert.equal(data.certificateExpired, false);
+    assert.equal(data.certificateUnreadable, false);
     assert.equal(
       data.nifMismatchMessage,
       "The certificate's NIF (B12345674) doesn't match the organisation's NIF " +
         "(ESB87654323). AEAT only accepts submissions if the holder can file on the " +
         "organisation's behalf.",
     );
+  });
+});
+
+test("renderVerifactuSettings warns when the server key cannot read the certificate", async () => {
+  const otherKeyPayload = encryptVerifactuCertificate(
+    "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    { pfx: certificateFixture("seal"), passphrase: "test-password" },
+    { VERIFACTU_CERT_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64") },
+  );
+
+  await withVerifactuCertificateMock({
+    async findUnique() {
+      return storedCertificate(otherKeyPayload);
+    },
+  }, async () => {
+    const req = createRequest();
+    const res = createResponse();
+
+    await renderVerifactuSettings(req, res, () => undefined);
+
+    assert.equal((res.renderedData as Record<string, unknown>).certificateUnreadable, true);
   });
 });
 

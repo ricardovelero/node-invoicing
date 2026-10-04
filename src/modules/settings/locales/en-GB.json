@@ -162,6 +162,7 @@
     "validUntil": "Valid until",
     "uploadedAt": "Uploaded",
     "expired": "This certificate has expired. Upload a new one to keep sending records to AEAT.",
+    "unreadable": "This certificate can't be read with the server's current encryption key. Upload it again to keep sending records to AEAT.",
     "nifMismatch": "The certificate's NIF ({certificateNif}) doesn't match the organisation's NIF ({organizationNif}). AEAT only accepts submissions if the holder can file on the organisation's behalf.",
     "uploadTitle": "Upload certificate",
     "replaceTitle": "Replace certificate",
