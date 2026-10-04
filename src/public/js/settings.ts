@@ -9,6 +9,9 @@ export const setupWithholdingRateControls = () => {
     const legalFormSelect = form?.querySelector<HTMLSelectElement>(
       '[data-withholding-legal-form]',
     );
+    const spainOnlySettings = form?.querySelector<HTMLElement>(
+      '[data-spain-only-settings]',
+    );
     const enableRow = section.querySelector<HTMLElement>(
       '[data-withholding-enable-row]',
     );
@@ -31,6 +34,7 @@ export const setupWithholdingRateControls = () => {
     if (
       !countrySelect ||
       !legalFormSelect ||
+      !spainOnlySettings ||
       !enableRow ||
       !enabledCheckbox ||
       !rateFields ||
@@ -48,6 +52,7 @@ export const setupWithholdingRateControls = () => {
       const shouldShowRateFields = canUseWithholding && enabledCheckbox.checked;
       const isCustomRate = rateTypeSelect.value === 'custom';
 
+      spainOnlySettings.hidden = !isSpain;
       section.hidden = !canUseWithholding;
       enableRow.hidden = !canUseWithholding;
       rateFields.hidden = !shouldShowRateFields;

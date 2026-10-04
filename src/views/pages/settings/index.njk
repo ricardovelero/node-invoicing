@@ -5,7 +5,7 @@
     {% for key in ['profile', 'organization', 'localization', 'security', 'organizations'] %}
       <a class="card card-body block transition hover:border-action" href="/settings/{{ key }}">
         <h2 class="text-base font-semibold">{{ t('settings.nav.' + key) }}</h2>
-        <p class="mt-1 text-sm text-muted">{{ t('settings.sections.' + key + '.description') }}</p>
+        <p class="mt-1 text-sm text-muted">{{ t('settings.sections.' + key + '.description', { name: currentOrganization.name }) }}</p>
       </a>
     {% endfor %}
   </div>

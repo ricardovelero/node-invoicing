@@ -44,10 +44,10 @@
     {{ inputField('addressLine1', value=values.addressLine1 or '', error=errors.addressLine1, autocomplete='street-address') }}
   </div>
 
-  <div class="grid gap-5 sm:grid-cols-2">
+  <div class="grid gap-5 sm:grid-cols-2"{% if values.countryCode != 'ES' %} hidden{% endif %} data-spain-only-settings>
     <div>
       {{ labelField('legalForm', t('settings.fields.legalForm')) }}
-      {{ selectField('legalForm', legalFormOptions, value=values.legalForm, error=errors.legalForm, attrs='data-withholding-legal-form') }}
+      {{ selectField('legalForm', legalFormOptions, value=values.legalForm, error=errors.legalForm, help=t('settings.help.legalForm'), attrs='data-withholding-legal-form') }}
     </div>
     <div>
       {{ labelField('fiscalRegime', t('settings.fields.fiscalRegime')) }}

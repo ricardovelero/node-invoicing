@@ -110,7 +110,7 @@ export const organizationSettingsSchema = z.object({
   ),
   legalForm: z.enum(legalForms, {
     error: 'Choose a supported legal form.',
-  }).default('other'),
+  }).default('sole_trader'),
   fiscalRegime: z.enum(organizationFiscalRegimes, {
     error: 'Choose a supported fiscal regime.',
   }).default('VERIFACTU'),
@@ -256,7 +256,7 @@ export const createOrganizationSettingsValues = (
     addressLine1: sourceText(organization.addressLine1),
     city: sourceText(organization.city),
     countryCode: sourceText(organization.countryCode),
-    legalForm: sourceText(organization.legalForm, 'other'),
+    legalForm: sourceText(organization.legalForm, 'sole_trader'),
     fiscalRegime: sourceText(organization.fiscalRegime, 'VERIFACTU'),
     currency: sourceText(organization.currency, defaultCurrency),
     withholdingEnabled: organization.withholdingEnabled ? 'on' : '',

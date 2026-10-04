@@ -20,6 +20,11 @@ test('withholding rate controls use data hooks for the custom rate toggle', () =
   assert.match(source, /data-withholding-rate-input/);
 });
 
+test('settings controls hide the Spain-only row outside Spain', () => {
+  assert.match(source, /data-spain-only-settings/);
+  assert.match(source, /spainOnlySettings\.hidden = !isSpain/);
+});
+
 test('withholding controls hide the section unless the organization can use withholding', () => {
   assert.match(
     source,

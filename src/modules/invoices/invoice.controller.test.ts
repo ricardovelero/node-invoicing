@@ -1127,7 +1127,7 @@ test("editInvoice updates valid draft invoices and redirects to detail", async (
         async findFirst() {
           return {
             countryCode: null,
-            legalForm: "other",
+            legalForm: "sole_trader",
             withholdingEnabled: false,
             defaultWithholdingType: null,
             defaultWithholdingRate: null,

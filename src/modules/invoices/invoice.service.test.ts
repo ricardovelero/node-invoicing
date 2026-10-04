@@ -129,7 +129,7 @@ const originalPaymentCreate = prismaMock.payment.create;
 
 const defaultOrganizationInvoiceSettings = {
   countryCode: null,
-  legalForm: "other",
+  legalForm: "sole_trader",
   withholdingEnabled: false,
   defaultWithholdingType: null,
   defaultWithholdingRate: null,
@@ -548,7 +548,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
             billingEmail: "billing@example.com",
             countryCode: "ES",
             fiscalRegime: "VERIFACTU",
-            legalForm: "other",
+            legalForm: "sole_trader",
             withholdingEnabled: false,
             defaultWithholdingType: null,
             defaultWithholdingRate: null,
