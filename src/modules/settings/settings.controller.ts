@@ -69,7 +69,6 @@ const countryLabels: Record<
 const legalFormTranslationKeys: Record<(typeof legalForms)[number], string> = {
   sole_trader: "settings.legalForms.soleTrader",
   company: "settings.legalForms.company",
-  other: "settings.legalForms.other",
 };
 
 const fiscalRegimeTranslationKeys: Record<(typeof organizationFiscalRegimes)[number], string> = {

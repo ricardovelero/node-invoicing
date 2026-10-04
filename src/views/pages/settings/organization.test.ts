@@ -111,14 +111,10 @@ describe('organization settings form', () => {
     );
   });
 
-  test('does not treat legal form other as a company for withholding visibility', () => {
-    assert.doesNotMatch(
+  test('hides the Spain-only legal form and reporting system row outside Spain', () => {
+    assert.match(
       formPartial,
-      /values\.legalForm == 'other'[^%]*hidden/,
-    );
-    assert.doesNotMatch(
-      formPartial,
-      /values\.legalForm != 'sole_trader'[^%]*hidden/,
+      /{% if values\.countryCode != 'ES' %} hidden{% endif %} data-spain-only-settings>/,
     );
   });
 
@@ -163,7 +159,7 @@ describe('organization settings form', () => {
     );
     assert.match(
       formPartial,
-      /selectField\('legalForm', legalFormOptions, value=values\.legalForm, error=errors\.legalForm, attrs='data-withholding-legal-form'\)/,
+      /selectField\('legalForm', legalFormOptions, value=values\.legalForm, error=errors\.legalForm, help=t\('settings\.help\.legalForm'\), attrs='data-withholding-legal-form'\)/,
     );
     assert.match(
       formPartial,

@@ -64,7 +64,7 @@ const organization = (id: string, name: string, locale = "en-GB") => ({
   city: null,
   country: null,
   countryCode: null,
-  legalForm: "other",
+  legalForm: "sole_trader",
   currency: "EUR",
   locale,
   paymentInstructions: null,

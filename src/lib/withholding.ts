@@ -1,7 +1,7 @@
 export const withholdingTypes = ['IRPF'] as const;
 export type WithholdingType = (typeof withholdingTypes)[number];
 
-export const legalForms = ['sole_trader', 'company', 'other'] as const;
+export const legalForms = ['sole_trader', 'company'] as const;
 export type LegalForm = (typeof legalForms)[number];
 
 // Country-keyed source of truth for the fixed withholding rates each country
@@ -46,7 +46,7 @@ export const isSpanishIrpfEligible = (
   organization: OrganizationWithholdingSettings,
 ) =>
   organization.countryCode === 'ES' &&
-  (organization.legalForm ?? 'other') !== 'company';
+  (organization.legalForm ?? 'sole_trader') !== 'company';
 
 export const canUseInvoiceWithholding = (
   organization: OrganizationWithholdingSettings,
@@ -63,7 +63,7 @@ export const normalizeOrganizationWithholdingSettings = <
   const countryCode = settings.countryCode?.trim().toUpperCase() || null;
   const legalForm: LegalForm = legalForms.includes(settings.legalForm as LegalForm)
     ? (settings.legalForm as LegalForm)
-    : 'other';
+    : 'sole_trader';
   const baseSettings = {
     countryCode,
     legalForm,

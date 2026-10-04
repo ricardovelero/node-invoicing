@@ -59,12 +59,11 @@
     "newPassword": "Nueva contraseña",
     "confirmPassword": "Confirmar nueva contraseña",
     "organizationName": "Nombre de la organización",
-    "fiscalRegime": "Régimen de facturación"
+    "fiscalRegime": "Sistema de remisión a Hacienda"
   },
   "legalForms": {
-    "soleTrader": "Autónomo",
-    "company": "Empresa",
-    "other": "Otro"
+    "soleTrader": "Autónomo o entidad en atribución de rentas (CB, SC)",
+    "company": "Sociedad u otra persona jurídica"
   },
   "withholding": {
     "enableIrpf": "Activar retención de IRPF",
@@ -78,7 +77,8 @@
     "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas.",
     "sessionIdleTimeoutMinutes": "Los usuarios tendrán que iniciar sesión de nuevo tras estos minutos sin actividad.",
     "sessionAbsoluteLifetimeDays": "Los usuarios tendrán que iniciar sesión de nuevo tras estos días aunque sigan activos.",
-    "fiscalRegime": "Solo se aplica a organizaciones en España. Con Veri*Factu, cada factura emitida se envía a la AEAT."
+    "fiscalRegime": "La mayoría de negocios en España usan Veri*Factu: cada factura emitida se envía a la AEAT. Elige SII solo si ya estás dado de alta en el SII.",
+    "legalForm": "Determina si tus facturas pueden llevar retención de IRPF."
   },
   "placeholders": {
     "billingEmail": "facturacion@example.com",
@@ -146,9 +146,9 @@
     "MEMBER": "Miembro"
   },
   "fiscalRegimes": {
-    "verifactu": "Veri*Factu",
-    "sii": "SII (Suministro Inmediato de Información)",
-    "foral": "País Vasco o Navarra (no soportado)"
+    "verifactu": "Veri*Factu (la mayoría de negocios)",
+    "sii": "SII (ya dado de alta, no se envía nada)",
+    "foral": "País Vasco o Navarra: TicketBAI (no soportado)"
   },
   "verifactu": {
     "notApplicable": "Veri*Factu solo se aplica a organizaciones en España con el régimen Veri*Factu. Tu organización no envía registros a la AEAT.",

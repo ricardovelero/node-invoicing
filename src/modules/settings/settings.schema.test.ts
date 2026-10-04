@@ -32,7 +32,7 @@ describe("organizationSettingsSchema", () => {
       addressLine1: "1 Example Street",
       city: "London",
       countryCode: "GB",
-      legalForm: "other",
+      legalForm: "sole_trader",
       fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: false,
@@ -54,6 +54,20 @@ describe("organizationSettingsSchema", () => {
     assert.equal(result.success, false);
     assert.deepEqual(result.error.flatten().fieldErrors.billingEmail, [
       "Enter a valid billing email.",
+    ]);
+  });
+
+  test("rejects the removed other legal form", () => {
+    const result = organizationSettingsSchema.safeParse({
+      legalName: "Analytical Engines Ltd",
+      countryCode: "ES",
+      currency: "EUR",
+      legalForm: "other",
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.error.flatten().fieldErrors.legalForm, [
+      "Choose a supported legal form.",
     ]);
   });
 

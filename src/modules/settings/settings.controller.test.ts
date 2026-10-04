@@ -666,14 +666,16 @@ test("renderOrganizationSettings renders current organization values", () => {
     ],
     currencyOptions: createCurrencyOptions(),
     legalFormOptions: [
-      { value: "sole_trader", label: "Sole trader" },
-      { value: "company", label: "Company" },
-      { value: "other", label: "Other" },
+      { value: "sole_trader", label: "Sole trader or partnership (CB, SC)" },
+      { value: "company", label: "Company or other legal entity" },
     ],
     fiscalRegimeOptions: [
-      { value: "VERIFACTU", label: "Veri*Factu" },
-      { value: "SII", label: "SII (Immediate Supply of Information)" },
-      { value: "FORAL", label: "Basque Country or Navarra (not supported)" },
+      { value: "VERIFACTU", label: "Veri*Factu (most businesses)" },
+      { value: "SII", label: "SII (already enrolled, nothing is sent)" },
+      {
+        value: "FORAL",
+        label: "Basque Country or Navarra: TicketBAI (not supported)",
+      },
     ],
     errors: {},
   });
@@ -807,7 +809,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
       addressLine1: "1 Example Street",
       city: "London",
       countryCode: "GB",
-      legalForm: "other",
+      legalForm: "sole_trader",
       fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: false,

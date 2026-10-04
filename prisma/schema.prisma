@@ -133,7 +133,7 @@ model Organization {
   city                        String?
   country                     String?
   countryCode                 String?
-  legalForm                   String   @default("other")
+  legalForm                   String   @default("sole_trader")
   currency                    String   @default("EUR")
   locale                      String   @default("en-GB")
   paymentInstructions         String?

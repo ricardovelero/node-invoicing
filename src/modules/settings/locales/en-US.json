@@ -59,12 +59,11 @@
     "newPassword": "New password",
     "confirmPassword": "Confirm new password",
     "organizationName": "Organization name",
-    "fiscalRegime": "Invoicing regime"
+    "fiscalRegime": "Tax reporting system"
   },
   "legalForms": {
-    "soleTrader": "Sole proprietor",
-    "company": "Company",
-    "other": "Other"
+    "soleTrader": "Sole proprietor or partnership (CB, SC)",
+    "company": "Company or other legal entity"
   },
   "withholding": {
     "enableIrpf": "Enable IRPF withholding",
@@ -78,7 +77,8 @@
     "locale": "Controls the language and formats used across the app and your invoices.",
     "sessionIdleTimeoutMinutes": "Users are asked to log in again after this many minutes without activity.",
     "sessionAbsoluteLifetimeDays": "Users are asked to log in again after this many days even if they stay active.",
-    "fiscalRegime": "Only applies to organizations in Spain. With Veri*Factu, every issued invoice is sent to AEAT."
+    "fiscalRegime": "Most businesses in Spain use Veri*Factu: every issued invoice is sent to AEAT. Choose SII only if you are already enrolled in SII.",
+    "legalForm": "Determines whether IRPF withholding can apply to your invoices."
   },
   "placeholders": {
     "billingEmail": "billing@example.com",
@@ -146,9 +146,9 @@
     "MEMBER": "Member"
   },
   "fiscalRegimes": {
-    "verifactu": "Veri*Factu",
-    "sii": "SII (Immediate Supply of Information)",
-    "foral": "Basque Country or Navarra (not supported)"
+    "verifactu": "Veri*Factu (most businesses)",
+    "sii": "SII (already enrolled, nothing is sent)",
+    "foral": "Basque Country or Navarra: TicketBAI (not supported)"
   },
   "verifactu": {
     "notApplicable": "Veri*Factu only applies to organizations in Spain on the Veri*Factu regime. Your organization doesn't send records to AEAT.",
