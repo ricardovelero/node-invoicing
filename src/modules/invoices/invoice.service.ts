@@ -8,7 +8,13 @@ import {
   canSubsanarVerifactuRecord,
 } from '../verifactu/verifactu-record';
 import { buildVerifactuXml } from '../verifactu/verifactu-xml';
+import { getOrganizationVerifactuCertificate } from '../verifactu/verifactu-certificate';
 import { verifactuQrRecordsInclude } from '../verifactu/verifactu-qr';
+import {
+  hasUnsupportedFiscalRegime,
+  usesVerifactu,
+  type VerifactuRegimeOrganization,
+} from '../verifactu/verifactu-regime';
 import {
   buildVerifactuPayloadForFiscalRecord,
   buildVerifactuSoftware,
@@ -231,6 +237,7 @@ const findOrganizationEmailSettings = (
     select: {
       billingEmail: true,
       countryCode: true,
+      fiscalRegime: true,
       legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
@@ -280,10 +287,10 @@ const createVerifactuRecordForFiscalRecord = async (
 
 const maybeCreateVerifactuRecordForFiscalRecord = (
   tx: Prisma.TransactionClient,
-  organizationCountryCode: string | null | undefined,
+  organization: VerifactuRegimeOrganization | null | undefined,
   fiscalRecordId: string,
 ) => {
-  if (organizationCountryCode !== 'ES') {
+  if (!usesVerifactu(organization)) {
     return null;
   }
 
@@ -508,6 +515,19 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
     },
   });
 
+// Veri*Factu organizations need a valid certificate for their records to reach AEAT.
+export const isVerifactuCertificateMissing = async (
+  organization: VerifactuRegimeOrganization & { id: string },
+) => {
+  if (!usesVerifactu(organization)) {
+    return false;
+  }
+
+  const certificate = await getOrganizationVerifactuCertificate(prisma, organization.id);
+
+  return !certificate || certificate.validTo <= new Date() || !certificate.readable;
+};
+
 export const verifyOrganizationFiscalRecordChain = (organizationId: string) =>
   verifyInvoiceFiscalRecordChain(prisma, organizationId);
 
@@ -611,7 +631,11 @@ export const createIssuedInvoiceRecord = async (
       return { ok: false as const, reason: 'missingBillingEmail' as const };
     }
 
-    if (organization.countryCode === 'ES') {
+    if (hasUnsupportedFiscalRegime(organization)) {
+      return { ok: false as const, reason: 'unsupportedFiscalRegime' as const };
+    }
+
+    if (usesVerifactu(organization)) {
       buildVerifactuSoftware(await resolveDefaultVerifactuSoftwareConfig(tx));
     }
 
@@ -689,7 +713,7 @@ export const createIssuedInvoiceRecord = async (
     });
     await maybeCreateVerifactuRecordForFiscalRecord(
       tx,
-      organization.countryCode,
+      organization,
       fiscalRecord.id,
     );
 
@@ -864,7 +888,7 @@ export const updateInvoiceStatus = async (
       return { ok: false as const, reason: 'invalidTransition' as const };
     }
 
-    let issueOrganizationCountryCode: string | null | undefined;
+    let issueOrganization: VerifactuRegimeOrganization | undefined;
 
     if (lockedInvoice.status === 'DRAFT' && status === 'ISSUED') {
       const invoice = await tx.invoice.findFirst({
@@ -901,6 +925,7 @@ export const updateInvoiceStatus = async (
               addressLine1: true,
               city: true,
               countryCode: true,
+              fiscalRegime: true,
             },
           },
           snapshot: {
@@ -915,10 +940,14 @@ export const updateInvoiceStatus = async (
         return { ok: false as const, reason: 'notFound' as const };
       }
 
-      if (invoice.organization.countryCode === 'ES') {
+      if (hasUnsupportedFiscalRegime(invoice.organization)) {
+        return { ok: false as const, reason: 'unsupportedFiscalRegime' as const };
+      }
+
+      if (usesVerifactu(invoice.organization)) {
         buildVerifactuSoftware(await resolveDefaultVerifactuSoftwareConfig(tx));
       }
-      issueOrganizationCountryCode = invoice.organization.countryCode;
+      issueOrganization = invoice.organization;
 
       await captureInvoiceSnapshot(tx, invoice);
     }
@@ -937,7 +966,7 @@ export const updateInvoiceStatus = async (
       });
       await maybeCreateVerifactuRecordForFiscalRecord(
         tx,
-        issueOrganizationCountryCode,
+        issueOrganization,
         fiscalRecord.id,
       );
     }

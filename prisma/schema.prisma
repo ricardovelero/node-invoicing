@@ -33,6 +33,15 @@ enum VerifactuRecordStatus {
   PREFLIGHT_FAILED
 }
 
+// Spanish invoicing regime. Only VERIFACTU organizations in Spain send records
+// to AEAT; SII organizations are outside the SIF rules; FORAL (Basque Country,
+// Navarra) needs TicketBAI or Navarra's system, which isn't supported.
+enum OrganizationFiscalRegime {
+  VERIFACTU
+  SII
+  FORAL
+}
+
 enum OrganizationRole {
   OWNER
   ADMIN
@@ -132,6 +141,7 @@ model Organization {
   withholdingEnabled          Boolean  @default(false)
   defaultWithholdingType      String?
   defaultWithholdingRate      Decimal? @db.Decimal(5, 2)
+  fiscalRegime                OrganizationFiscalRegime @default(VERIFACTU)
   sessionIdleTimeoutMinutes   Int      @default(30)
   sessionAbsoluteLifetimeDays Int      @default(14)
 
@@ -146,6 +156,7 @@ model Organization {
   invoiceFiscalRecordSequence InvoiceFiscalRecordSequence?
   invoiceFiscalRecords        InvoiceFiscalRecord[]
   verifactuRecords            VerifactuRecord[]
+  verifactuCertificate        VerifactuCertificate?
   invoicePublicAccessTokens   InvoicePublicAccessToken[]
   invoiceEmailDeliveries      InvoiceEmailDelivery[]
   catalogItems                CatalogItem[]
@@ -372,6 +383,22 @@ model VerifactuRecord {
   @@index([invoiceId])
   @@index([organizationId, createdAt])
   @@index([status])
+}
+
+// The organization's own AEAT client certificate. The PKCS#12 file and its
+// password are stored together, encrypted with VERIFACTU_CERT_ENCRYPTION_KEY.
+model VerifactuCertificate {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @unique @db.Uuid
+  encryptedPayload Bytes
+  holderName       String
+  holderNif        String?
+  isSeal           Boolean
+  validFrom        DateTime
+  validTo          DateTime
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model VerifactuSoftwareConfig {

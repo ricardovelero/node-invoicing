@@ -210,6 +210,11 @@
     "paymentNotAllowed": "Solo se pueden registrar pagos en facturas abiertas.",
     "notEditable": "Solo se pueden editar facturas en borrador.",
     "notFound": "Factura no encontrada",
-    "verifactuSubsanacionNotAllowed": "Esta factura no tiene un registro Veri*Factu que se pueda subsanar."
+    "verifactuSubsanacionNotAllowed": "Esta factura no tiene un registro Veri*Factu que se pueda subsanar.",
+    "unsupportedFiscalRegime": "Las organizaciones de País Vasco o Navarra todavía no se admiten: deben usar TicketBAI o el sistema de Navarra. No se pueden emitir facturas con este régimen fiscal."
+  },
+  "verifactuCertificateBanner": {
+    "message": "Tu organización usa Veri*Factu pero no tiene un certificado válido, así que los registros de tus facturas no se envían a la AEAT.",
+    "action": "Subir certificado"
   }
 }

@@ -7,7 +7,8 @@
     "organization": "Organización",
     "localization": "Localización",
     "security": "Seguridad",
-    "organizations": "Organizaciones"
+    "organizations": "Organizaciones",
+    "verifactu": "Veri*Factu"
   },
   "sections": {
     "profile": {
@@ -30,6 +31,10 @@
       "title": "Organizaciones",
       "description": "Gestiona y cambia entre organizaciones.",
       "placeholder": "Crear y cambiar de organización estará disponible pronto."
+    },
+    "verifactu": {
+      "title": "Veri*Factu",
+      "description": "Certificado electrónico con el que se envían a la AEAT los registros de tus facturas."
     }
   },
   "fields": {
@@ -53,7 +58,8 @@
     "currentPassword": "Contraseña actual",
     "newPassword": "Nueva contraseña",
     "confirmPassword": "Confirmar nueva contraseña",
-    "organizationName": "Nombre de la organización"
+    "organizationName": "Nombre de la organización",
+    "fiscalRegime": "Régimen de facturación"
   },
   "legalForms": {
     "soleTrader": "Autónomo",
@@ -71,7 +77,8 @@
     "billingEmail": "Las respuestas de clientes a los correos de facturas irán a esta dirección.",
     "locale": "Define el idioma y los formatos usados en la aplicación y en tus facturas.",
     "sessionIdleTimeoutMinutes": "Los usuarios tendrán que iniciar sesión de nuevo tras estos minutos sin actividad.",
-    "sessionAbsoluteLifetimeDays": "Los usuarios tendrán que iniciar sesión de nuevo tras estos días aunque sigan activos."
+    "sessionAbsoluteLifetimeDays": "Los usuarios tendrán que iniciar sesión de nuevo tras estos días aunque sigan activos.",
+    "fiscalRegime": "Solo se aplica a organizaciones en España. Con Veri*Factu, cada factura emitida se envía a la AEAT."
   },
   "placeholders": {
     "billingEmail": "facturacion@example.com",
@@ -137,5 +144,46 @@
     "OWNER": "Propietario",
     "ADMIN": "Administrador",
     "MEMBER": "Miembro"
+  },
+  "fiscalRegimes": {
+    "verifactu": "Veri*Factu",
+    "sii": "SII (Suministro Inmediato de Información)",
+    "foral": "País Vasco o Navarra (no soportado)"
+  },
+  "verifactu": {
+    "notApplicable": "Veri*Factu solo se aplica a organizaciones en España con el régimen Veri*Factu. Tu organización no envía registros a la AEAT.",
+    "currentCertificate": "Certificado actual",
+    "noCertificate": "No hay ningún certificado. Las facturas se pueden emitir, pero sus registros no se enviarán a la AEAT hasta que subas uno.",
+    "holder": "Titular",
+    "nif": "NIF",
+    "type": "Tipo",
+    "typeSeal": "Certificado de sello",
+    "typePersonal": "Persona física o representante",
+    "validUntil": "Válido hasta",
+    "uploadedAt": "Subido el",
+    "expired": "Este certificado ha caducado. Sube uno nuevo para seguir enviando registros a la AEAT.",
+    "unreadable": "No se puede leer este certificado con la clave de cifrado actual del servidor. Vuelve a subirlo para seguir enviando registros a la AEAT.",
+    "nifMismatch": "El NIF del certificado ({certificateNif}) no coincide con el NIF de la organización ({organizationNif}). La AEAT solo aceptará los envíos si el titular puede presentarlos en nombre de la organización.",
+    "uploadTitle": "Subir certificado",
+    "replaceTitle": "Sustituir certificado",
+    "certificate": "Archivo del certificado (.p12 o .pfx)",
+    "certificatePassword": "Contraseña del certificado",
+    "certificateHelp": "El certificado y su contraseña se guardan cifrados y no se vuelven a mostrar.",
+    "upload": "Guardar certificado",
+    "remove": "Eliminar certificado",
+    "removeTitle": "¿Eliminar el certificado?",
+    "removeDescription": "Los registros Veri*Factu de esta organización dejarán de enviarse a la AEAT hasta que subas otro certificado.",
+    "errors": {
+      "certificateRequired": "Elige un archivo de certificado .p12 o .pfx.",
+      "passwordRequired": "Introduce la contraseña del certificado.",
+      "invalidPassword": "La contraseña no es correcta para este certificado.",
+      "unsupportedFormat": "Este archivo usa un cifrado antiguo que no se admite. Vuelve a exportarlo con cifrado AES-256 o TripleDES.",
+      "missingPrivateKey": "El archivo no incluye la clave privada. Exporta el certificado junto con su clave privada.",
+      "invalidFile": "No se pudo leer el certificado. Comprueba que es un archivo .p12 o .pfx.",
+      "expired": "El certificado ha caducado.",
+      "notYetValid": "El certificado aún no es válido. Súbelo cuando empiece su periodo de validez."
+    },
+    "uploaded": "Certificado guardado.",
+    "removed": "Certificado eliminado."
   }
 }

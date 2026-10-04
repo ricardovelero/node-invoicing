@@ -4,6 +4,7 @@ import {
   buildVerifactuSoapEnvelope,
   getVerifactuTestEndpointFromWsdl,
   loadVerifactuSoapConfig,
+  loadVerifactuSoapEnvironment,
   parseVerifactuSoapSubmissionResponse,
   readVerifactuWsdl,
   submitVerifactuSoapXml,
@@ -137,6 +138,41 @@ test('loadVerifactuSoapConfig allows an explicit test endpoint override', () => 
       certPath: '/certs/aeat-test.p12',
       certPassphrase: 'secret-passphrase',
     },
+  );
+});
+
+test('loadVerifactuSoapEnvironment applies endpoint overrides to both certificate types', () => {
+  const wsdl = readVerifactuWsdl();
+  const defaults = loadVerifactuSoapEnvironment({ VERIFACTU_AEAT_ENV: 'test' }, wsdl);
+
+  assert.equal(
+    defaults.sealEndpoint,
+    getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+  );
+  assert.deepEqual(
+    loadVerifactuSoapEnvironment(
+      {
+        VERIFACTU_AEAT_ENV: 'test',
+        VERIFACTU_TEST_ENDPOINT: 'https://example.test/VerifactuSOAP',
+        VERIFACTU_TEST_SEAL_ENDPOINT: 'https://example.test/VerifactuSelloSOAP',
+      },
+      wsdl,
+    ),
+    {
+      env: 'test',
+      endpoint: 'https://example.test/VerifactuSOAP',
+      sealEndpoint: 'https://example.test/VerifactuSelloSOAP',
+    },
+  );
+  assert.throws(
+    () => loadVerifactuSoapEnvironment(
+      {
+        VERIFACTU_AEAT_ENV: 'test',
+        VERIFACTU_TEST_SEAL_ENDPOINT: 'http://example.test/VerifactuSelloSOAP',
+      },
+      wsdl,
+    ),
+    /VERIFACTU_TEST_SEAL_ENDPOINT must use https/,
   );
 });
 

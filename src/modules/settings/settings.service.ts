@@ -4,6 +4,11 @@ import {
   minutesToMs,
 } from "../../lib/session-policy";
 import { normalizeOrganizationWithholdingSettings } from "../../lib/withholding";
+import {
+  deleteOrganizationVerifactuCertificate,
+  getOrganizationVerifactuCertificate,
+  saveOrganizationVerifactuCertificate,
+} from "../verifactu/verifactu-certificate";
 import type {
   LocalizationSettingsForm,
   OrganizationSettingsForm,
@@ -31,6 +36,7 @@ const createOrganizationSettingsData = (data: OrganizationSettingsForm) => {
     city: emptyToNull(data.city),
     countryCode: withholdingSettings.countryCode,
     legalForm: withholdingSettings.legalForm,
+    fiscalRegime: data.fiscalRegime,
     currency: data.currency,
     withholdingEnabled: withholdingSettings.withholdingEnabled,
     defaultWithholdingType: withholdingSettings.defaultWithholdingType,
@@ -394,3 +400,14 @@ export const revokeOtherSessionsForUser = async (
 
   return { revokedCount: result.count };
 };
+
+export const getVerifactuCertificateForOrganization = (organizationId: string) =>
+  getOrganizationVerifactuCertificate(prisma, organizationId);
+
+export const saveVerifactuCertificateForOrganization = (
+  organizationId: string,
+  upload: { pfx: Buffer; passphrase: string },
+) => saveOrganizationVerifactuCertificate(prisma, organizationId, upload);
+
+export const removeVerifactuCertificateForOrganization = (organizationId: string) =>
+  deleteOrganizationVerifactuCertificate(prisma, organizationId);

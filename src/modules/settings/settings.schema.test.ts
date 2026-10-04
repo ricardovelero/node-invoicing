@@ -33,6 +33,7 @@ describe("organizationSettingsSchema", () => {
       city: "London",
       countryCode: "GB",
       legalForm: "other",
+      fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: false,
       defaultWithholdingType: "",

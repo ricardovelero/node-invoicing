@@ -256,7 +256,7 @@ test('runVerifactuSubmissionPass submits pending records in chain order as one b
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt,
     logger: silentLogger,
     now: () => 1_000,
@@ -327,7 +327,7 @@ test('runVerifactuSubmissionPass leaves pre-flight failures out of the batch', a
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt: new Map(),
     logger: silentLogger,
     now: () => 0,
@@ -365,7 +365,7 @@ test('runVerifactuSubmissionPass skips AEAT when every record fails pre-flight',
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt: new Map(),
     logger: silentLogger,
     now: () => 0,
@@ -388,7 +388,7 @@ test('runVerifactuSubmissionPass waits for the AEAT TiempoEsperaEnvio window', a
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt: new Map([['org_1', 61_000]]),
     logger: silentLogger,
     now: () => 60_999,
@@ -411,7 +411,7 @@ test('runVerifactuSubmissionPass keeps records pending on SOAP faults and backs 
 
   await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt,
     logger: silentLogger,
     now: () => 0,
@@ -432,7 +432,7 @@ test('runVerifactuSubmissionPass keeps records pending on unrecognized responses
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt,
     logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
     now: () => 0,
@@ -458,7 +458,7 @@ test('runVerifactuSubmissionPass isolates transport errors per organization', as
 
   const result = await runVerifactuSubmissionPass({
     client,
-    config,
+    loadConfig: async () => config,
     nextSubmissionAt,
     logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
     now: () => 0,
@@ -481,4 +481,43 @@ test('runVerifactuSubmissionPass isolates transport errors per organization', as
   assert.equal(errors[0]![1], 'org_1');
   assert.equal(nextSubmissionAt.get('org_1'), 60_000);
   assert.equal(nextSubmissionAt.get('org_2'), 30_000);
+});
+
+test('runVerifactuSubmissionPass skips organizations without a usable certificate', async () => {
+  const records = [
+    fakeRecord('record_1', 1, altaPayload('INV-2026-0001'), 'org_1'),
+    fakeRecord('record_2', 1, altaPayload('INV-2026-0002'), 'org_2'),
+  ];
+  const { client } = fakeClient(records);
+  const nextSubmissionAt = new Map<string, number>();
+  const errors: unknown[][] = [];
+  const endpoints: string[] = [];
+
+  const result = await runVerifactuSubmissionPass({
+    client,
+    async loadConfig(organizationId) {
+      if (organizationId === 'org_1') {
+        throw new Error('Organization org_1 has no Veri*Factu certificate.');
+      }
+
+      return { ...config, endpoint: 'https://prewww10.aeat.es/org_2' };
+    },
+    nextSubmissionAt,
+    logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
+    now: () => 0,
+    async transport(request) {
+      endpoints.push(request.endpoint);
+
+      return {
+        status: 200,
+        body: responseXml([responseLine('INV-2026-0002', 'Alta', 'Correcto')]),
+      };
+    },
+  });
+
+  assert.deepEqual(result, { organizationCount: 2, submittedCount: 1 });
+  assert.deepEqual(endpoints, ['https://prewww10.aeat.es/org_2']);
+  assert.equal(records[0]!.status, 'GENERATED');
+  assert.equal(errors[0]![1], 'org_1');
+  assert.equal(nextSubmissionAt.get('org_1'), 60_000);
 });

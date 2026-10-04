@@ -13,11 +13,16 @@ import {
   type ProfileSettingsValues,
   type SecuritySettingsErrors,
   localizationSettingsSchema,
+  organizationFiscalRegimes,
   organizationSettingsSchema,
   profileSettingsSchema,
   securitySettingsSchema,
   switchOrganizationSchema,
+  type VerifactuCertificateErrors,
+  verifactuCertificateSchema,
 } from "./settings.schema";
+import { VerifactuCertificateError } from "../verifactu/verifactu-certificate";
+import { usesVerifactu } from "../verifactu/verifactu-regime";
 import { supportedOrganizationCountryCodes } from "../../lib/countries";
 import { createCurrencyOptions } from "../../lib/currencies";
 import { defaultLocale, supportedLocales } from "../../lib/i18n";
@@ -32,6 +37,9 @@ import {
 import {
   getActiveSessionsForUser,
   getProfileForUser,
+  getVerifactuCertificateForOrganization,
+  removeVerifactuCertificateForOrganization,
+  saveVerifactuCertificateForOrganization,
   getOrganizationsForUser,
   createOrganizationForUser,
   revokeOtherSessionsForUser,
@@ -63,6 +71,18 @@ const legalFormTranslationKeys: Record<(typeof legalForms)[number], string> = {
   company: "settings.legalForms.company",
   other: "settings.legalForms.other",
 };
+
+const fiscalRegimeTranslationKeys: Record<(typeof organizationFiscalRegimes)[number], string> = {
+  VERIFACTU: "settings.fiscalRegimes.verifactu",
+  SII: "settings.fiscalRegimes.sii",
+  FORAL: "settings.fiscalRegimes.foral",
+};
+
+const getFiscalRegimeOptions = (req: Request): SelectOption[] =>
+  organizationFiscalRegimes.map((fiscalRegime) => ({
+    value: fiscalRegime,
+    label: req.t(fiscalRegimeTranslationKeys[fiscalRegime]),
+  }));
 
 const valuesAreIrpfEligible = (values: ReturnType<typeof createOrganizationSettingsValues>) =>
   isSpanishIrpfEligible({
@@ -124,6 +144,7 @@ const createOrganizationSettingsViewModel = (
   countryOptions: getCountryOptions(req),
   currencyOptions: createCurrencyOptions(),
   legalFormOptions: getLegalFormOptions(req),
+  fiscalRegimeOptions: getFiscalRegimeOptions(req),
   errors,
 });
 
@@ -609,4 +630,89 @@ export const switchOrganizationController: RequestHandler = async (req, res, nex
   } catch (error) {
     return next(error);
   }
+};
+
+const normalizeNif = (value: string) => value.trim().toUpperCase().replace(/^ES/u, "");
+
+const createVerifactuSettingsViewModel = async (
+  req: Request,
+  errors: VerifactuCertificateErrors = {},
+) => {
+  const organization = req.auth!.organization;
+  const certificate = await getVerifactuCertificateForOrganization(organization.id);
+  const nifMismatch =
+    certificate?.holderNif &&
+    organization.taxId &&
+    normalizeNif(certificate.holderNif) !== normalizeNif(organization.taxId);
+
+  return {
+    title: req.t("settings.sections.verifactu.title"),
+    activeSettingsPage: "verifactu",
+    usesVerifactu: usesVerifactu(organization),
+    certificate,
+    certificateExpired: !!certificate && certificate.validTo <= new Date(),
+    certificateUnreadable: !!certificate && !certificate.readable,
+    nifMismatchMessage: nifMismatch
+      ? req.t("settings.verifactu.nifMismatch", {
+          certificateNif: certificate.holderNif!,
+          organizationNif: organization.taxId!,
+        })
+      : null,
+    errors,
+  };
+};
+
+export const renderVerifactuSettings: RequestHandler = async (req, res) => {
+  res.render("pages/settings/verifactu.njk", await createVerifactuSettingsViewModel(req));
+};
+
+const renderVerifactuSettingsErrors = async (
+  req: Request,
+  res: Response,
+  errors: VerifactuCertificateErrors,
+) =>
+  res.status(422).render(
+    "pages/settings/verifactu.njk",
+    await createVerifactuSettingsViewModel(req, errors),
+  );
+
+export const uploadVerifactuCertificateController: RequestHandler = async (req, res) => {
+  const result = verifactuCertificateSchema.safeParse(req.body);
+
+  if (!result.success) {
+    const { fieldErrors } = result.error.flatten();
+
+    return renderVerifactuSettingsErrors(req, res, {
+      certificate: fieldErrors.certificate?.map((key) =>
+        req.t(`settings.verifactu.errors.${key}`)),
+      certificatePassword: fieldErrors.certificatePassword?.map((key) =>
+        req.t(`settings.verifactu.errors.${key}`)),
+    });
+  }
+
+  try {
+    await saveVerifactuCertificateForOrganization(req.auth!.organization.id, {
+      pfx: result.data.certificate.data,
+      passphrase: result.data.certificatePassword,
+    });
+  } catch (error) {
+    if (!(error instanceof VerifactuCertificateError)) {
+      throw error;
+    }
+
+    const field = error.reason === "invalidPassword" ? "certificatePassword" : "certificate";
+
+    return renderVerifactuSettingsErrors(req, res, {
+      [field]: [req.t(`settings.verifactu.errors.${error.reason}`)],
+    });
+  }
+
+  req.flash("success", req.t("settings.verifactu.uploaded"));
+  res.redirect("/settings/verifactu");
+};
+
+export const removeVerifactuCertificateController: RequestHandler = async (req, res) => {
+  await removeVerifactuCertificateForOrganization(req.auth!.organization.id);
+  req.flash("success", req.t("settings.verifactu.removed"));
+  res.redirect("/settings/verifactu");
 };

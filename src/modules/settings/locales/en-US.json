@@ -7,7 +7,8 @@
     "organization": "Organization",
     "localization": "Localization",
     "security": "Security",
-    "organizations": "Organizations"
+    "organizations": "Organizations",
+    "verifactu": "Veri*Factu"
   },
   "sections": {
     "profile": {
@@ -30,6 +31,10 @@
       "title": "Organizations",
       "description": "Manage and switch between organizations.",
       "placeholder": "Creating and switching organizations is coming soon."
+    },
+    "verifactu": {
+      "title": "Veri*Factu",
+      "description": "The digital certificate used to send your invoices' records to AEAT."
     }
   },
   "fields": {
@@ -53,7 +58,8 @@
     "currentPassword": "Current password",
     "newPassword": "New password",
     "confirmPassword": "Confirm new password",
-    "organizationName": "Organization name"
+    "organizationName": "Organization name",
+    "fiscalRegime": "Invoicing regime"
   },
   "legalForms": {
     "soleTrader": "Sole proprietor",
@@ -71,7 +77,8 @@
     "billingEmail": "Customer replies to invoice emails will go to this address.",
     "locale": "Controls the language and formats used across the app and your invoices.",
     "sessionIdleTimeoutMinutes": "Users are asked to log in again after this many minutes without activity.",
-    "sessionAbsoluteLifetimeDays": "Users are asked to log in again after this many days even if they stay active."
+    "sessionAbsoluteLifetimeDays": "Users are asked to log in again after this many days even if they stay active.",
+    "fiscalRegime": "Only applies to organizations in Spain. With Veri*Factu, every issued invoice is sent to AEAT."
   },
   "placeholders": {
     "billingEmail": "billing@example.com",
@@ -137,5 +144,46 @@
     "OWNER": "Owner",
     "ADMIN": "Admin",
     "MEMBER": "Member"
+  },
+  "fiscalRegimes": {
+    "verifactu": "Veri*Factu",
+    "sii": "SII (Immediate Supply of Information)",
+    "foral": "Basque Country or Navarra (not supported)"
+  },
+  "verifactu": {
+    "notApplicable": "Veri*Factu only applies to organizations in Spain on the Veri*Factu regime. Your organization doesn't send records to AEAT.",
+    "currentCertificate": "Current certificate",
+    "noCertificate": "There's no certificate. Invoices can still be issued, but their records won't be sent to AEAT until you upload one.",
+    "holder": "Holder",
+    "nif": "NIF",
+    "type": "Type",
+    "typeSeal": "Seal certificate",
+    "typePersonal": "Individual or representative",
+    "validUntil": "Valid until",
+    "uploadedAt": "Uploaded",
+    "expired": "This certificate has expired. Upload a new one to keep sending records to AEAT.",
+    "unreadable": "This certificate can't be read with the server's current encryption key. Upload it again to keep sending records to AEAT.",
+    "nifMismatch": "The certificate's NIF ({certificateNif}) doesn't match the organization's NIF ({organizationNif}). AEAT only accepts submissions if the holder can file on the organization's behalf.",
+    "uploadTitle": "Upload certificate",
+    "replaceTitle": "Replace certificate",
+    "certificate": "Certificate file (.p12 or .pfx)",
+    "certificatePassword": "Certificate password",
+    "certificateHelp": "The certificate and its password are stored encrypted and are never shown again.",
+    "upload": "Save certificate",
+    "remove": "Remove certificate",
+    "removeTitle": "Remove the certificate?",
+    "removeDescription": "This organization's Veri*Factu records will stop being sent to AEAT until you upload another certificate.",
+    "errors": {
+      "certificateRequired": "Choose a .p12 or .pfx certificate file.",
+      "passwordRequired": "Enter the certificate password.",
+      "invalidPassword": "The password isn't correct for this certificate.",
+      "unsupportedFormat": "This file uses old encryption that isn't supported. Export it again with AES-256 or TripleDES encryption.",
+      "missingPrivateKey": "The file doesn't include the private key. Export the certificate together with its private key.",
+      "invalidFile": "The certificate couldn't be read. Check it's a .p12 or .pfx file.",
+      "expired": "The certificate has expired.",
+      "notYetValid": "This certificate is not valid yet. Upload it once its validity period has started."
+    },
+    "uploaded": "Certificate saved.",
+    "removed": "Certificate removed."
   }
 }

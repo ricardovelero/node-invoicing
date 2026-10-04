@@ -14,17 +14,29 @@ const productionHosts = new Set([
 
 type VerifactuSoapEnvironment = 'test';
 
+// The client certificate is either a file (certPath) or PKCS#12 contents held
+// in memory (certificate), as loaded from an organization's stored certificate.
 export type VerifactuSoapConfig = {
   env: VerifactuSoapEnvironment;
   endpoint: string;
-  certPath: string;
+  certPath?: string;
+  certificate?: Buffer;
   certPassphrase?: string;
+};
+
+// Endpoints for the configured AEAT environment. Seal certificates (certificado
+// de sello) use their own endpoint.
+export type VerifactuSoapEnvironmentConfig = {
+  env: VerifactuSoapEnvironment;
+  endpoint: string;
+  sealEndpoint: string;
 };
 
 export type VerifactuSoapTransportRequest = {
   endpoint: string;
   body: string;
-  certPath: string;
+  certPath?: string;
+  certificate?: Buffer;
   certPassphrase?: string;
 };
 
@@ -92,10 +104,13 @@ export const readVerifactuWsdl = () => readFileSync(
   'utf8',
 );
 
-export const getVerifactuTestEndpointFromWsdl = (wsdl: string) => {
-  const testPort = wsdl.match(
-    /<wsdl:port\s+name="SistemaVerifactuPruebas"[\s\S]*?<soap:address\s+location="([^"]+)"/,
-  );
+export const getVerifactuTestEndpointFromWsdl = (
+  wsdl: string,
+  portName = 'SistemaVerifactuPruebas',
+) => {
+  const testPort = wsdl.match(new RegExp(
+    `<wsdl:port\\s+name="${portName}"[\\s\\S]*?<soap:address\\s+location="([^"]+)"`,
+  ));
 
   if (!testPort?.[1]) {
     throw new Error('Could not find AEAT Veri*Factu preproduction endpoint in WSDL.');
@@ -116,13 +131,52 @@ export const buildVerifactuSoapEnvelope = (regFactuXml: string) => {
     '</soapenv:Envelope>';
 };
 
+const validateTestEndpoint = (endpoint: string, name = 'VERIFACTU_TEST_ENDPOINT') => {
+  const parsedEndpoint = new URL(endpoint);
+
+  if (parsedEndpoint.protocol !== 'https:') {
+    throw new Error(`${name} must use https.`);
+  }
+
+  if (productionHosts.has(parsedEndpoint.hostname)) {
+    throw new Error('Production AEAT Veri*Factu endpoints are disabled in this test spike.');
+  }
+
+  return endpoint;
+};
+
+export const loadVerifactuSoapEnvironment = (
+  envSource: NodeJS.ProcessEnv = process.env,
+  wsdl = readVerifactuWsdl(),
+): VerifactuSoapEnvironmentConfig => {
+  const env = envSource.VERIFACTU_AEAT_ENV;
+
+  if (env !== 'test') {
+    throw new Error('VERIFACTU_AEAT_ENV must be set to test for this preproduction spike.');
+  }
+
+  return {
+    env,
+    endpoint: validateTestEndpoint(
+      envSource.VERIFACTU_TEST_ENDPOINT?.trim() ||
+        getVerifactuTestEndpointFromWsdl(wsdl) ||
+        defaultTestEndpoint,
+    ),
+    sealEndpoint: validateTestEndpoint(
+      envSource.VERIFACTU_TEST_SEAL_ENDPOINT?.trim() ||
+        getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+      'VERIFACTU_TEST_SEAL_ENDPOINT',
+    ),
+  };
+};
+
+// Uses the single certificate file from VERIFACTU_CERT_PATH, as the manual test
+// scripts do. The worker and reconciliation job use each organization's own.
 export const loadVerifactuSoapConfig = (
   envSource: NodeJS.ProcessEnv = process.env,
   wsdl = readVerifactuWsdl(),
 ): VerifactuSoapConfig => {
-  const env = envSource.VERIFACTU_AEAT_ENV;
-
-  if (env !== 'test') {
+  if (envSource.VERIFACTU_AEAT_ENV !== 'test') {
     throw new Error('VERIFACTU_AEAT_ENV must be set to test for this preproduction spike.');
   }
 
@@ -132,18 +186,7 @@ export const loadVerifactuSoapConfig = (
     throw new Error('VERIFACTU_CERT_PATH is required for AEAT client certificate TLS.');
   }
 
-  const endpoint = envSource.VERIFACTU_TEST_ENDPOINT?.trim() ||
-    getVerifactuTestEndpointFromWsdl(wsdl) ||
-    defaultTestEndpoint;
-  const parsedEndpoint = new URL(endpoint);
-
-  if (parsedEndpoint.protocol !== 'https:') {
-    throw new Error('VERIFACTU_TEST_ENDPOINT must use https.');
-  }
-
-  if (productionHosts.has(parsedEndpoint.hostname)) {
-    throw new Error('Production AEAT Veri*Factu endpoints are disabled in this test spike.');
-  }
+  const { env, endpoint } = loadVerifactuSoapEnvironment(envSource, wsdl);
 
   return {
     env,
@@ -153,12 +196,17 @@ export const loadVerifactuSoapConfig = (
   };
 };
 
-const createClientCertificateOptions = (
-  certPath: string,
-  passphrase: string | undefined,
-) => {
-  const certificate = readFileSync(certPath);
-  const extension = path.extname(certPath).toLowerCase();
+const createClientCertificateOptions = ({
+  certPath,
+  certificate: certificateContents,
+  certPassphrase: passphrase,
+}: Pick<VerifactuSoapTransportRequest, 'certPath' | 'certificate' | 'certPassphrase'>) => {
+  if (!certificateContents && !certPath) {
+    throw new Error('AEAT client certificate TLS requires a certificate.');
+  }
+
+  const certificate = certificateContents ?? readFileSync(certPath!);
+  const extension = certPath ? path.extname(certPath).toLowerCase() : '';
   const common = passphrase ? { passphrase } : {};
 
   if (extension === '.pem') {
@@ -178,15 +226,14 @@ const createClientCertificateOptions = (
 export const sendVerifactuSoapRequest: VerifactuSoapTransport = ({
   endpoint,
   body,
-  certPath,
-  certPassphrase,
+  ...clientCertificate
 }) => new Promise((resolve, reject) => {
   const endpointUrl = new URL(endpoint);
   const req = httpsRequest(
     endpointUrl,
     {
       method: 'POST',
-      ...createClientCertificateOptions(certPath, certPassphrase),
+      ...createClientCertificateOptions(clientCertificate),
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         SOAPAction: '""',
@@ -363,6 +410,7 @@ export const submitVerifactuSoapXml = async ({
     endpoint: config.endpoint,
     body: requestXml,
     certPath: config.certPath,
+    certificate: config.certificate,
     certPassphrase: config.certPassphrase,
   });
 

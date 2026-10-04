@@ -210,6 +210,11 @@
     "paymentNotAllowed": "Payments can only be recorded for open invoices.",
     "notEditable": "Only draft invoices can be edited.",
     "notFound": "Invoice Not Found",
-    "verifactuSubsanacionNotAllowed": "This invoice has no Veri*Factu record that can be corrected."
+    "verifactuSubsanacionNotAllowed": "This invoice has no Veri*Factu record that can be corrected.",
+    "unsupportedFiscalRegime": "Organisations in the Basque Country or Navarra aren't supported yet: they must use TicketBAI or Navarra's own system. Invoices can't be issued under this fiscal regime."
+  },
+  "verifactuCertificateBanner": {
+    "message": "Your organisation uses Veri*Factu but has no valid certificate, so your invoices' records aren't being sent to AEAT.",
+    "action": "Upload certificate"
   }
 }

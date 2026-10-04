@@ -28,6 +28,7 @@ import {
   getInvoiceDetails,
   getInvoiceFormOptions,
   getInvoices,
+  isVerifactuCertificateMissing,
   recordInvoicePayment,
   subsanarInvoiceVerifactuRecord,
   updateDraftInvoiceRecord,
@@ -197,6 +198,8 @@ export const listInvoices: RequestHandler = async (req, res) => {
   res.render('pages/invoices/index.njk', {
     ...invoiceIndexView(invoices, req.t),
     title: req.t('invoices.title'),
+    verifactuCertificateMissing: await isVerifactuCertificateMissing(req.auth!.organization),
+    canManageSettings: req.auth!.role !== 'MEMBER',
   });
 };
 
@@ -312,6 +315,20 @@ export const createInvoice: RequestHandler = async (req, res) => {
         values: normalizeInvoiceFormValues(req.body),
         errors: {},
         formError: req.t('invoices.errors.invalidReplacementInvoice'),
+        organizationCurrency: req.auth!.organization.currency,
+        withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
+      });
+    }
+
+    if (!createResult.ok && createResult.reason === 'unsupportedFiscalRegime') {
+      return renderInvoiceForm(res, {
+        status: 422,
+        ...newInvoiceFormOptions,
+        ...newInvoiceLabels,
+        customers,
+        values: normalizeInvoiceFormValues(req.body),
+        errors: {},
+        formError: req.t('invoices.errors.unsupportedFiscalRegime'),
         organizationCurrency: req.auth!.organization.currency,
         withholdingOptions: invoiceWithholdingOptions(req.auth!.organization),
       });
@@ -471,6 +488,11 @@ export const updateInvoiceStatusController: RequestHandler = async (
       title: 'Not found',
       path: req.path,
     });
+  }
+
+  if (!updateResult.ok && updateResult.reason === 'unsupportedFiscalRegime') {
+    req.flash('error', req.t('invoices.errors.unsupportedFiscalRegime'));
+    return res.redirect(invoicePath);
   }
 
   if (!updateResult.ok) {

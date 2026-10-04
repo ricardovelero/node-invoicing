@@ -49,6 +49,10 @@
       {{ labelField('legalForm', t('settings.fields.legalForm')) }}
       {{ selectField('legalForm', legalFormOptions, value=values.legalForm, error=errors.legalForm, attrs='data-withholding-legal-form') }}
     </div>
+    <div>
+      {{ labelField('fiscalRegime', t('settings.fields.fiscalRegime')) }}
+      {{ selectField('fiscalRegime', fiscalRegimeOptions, value=values.fiscalRegime, error=errors.fiscalRegime, help=t('settings.help.fiscalRegime')) }}
+    </div>
   </div>
 
   <section class="rounded-md border border-line bg-panel p-4"{% if values.countryCode != 'ES' or values.legalForm == 'company' %} hidden{% endif %} data-withholding-settings>
