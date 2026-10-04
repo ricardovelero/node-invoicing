@@ -15,6 +15,9 @@ export const verifactuStatusSelect = {
   aeatEnvironment: true,
   aeatCodigoErrorRegistro: true,
   aeatDescripcionErrorRegistro: true,
+  aeatLastQueryEstadoRegistro: true,
+  aeatLastQueryCodigoErrorRegistro: true,
+  aeatLastQueryDescripcionErrorRegistro: true,
   aeatSubmissionResult: true,
   preflightError: true,
   updatedAt: true,
@@ -85,20 +88,30 @@ export const getVerifactuIssues = async (
   });
 };
 
-// Sends an invoice's records that failed pre-flight validation again, as after a
-// validator fix. Records AEAT rejected need a subsanación instead.
+// Sends an invoice's latest record again when it failed pre-flight validation,
+// as after a validator fix. Earlier failures were superseded by a later record,
+// such as a subsanación, and records AEAT rejected need a subsanación instead.
 export const retryVerifactuPreflightFailures = async (
   client: VerifactuStatusClient,
   organizationId: string,
   invoiceId: string,
 ) => {
-  const { count } = await client.verifactuRecord.updateMany({
+  const latest = await client.invoiceFiscalRecord.findFirst({
     where: {
       organizationId,
       invoiceId,
-      status: 'PREFLIGHT_FAILED',
-      aeatEnvironment: currentVerifactuAeatEnvironment(),
+      verifactuRecord: { is: { aeatEnvironment: currentVerifactuAeatEnvironment() } },
     },
+    orderBy: { sequenceNumber: 'desc' },
+    select: { verifactuRecord: { select: { id: true, status: true } } },
+  });
+
+  if (latest?.verifactuRecord?.status !== 'PREFLIGHT_FAILED') {
+    return 0;
+  }
+
+  const { count } = await client.verifactuRecord.updateMany({
+    where: { id: latest.verifactuRecord.id, status: 'PREFLIGHT_FAILED' },
     data: { status: 'GENERATED', preflightError: null },
   });
 

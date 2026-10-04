@@ -219,6 +219,10 @@ export const createVerifactuRecordDisplay = (fiscalRecord: {
   verifactuRecord: VerifactuStatusRecord;
 }) => {
   const record = fiscalRecord.verifactuRecord;
+  // A submission without a response line for the record is resolved by the
+  // reconciliation query, which stores AEAT's error in its own fields.
+  const fromQuery = !record.aeatCodigoErrorRegistro && !record.aeatDescripcionErrorRegistro &&
+    !!record.aeatLastQueryEstadoRegistro;
   let typeLabelKey = 'invoices.verifactu.types.anulacion';
 
   if (fiscalRecord.type === 'ALTA') {
@@ -231,10 +235,14 @@ export const createVerifactuRecordDisplay = (fiscalRecord: {
     id: record.id,
     typeLabelKey,
     statusBadge: verifactuStatusBadges[record.status],
-    errorCode: record.status === 'PREFLIGHT_FAILED' ? null : record.aeatCodigoErrorRegistro,
+    errorCode: record.status === 'PREFLIGHT_FAILED'
+      ? null
+      : fromQuery ? record.aeatLastQueryCodigoErrorRegistro : record.aeatCodigoErrorRegistro,
     errorMessage: record.status === 'PREFLIGHT_FAILED'
       ? record.preflightError
-      : record.aeatDescripcionErrorRegistro,
+      : fromQuery
+        ? record.aeatLastQueryDescripcionErrorRegistro
+        : record.aeatDescripcionErrorRegistro,
     csv: verifactuCsvFromResult(record.aeatSubmissionResult),
     isTestEnvironment: record.aeatEnvironment === 'TEST',
     updatedAt: record.updatedAt,
@@ -589,9 +597,10 @@ export const invoiceDetailView = (
     })),
     verifactuRecords: (invoice.fiscalRecords ?? []).flatMap(({ verifactuRecord, ...fiscal }) =>
       verifactuRecord ? [createVerifactuRecordDisplay({ ...fiscal, verifactuRecord })] : []),
-    canRetryVerifactu: (invoice.fiscalRecords ?? []).some(({ verifactuRecord }) =>
-      verifactuRecord?.status === 'PREFLIGHT_FAILED' &&
-      verifactuRecord.aeatEnvironment === currentVerifactuAeatEnvironment()),
+    // Only the latest record can be retried; earlier failures were superseded.
+    canRetryVerifactu: (invoice.fiscalRecords ?? []).find(({ verifactuRecord }) =>
+      verifactuRecord?.aeatEnvironment === currentVerifactuAeatEnvironment())
+      ?.verifactuRecord?.status === 'PREFLIGHT_FAILED',
   };
 };
 

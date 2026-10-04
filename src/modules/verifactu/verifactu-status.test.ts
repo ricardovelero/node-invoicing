@@ -77,28 +77,53 @@ test('getVerifactuIssues skips the history query without failed records', async 
   assert.deepEqual(await getVerifactuIssues(client as never, organizationId), []);
 });
 
-test('retryVerifactuPreflightFailures only requeues pre-flight failures', async () => {
-  let updateArgs: unknown;
+const retryClient = (latestStatus: VerifactuRecordStatus) => {
+  const calls: Record<string, unknown> = {};
   const client = {
+    invoiceFiscalRecord: {
+      async findFirst(args: unknown) {
+        calls.findFirst = args;
+
+        return { verifactuRecord: { id: 'record_latest', status: latestStatus } };
+      },
+    },
     verifactuRecord: {
       async updateMany(args: unknown) {
-        updateArgs = args;
+        calls.updateMany = args;
 
         return { count: 1 };
       },
     },
   };
 
-  assert.equal(await retryVerifactuPreflightFailures(client as never, organizationId, 'inv_1'), 1);
-  assert.deepEqual(updateArgs, {
+  return { client: client as never, calls };
+};
+
+test('retryVerifactuPreflightFailures requeues the latest record when it failed', async () => {
+  const { client, calls } = retryClient('PREFLIGHT_FAILED');
+
+  assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 1);
+  assert.deepEqual(calls.findFirst, {
     where: {
       organizationId,
       invoiceId: 'inv_1',
-      status: 'PREFLIGHT_FAILED',
-      aeatEnvironment: 'TEST',
+      verifactuRecord: { is: { aeatEnvironment: 'TEST' } },
     },
+    orderBy: { sequenceNumber: 'desc' },
+    select: { verifactuRecord: { select: { id: true, status: true } } },
+  });
+  assert.deepEqual(calls.updateMany, {
+    where: { id: 'record_latest', status: 'PREFLIGHT_FAILED' },
     data: { status: 'GENERATED', preflightError: null },
   });
+});
+
+test('retryVerifactuPreflightFailures leaves failures superseded by a later record', async () => {
+  // The original ALTA failed pre-flight, then an accepted subsanación replaced it.
+  const { client, calls } = retryClient('ACCEPTED');
+
+  assert.equal(await retryVerifactuPreflightFailures(client, organizationId, 'inv_1'), 0);
+  assert.equal(calls.updateMany, undefined);
 });
 
 test('verifactuCsvFromResult reads the CSV from the stored submission result', () => {

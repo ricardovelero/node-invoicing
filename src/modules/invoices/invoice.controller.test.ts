@@ -2063,12 +2063,15 @@ test("subsanarInvoiceVerifactuController handles missing and blocked invoices", 
 test("retryInvoiceVerifactuController requeues pre-flight failures", async () => {
   const invoiceId = "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c";
   const verifactuRecordMock = prisma.verifactuRecord as unknown as Record<string, unknown>;
+  const fiscalRecordMock = prisma.invoiceFiscalRecord as unknown as Record<string, unknown>;
   const originalUpdateMany = verifactuRecordMock.updateMany;
+  const originalFindFirst = fiscalRecordMock.findFirst;
   const responses = [];
 
   try {
-    for (const count of [1, 0]) {
-      verifactuRecordMock.updateMany = async () => ({ count });
+    for (const status of ["PREFLIGHT_FAILED", "ACCEPTED"]) {
+      fiscalRecordMock.findFirst = async () => ({ verifactuRecord: { id: "record_1", status } });
+      verifactuRecordMock.updateMany = async () => ({ count: 1 });
       const req = createRequest({}, { invoiceId });
       const res = createResponse();
 
@@ -2077,6 +2080,7 @@ test("retryInvoiceVerifactuController requeues pre-flight failures", async () =>
     }
   } finally {
     verifactuRecordMock.updateMany = originalUpdateMany;
+    fiscalRecordMock.findFirst = originalFindFirst;
   }
 
   assert.deepEqual(responses[0]!.req.flashMessages.success, [
@@ -2096,6 +2100,9 @@ test("createVerifactuRecordDisplay shows the error and receipt users need", () =
     aeatEnvironment: "PRODUCTION" as const,
     aeatCodigoErrorRegistro: "1239",
     aeatDescripcionErrorRegistro: "El NIF no está identificado.",
+    aeatLastQueryEstadoRegistro: null,
+    aeatLastQueryCodigoErrorRegistro: null,
+    aeatLastQueryDescripcionErrorRegistro: null,
     aeatSubmissionResult: { kind: "response", csv: "A-YDSW8NLFLANWPM" },
     preflightError: null,
     updatedAt: new Date("2026-10-04T10:00:00.000Z"),
@@ -2136,6 +2143,23 @@ test("createVerifactuRecordDisplay shows the error and receipt users need", () =
   assert.equal(preflight.errorMessage, "Invalid NIF in IDFactura: B00000000");
   assert.equal(preflight.csv, null);
   assert.equal(preflight.isTestEnvironment, true);
+
+  // The submission response had no line for the record; reconciliation found the error.
+  const reconciled = createVerifactuRecordDisplay({
+    type: "ALTA",
+    subsanacionNumber: 0,
+    verifactuRecord: {
+      ...record,
+      aeatCodigoErrorRegistro: null,
+      aeatDescripcionErrorRegistro: null,
+      aeatLastQueryEstadoRegistro: "AceptadoConErrores",
+      aeatLastQueryCodigoErrorRegistro: "1100",
+      aeatLastQueryDescripcionErrorRegistro: "Valor o tipo incorrecto del campo.",
+    },
+  });
+
+  assert.equal(reconciled.errorCode, "1100");
+  assert.equal(reconciled.errorMessage, "Valor o tipo incorrecto del campo.");
 });
 
 test("updateInvoiceStatusController redirects with flash error for invalid transitions", async () => {
