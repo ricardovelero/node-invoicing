@@ -21,11 +21,16 @@ export const submitVerifactuRecordToAeatTest = async ({
 
   const record = await client.verifactuRecord.findUnique({
     where: { id: recordId },
-    select: { id: true, xml: true, status: true },
+    select: { id: true, xml: true, status: true, aeatEnvironment: true },
   });
 
   if (!record) {
     throw new Error(`VerifactuRecord not found: ${recordId}`);
+  }
+
+  // Preproduction answers must never change the status of a production record.
+  if (record.aeatEnvironment !== 'TEST') {
+    throw new Error(`VerifactuRecord ${record.id} was generated for AEAT production.`);
   }
 
   if (record.status === 'ACCEPTED') {

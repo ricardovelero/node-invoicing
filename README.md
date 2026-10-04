@@ -195,7 +195,7 @@ pnpm verifactu:submit-test <verifactuRecordId>
 pnpm verifactu:query-test <verifactuRecordId>
 ```
 
-Submits or queries a single persisted Veri*Factu record against AEAT preproduction. These scripts require a prior `pnpm build`, `VERIFACTU_AEAT_ENV=test`, and a client certificate path; they refuse to run in production, where only the worker and reconciliation job talk to AEAT. They log the SOAP endpoint, request XML, HTTP status, response XML, parsed result, and persisted status.
+Submits or queries a single persisted Veri*Factu record against AEAT preproduction. These scripts require a prior `pnpm build`, `VERIFACTU_AEAT_ENV=test`, and a client certificate path; they refuse to run in production, where only the worker and reconciliation job talk to AEAT, and refuse records generated for production. They log the SOAP endpoint, request XML, HTTP status, response XML, parsed result, and persisted status.
 
 ```sh
 pnpm prisma:generate
