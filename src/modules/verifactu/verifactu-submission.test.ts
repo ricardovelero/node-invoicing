@@ -424,6 +424,29 @@ test('runVerifactuSubmissionPass keeps records pending on SOAP faults and backs 
   assert.equal(nextSubmissionAt.get('org_1'), 60_000);
 });
 
+test('runVerifactuSubmissionPass keeps records pending on unrecognized responses', async () => {
+  const records = [fakeRecord('record_1', 1, altaPayload('INV-2026-0001'))];
+  const { client } = fakeClient(records);
+  const nextSubmissionAt = new Map<string, number>();
+  const errors: unknown[][] = [];
+
+  const result = await runVerifactuSubmissionPass({
+    client,
+    config,
+    nextSubmissionAt,
+    logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
+    now: () => 0,
+    async transport() {
+      return { status: 502, body: '<html><body>502 Bad Gateway</body></html>' };
+    },
+  });
+
+  assert.deepEqual(result, { organizationCount: 1, submittedCount: 0 });
+  assert.equal(records[0]!.status, 'GENERATED');
+  assert.match(String(errors[0]![2]), /Unrecognized AEAT response \(HTTP 502\)/);
+  assert.equal(nextSubmissionAt.get('org_1'), 60_000);
+});
+
 test('runVerifactuSubmissionPass isolates transport errors per organization', async () => {
   const records = [
     fakeRecord('record_1', 1, altaPayload('INV-2026-0001'), 'org_1'),

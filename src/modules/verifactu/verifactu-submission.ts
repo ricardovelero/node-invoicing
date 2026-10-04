@@ -184,6 +184,13 @@ export const submitPendingVerifactuBatch = async ({
     config,
     transport,
   });
+
+  // A body that is neither a SOAP fault nor an AEAT answer, such as a proxy's
+  // 502 page, says nothing about the records. Keep them pending to retry.
+  if (result.parsedResponse.kind === 'response' && !result.parsedResponse.estadoEnvio) {
+    throw new Error(`Unrecognized AEAT response (HTTP ${result.httpStatus}).`);
+  }
+
   const statuses: Partial<Record<VerifactuRecordStatus, number>> = {};
 
   for (const record of records) {
