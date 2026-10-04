@@ -4,10 +4,10 @@
   "nav": {
     "label": "Settings sections",
     "profile": "Profile",
-    "organization": "Organisation",
+    "organization": "Current organisation",
     "localization": "Localisation",
     "security": "Security",
-    "organizations": "Organisations",
+    "organizations": "Your organisations",
     "verifactu": "Veri*Factu"
   },
   "sections": {
@@ -17,7 +17,7 @@
     },
     "organization": {
       "title": "Organisation settings",
-      "description": "Legal details, billing, and invoicing defaults for your organisation."
+      "description": "Legal details, billing, and invoicing defaults for {name}, the organisation you're working in now."
     },
     "localization": {
       "title": "Localisation settings",
@@ -25,11 +25,11 @@
     },
     "security": {
       "title": "Security settings",
-      "description": "Password and account security."
+      "description": "Change your password, see where you're signed in, and set how long sessions last."
     },
     "organizations": {
-      "title": "Organisations",
-      "description": "Manage and switch between organisations.",
+      "title": "Your organisations",
+      "description": "See the organisations you belong to, switch between them, or create a new one.",
       "placeholder": "Creating and switching organisations is coming soon."
     },
     "verifactu": {

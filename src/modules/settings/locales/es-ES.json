@@ -4,10 +4,10 @@
   "nav": {
     "label": "Secciones de ajustes",
     "profile": "Perfil",
-    "organization": "Organización",
+    "organization": "Organización actual",
     "localization": "Localización",
     "security": "Seguridad",
-    "organizations": "Organizaciones",
+    "organizations": "Tus organizaciones",
     "verifactu": "Veri*Factu"
   },
   "sections": {
@@ -17,7 +17,7 @@
     },
     "organization": {
       "title": "Ajustes de la organización",
-      "description": "Datos legales, facturación y valores predeterminados de tu organización."
+      "description": "Datos legales, facturación y valores predeterminados de {name}, la organización con la que estás trabajando."
     },
     "localization": {
       "title": "Ajustes de localización",
@@ -25,11 +25,11 @@
     },
     "security": {
       "title": "Ajustes de seguridad",
-      "description": "Contraseña y seguridad de la cuenta."
+      "description": "Cambia tu contraseña, revisa dónde has iniciado sesión y define cuánto duran las sesiones."
     },
     "organizations": {
-      "title": "Organizaciones",
-      "description": "Gestiona y cambia entre organizaciones.",
+      "title": "Tus organizaciones",
+      "description": "Consulta las organizaciones a las que perteneces, cambia entre ellas o crea una nueva.",
       "placeholder": "Crear y cambiar de organización estará disponible pronto."
     },
     "verifactu": {

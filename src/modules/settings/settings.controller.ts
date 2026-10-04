@@ -127,7 +127,10 @@ const createOrganizationSettingsViewModel = (
   title: options.title ?? req.t("settings.sections.organization.title"),
   heading: options.heading ?? req.t("settings.sections.organization.title"),
   description:
-    options.description ?? req.t("settings.sections.organization.description"),
+    options.description ??
+    req.t("settings.sections.organization.description", {
+      name: req.auth!.organization.name,
+    }),
   activeSettingsPage: options.activeSettingsPage ?? "organization",
   formAction: options.formAction ?? "/settings/organization",
   submitLabel: options.submitLabel ?? req.t("settings.actions.save"),

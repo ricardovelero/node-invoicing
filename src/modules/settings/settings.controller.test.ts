@@ -418,7 +418,7 @@ test("renderOrganizationsSettings renders memberships and marks the current orga
 
   assert.equal(res.renderedView, "pages/settings/organizations.njk");
   assert.deepEqual(res.renderedData, {
-    title: "Organisations",
+    title: "Your organisations",
     activeSettingsPage: "organizations",
     currentOrganization: req.auth.organization,
     memberships: [
@@ -634,7 +634,9 @@ test("renderOrganizationSettings renders current organization values", () => {
   assert.deepEqual(res.renderedData, {
     title: "Organisation settings",
     heading: "Organisation settings",
-    description: "Legal details, billing, and invoicing defaults for your organisation.",
+    description:
+      "Legal details, billing, and invoicing defaults for Analytical Engines, " +
+      "the organisation you're working in now.",
     activeSettingsPage: "organization",
     formAction: "/settings/organization",
     submitLabel: "Save settings",
