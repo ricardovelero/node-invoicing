@@ -22,7 +22,8 @@
     "retry": "Reintentar",
     "saveCatalogItem": "Guardar",
     "saveForFutureUse": "¿Guardar para usarlo más adelante?",
-    "subsanarVerifactu": "Subsanar registro Veri*Factu"
+    "subsanarVerifactu": "Subsanar registro Veri*Factu",
+    "retryVerifactu": "Reintentar envío a la AEAT"
   },
   "dialogs": {
     "void": {
@@ -192,7 +193,8 @@
     "statusUpdated": "Estado de la factura actualizado.",
     "detailsUpdated": "Detalles de la factura actualizados.",
     "paymentRecorded": "Pago registrado.",
-    "verifactuSubsanacionCreated": "Registro de subsanación generado. Se enviará a la AEAT en el próximo envío."
+    "verifactuSubsanacionCreated": "Registro de subsanación generado. Se enviará a la AEAT en el próximo envío.",
+    "verifactuRetried": "Registro listo para reenviarse a la AEAT en el próximo envío."
   },
   "errors": {
     "chooseCustomer": "Elige un cliente.",
@@ -211,10 +213,41 @@
     "notEditable": "Solo se pueden editar facturas en borrador.",
     "notFound": "Factura no encontrada",
     "verifactuSubsanacionNotAllowed": "Esta factura no tiene un registro Veri*Factu que se pueda subsanar.",
-    "unsupportedFiscalRegime": "Las organizaciones de País Vasco o Navarra todavía no se admiten: deben usar TicketBAI o el sistema de Navarra. No se pueden emitir facturas con este régimen fiscal."
+    "unsupportedFiscalRegime": "Las organizaciones de País Vasco o Navarra todavía no se admiten: deben usar TicketBAI o el sistema de Navarra. No se pueden emitir facturas con este régimen fiscal.",
+    "verifactuRetryNotAllowed": "Esta factura no tiene registros Veri*Factu con errores de validación que reintentar."
   },
   "verifactuCertificateBanner": {
     "message": "Tu organización usa Veri*Factu pero no tiene un certificado válido, así que los registros de tus facturas no se envían a la AEAT.",
     "action": "Subir certificado"
+  },
+  "verifactu": {
+    "title": "Veri*Factu",
+    "types": {
+      "alta": "Alta",
+      "subsanacion": "Alta de subsanación",
+      "anulacion": "Anulación"
+    },
+    "statuses": {
+      "pending": "Pendiente de envío",
+      "submitted": "Enviado, sin confirmar",
+      "accepted": "Aceptado",
+      "acceptedWithErrors": "Aceptado con errores",
+      "rejected": "Rechazado",
+      "preflightFailed": "Error de validación"
+    },
+    "testEnvironment": "Entorno de pruebas de la AEAT",
+    "csv": "CSV",
+    "retryHelp": "Vuelve a enviar los registros que no pasaron la validación previa. Si el error está en los datos, corrígelos y usa Subsanar.",
+    "issuesBanner": {
+      "message": "Facturas con incidencias en Veri*Factu: {count}.",
+      "action": "Ver incidencias"
+    },
+    "issues": {
+      "title": "Incidencias Veri*Factu",
+      "description": "Facturas cuyo último registro Veri*Factu fue rechazado por la AEAT, aceptado con errores o no pasó la validación previa. Abre la factura para subsanarlo o reintentar el envío.",
+      "record": "Registro",
+      "error": "Error",
+      "empty": "No hay incidencias."
+    }
   }
 }

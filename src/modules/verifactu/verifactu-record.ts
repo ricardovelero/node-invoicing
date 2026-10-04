@@ -11,7 +11,7 @@ import {
 
 // Records an ALTA de subsanación can correct: errors reported by AEAT and records
 // that never reached AEAT because they failed pre-flight validation.
-const verifactuSubsanableStatuses: VerifactuRecordStatus[] = [
+export const verifactuSubsanableStatuses: VerifactuRecordStatus[] = [
   'ACCEPTED_WITH_ERRORS',
   'REJECTED',
   'PREFLIGHT_FAILED',

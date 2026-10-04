@@ -44,6 +44,39 @@
         </div>
       </div>
 
+      {% if verifactuRecords.length %}
+        <div class="card card-body" data-verifactu-records>
+          <h2 class="text-lg font-semibold">{{ t('invoices.verifactu.title') }}</h2>
+          <ul class="mt-4 divide-y divide-line text-sm">
+            {% for record in verifactuRecords %}
+              <li class="py-3 first:pt-0 last:pb-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium">{{ t(record.typeLabelKey) }}</span>
+                  {{ badge(t(record.statusBadge.labelKey), record.statusBadge.variant) }}
+                  {% if record.isTestEnvironment %}
+                    <span class="text-xs text-muted">{{ t('invoices.verifactu.testEnvironment') }}</span>
+                  {% endif %}
+                  <span class="ml-auto text-xs text-muted">{{ record.updatedAt | date(currentLocale) }}</span>
+                </div>
+                {% if record.errorMessage or record.errorCode %}
+                  <p class="mt-2 text-red-700">{% if record.errorCode %}{{ record.errorCode }}: {% endif %}{{ record.errorMessage }}</p>
+                {% endif %}
+                {% if record.csv %}
+                  <p class="mt-1 text-muted">{{ t('invoices.verifactu.csv') }}: <span class="font-mono">{{ record.csv }}</span></p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          {% if canRetryVerifactu %}
+            <form class="mt-4" method="post" action="/invoices/{{ invoice.id }}/verifactu/retry">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button class="btn btn-secondary" type="submit">{{ t('invoices.actions.retryVerifactu') }}</button>
+              <p class="mt-2 text-xs text-muted">{{ t('invoices.verifactu.retryHelp') }}</p>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
+
       {% if invoiceDisplay.snapshot %}
         <div class="card card-body">
           <h2 class="text-lg font-semibold">{{ t('invoices.detail.billingSnapshot') }}</h2>

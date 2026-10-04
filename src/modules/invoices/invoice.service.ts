@@ -16,6 +16,12 @@ import { buildVerifactuXml } from '../verifactu/verifactu-xml';
 import { getOrganizationVerifactuCertificate } from '../verifactu/verifactu-certificate';
 import { verifactuQrRecordsInclude } from '../verifactu/verifactu-qr';
 import {
+  getVerifactuIssueRecordIds,
+  getVerifactuIssues,
+  retryVerifactuPreflightFailures,
+  verifactuHistoryInclude,
+} from '../verifactu/verifactu-status';
+import {
   hasUnsupportedFiscalRegime,
   usesVerifactu,
   type VerifactuRegimeOrganization,
@@ -520,6 +526,7 @@ export const getInvoiceDetails = (organizationId: string, invoiceId: string) =>
         take: 10,
       },
       verifactuRecords: verifactuQrRecordsInclude,
+      fiscalRecords: verifactuHistoryInclude,
     },
   });
 
@@ -535,6 +542,31 @@ export const isVerifactuCertificateMissing = async (
 
   return !certificate || certificate.validTo <= new Date() || !certificate.readable;
 };
+
+export const getOrganizationVerifactuIssues = async (
+  organization: VerifactuRegimeOrganization & { id: string },
+) => usesVerifactu(organization) ? getVerifactuIssues(prisma, organization.id) : [];
+
+export const countOrganizationVerifactuIssues = async (
+  organization: VerifactuRegimeOrganization & { id: string },
+) => usesVerifactu(organization)
+  ? (await getVerifactuIssueRecordIds(prisma, organization.id)).length
+  : 0;
+
+// Takes the same invoice lock as subsanarInvoiceVerifactuRecord, so a subsanación
+// can't be created between finding the latest record and requeuing it.
+export const retryInvoiceVerifactuRecords = (organizationId: string, invoiceId: string) =>
+  prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId}::uuid
+        AND "organizationId" = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+
+    return retryVerifactuPreflightFailures(tx, organizationId, invoiceId);
+  });
 
 export const verifyOrganizationFiscalRecordChain = (organizationId: string) =>
   verifyInvoiceFiscalRecordChain(prisma, organizationId);

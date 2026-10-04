@@ -27,9 +27,12 @@ import {
   createInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
+  countOrganizationVerifactuIssues,
   getInvoices,
+  getOrganizationVerifactuIssues,
   isVerifactuCertificateMissing,
   recordInvoicePayment,
+  retryInvoiceVerifactuRecords,
   subsanarInvoiceVerifactuRecord,
   updateDraftInvoiceRecord,
   updateInvoiceMetadata,
@@ -42,6 +45,7 @@ import {
   invoiceIndexView,
   invoicePrintView,
   invoiceToFormValues,
+  verifactuIssuesView,
 } from './invoice.presenter';
 import { sendInvoiceEmail } from './invoice-email.service';
 import { generateInvoicePdfFromPrintUrl } from './invoice-pdf.service';
@@ -199,7 +203,15 @@ export const listInvoices: RequestHandler = async (req, res) => {
     ...invoiceIndexView(invoices, req.t),
     title: req.t('invoices.title'),
     verifactuCertificateMissing: await isVerifactuCertificateMissing(req.auth!.organization),
+    verifactuIssueCount: await countOrganizationVerifactuIssues(req.auth!.organization),
     canManageSettings: req.auth!.role !== 'MEMBER',
+  });
+};
+
+export const listVerifactuIssues: RequestHandler = async (req, res) => {
+  res.render('pages/invoices/verifactu-issues.njk', {
+    ...verifactuIssuesView(await getOrganizationVerifactuIssues(req.auth!.organization)),
+    title: req.t('invoices.verifactu.issues.title'),
   });
 };
 
@@ -530,6 +542,19 @@ export const subsanarInvoiceVerifactuController: RequestHandler = async (
 
   req.flash('success', req.t('invoices.flash.verifactuSubsanacionCreated'));
   return res.redirect(invoicePath);
+};
+
+export const retryInvoiceVerifactuController: RequestHandler = async (req, res) => {
+  const invoiceId = String(req.params.invoiceId);
+  const retriedCount = await retryInvoiceVerifactuRecords(req.auth!.organization.id, invoiceId);
+
+  if (!retriedCount) {
+    req.flash('error', req.t('invoices.errors.verifactuRetryNotAllowed'));
+  } else {
+    req.flash('success', req.t('invoices.flash.verifactuRetried'));
+  }
+
+  return res.redirect(`/invoices/${invoiceId}`);
 };
 
 export const updateInvoiceMetadataController: RequestHandler = async (

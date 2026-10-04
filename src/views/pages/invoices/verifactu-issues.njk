@@ -1,0 +1,43 @@
+{% extends "layouts/app.njk" %}
+{% from "components/ui/badge.njk" import badge %}
+
+{% block content %}
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-sm font-medium text-muted">{{ t('invoices.section') }}</p>
+      <h1 class="mt-1 text-3xl font-semibold">{{ t('invoices.verifactu.issues.title') }}</h1>
+      <p class="mt-2 max-w-2xl text-sm text-muted">{{ t('invoices.verifactu.issues.description') }}</p>
+    </div>
+    <a class="text-sm font-medium text-muted hover:text-ink" href="/invoices">{{ t('invoices.actions.backToInvoices') }}</a>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-line bg-white">
+    <table class="min-w-full divide-y divide-line text-sm">
+      <thead class="bg-panel text-left text-muted">
+        <tr>
+          <th class="px-4 py-3 font-medium">{{ t('invoices.table.number') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('invoices.verifactu.issues.record') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('invoices.table.status') }}</th>
+          <th class="px-4 py-3 font-medium">{{ t('invoices.verifactu.issues.error') }}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for issue in issues %}
+          <tr data-verifactu-issue>
+            <td class="px-4 py-3 align-top">
+              <a class="font-medium text-action hover:text-action-dark" href="/invoices/{{ issue.invoiceId }}">{{ issue.invoiceNumber }}</a>
+              <p class="text-muted">{{ issue.issueDate | date(currentLocale) }}</p>
+            </td>
+            <td class="px-4 py-3 align-top">{{ t(issue.record.typeLabelKey) }}</td>
+            <td class="px-4 py-3 align-top">{{ badge(t(issue.record.statusBadge.labelKey), issue.record.statusBadge.variant) }}</td>
+            <td class="px-4 py-3 align-top text-muted">{% if issue.record.errorCode %}{{ issue.record.errorCode }}: {% endif %}{{ issue.record.errorMessage or '—' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td class="px-4 py-6 text-muted" colspan="4">{{ t('invoices.verifactu.issues.empty') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

@@ -13,6 +13,7 @@ import {
   recordInvoicePaymentController,
   renderEditInvoice,
   renderNewInvoice,
+  retryInvoiceVerifactuController,
   showInvoice,
   subsanarInvoiceVerifactuController,
   updateInvoiceMetadataController,
@@ -25,6 +26,7 @@ import {
   createInvoicePaymentStatusBadge,
   createInvoiceStatusBadge,
   createInvoiceStatusBadges,
+  createVerifactuRecordDisplay,
   invoiceIndexView,
 } from "./invoice.presenter";
 import * as invoiceEmailService from "./invoice-email.service";
@@ -1287,6 +1289,8 @@ test("showInvoice renders invoice details and available actions", async () => {
     metadataErrors: {},
     metadataEditor: null,
     emailDeliveries: [],
+    verifactuRecords: [],
+    canRetryVerifactu: false,
   });
 });
 
@@ -2054,6 +2058,118 @@ test("subsanarInvoiceVerifactuController handles missing and blocked invoices", 
     "This invoice has no Veri*Factu record that can be corrected.",
   ]);
   assert.equal(responses[1]!.res.redirectedTo, `/invoices/${invoiceId}`);
+});
+
+test("retryInvoiceVerifactuController requeues pre-flight failures", async () => {
+  const invoiceId = "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c";
+  const responses = [];
+
+  for (const status of ["PREFLIGHT_FAILED", "ACCEPTED"]) {
+    let lockSql = "";
+
+    // The retry runs under the same invoice lock as subsanaciones.
+    prismaMock.$transaction = async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        async $queryRaw(strings: TemplateStringsArray) {
+          lockSql = strings.join("?");
+          return [];
+        },
+        invoiceFiscalRecord: {
+          async findFirst() {
+            assert.match(lockSql, /FOR UPDATE/);
+            return { verifactuRecord: { id: "record_1", status } };
+          },
+        },
+        verifactuRecord: {
+          async updateMany() {
+            return { count: 1 };
+          },
+        },
+      });
+    const req = createRequest({}, { invoiceId });
+    const res = createResponse();
+
+    await retryInvoiceVerifactuController(req, res, () => undefined);
+    responses.push({ req, res });
+  }
+
+  assert.deepEqual(responses[0]!.req.flashMessages.success, [
+    "Record queued to be sent to AEAT again.",
+  ]);
+  assert.deepEqual(responses[1]!.req.flashMessages.error, [
+    "This invoice has no Veri*Factu records with validation errors to retry.",
+  ]);
+  assert.equal(responses[0]!.res.redirectedTo, `/invoices/${invoiceId}`);
+  assert.equal(responses[1]!.res.redirectedTo, `/invoices/${invoiceId}`);
+});
+
+test("createVerifactuRecordDisplay shows the error and receipt users need", () => {
+  const record = {
+    id: "record_1",
+    status: "ACCEPTED_WITH_ERRORS" as const,
+    aeatEnvironment: "PRODUCTION" as const,
+    aeatCodigoErrorRegistro: "1239",
+    aeatDescripcionErrorRegistro: "El NIF no está identificado.",
+    aeatLastQueryEstadoRegistro: null,
+    aeatLastQueryCodigoErrorRegistro: null,
+    aeatLastQueryDescripcionErrorRegistro: null,
+    aeatSubmissionResult: { kind: "response", csv: "A-YDSW8NLFLANWPM" },
+    preflightError: null,
+    updatedAt: new Date("2026-10-04T10:00:00.000Z"),
+  };
+
+  assert.deepEqual(
+    createVerifactuRecordDisplay({ type: "ALTA", subsanacionNumber: 1, verifactuRecord: record }),
+    {
+      id: "record_1",
+      typeLabelKey: "invoices.verifactu.types.subsanacion",
+      statusBadge: {
+        labelKey: "invoices.verifactu.statuses.acceptedWithErrors",
+        variant: "warning",
+      },
+      errorCode: "1239",
+      errorMessage: "El NIF no está identificado.",
+      csv: "A-YDSW8NLFLANWPM",
+      isTestEnvironment: false,
+      updatedAt: record.updatedAt,
+    },
+  );
+
+  // Pre-flight failures never reached AEAT: show the validation message instead.
+  const preflight = createVerifactuRecordDisplay({
+    type: "ANULACION",
+    subsanacionNumber: 0,
+    verifactuRecord: {
+      ...record,
+      status: "PREFLIGHT_FAILED",
+      aeatEnvironment: "TEST",
+      aeatSubmissionResult: null,
+      preflightError: "Invalid NIF in IDFactura: B00000000",
+    },
+  });
+
+  assert.equal(preflight.typeLabelKey, "invoices.verifactu.types.anulacion");
+  assert.equal(preflight.errorCode, null);
+  assert.equal(preflight.errorMessage, "Invalid NIF in IDFactura: B00000000");
+  assert.equal(preflight.csv, null);
+  assert.equal(preflight.isTestEnvironment, true);
+
+  // The submission response had no line for the record; reconciliation found the error.
+  const reconciled = createVerifactuRecordDisplay({
+    type: "ALTA",
+    subsanacionNumber: 0,
+    verifactuRecord: {
+      ...record,
+      aeatCodigoErrorRegistro: null,
+      aeatDescripcionErrorRegistro: null,
+      aeatLastQueryEstadoRegistro: "AceptadoConErrores",
+      aeatLastQueryCodigoErrorRegistro: "1100",
+      aeatLastQueryDescripcionErrorRegistro: "Valor o tipo incorrecto del campo.",
+    },
+  });
+
+  assert.equal(reconciled.errorCode, "1100");
+  assert.equal(reconciled.errorMessage, "Valor o tipo incorrecto del campo.");
 });
 
 test("updateInvoiceStatusController redirects with flash error for invalid transitions", async () => {
