@@ -15,15 +15,16 @@ export const verifactuReconciliationBatchSize = 100;
 
 // Queries AEAT for SUBMITTED records and stores their registered state. Records
 // AEAT has not registered go back to GENERATED for the submission worker.
+// loadConfig returns the SOAP config for an organization, with its certificate.
 export const reconcileSubmittedVerifactuRecords = async ({
   client,
-  config,
+  loadConfig,
   transport = sendVerifactuSoapRequest,
   logger = console,
   now = () => Date.now(),
 }: {
   client: typeof prisma;
-  config: VerifactuSoapConfig;
+  loadConfig: (organizationId: string) => Promise<VerifactuSoapConfig>;
   transport?: VerifactuSoapTransport;
   logger?: Pick<Console, 'error'>;
   now?: () => number;
@@ -37,6 +38,7 @@ export const reconcileSubmittedVerifactuRecords = async ({
     take: verifactuReconciliationBatchSize,
     select: {
       id: true,
+      organizationId: true,
       sellerTaxId: true,
       invoiceNumber: true,
       issueDate: true,
@@ -48,6 +50,7 @@ export const reconcileSubmittedVerifactuRecords = async ({
     },
   });
   const statuses: Partial<Record<VerifactuRecordStatus, number>> = {};
+  const configs = new Map<string, Promise<VerifactuSoapConfig>>();
   let errorCount = 0;
 
   for (const record of records) {
@@ -59,6 +62,10 @@ export const reconcileSubmittedVerifactuRecords = async ({
         throw new Error('VerifactuRecord query requires a seller name.');
       }
 
+      if (!configs.has(record.organizationId)) {
+        configs.set(record.organizationId, loadConfig(record.organizationId));
+      }
+
       const result = await queryVerifactuSoapRecord({
         identity: {
           sellerTaxId: record.sellerTaxId,
@@ -66,7 +73,7 @@ export const reconcileSubmittedVerifactuRecords = async ({
           invoiceNumber: record.invoiceNumber,
           issueDate: record.issueDate,
         },
-        config,
+        config: await configs.get(record.organizationId)!,
         transport,
       });
       const persisted = await persistVerifactuQueryResponse({

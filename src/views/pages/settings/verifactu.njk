@@ -1,0 +1,86 @@
+{% extends "pages/settings/_layout.njk" %}
+{% from "components/ui/label-field.njk" import labelField %}
+{% from "components/ui/input-field.njk" import inputField %}
+{% from "components/confirm-dialog.njk" import confirmDialog %}
+
+{% block settingsContent %}
+  <div class="mb-6 max-w-3xl">
+    <h2 class="text-xl font-semibold">{{ t('settings.sections.verifactu.title') }}</h2>
+    <p class="mt-1 text-sm text-muted">{{ t('settings.sections.verifactu.description') }}</p>
+  </div>
+
+  <div class="max-w-3xl space-y-6">
+    {% if not usesVerifactu %}
+      <p class="rounded-md border border-dashed border-line p-4 text-sm text-muted">{{ t('settings.verifactu.notApplicable') }}</p>
+    {% endif %}
+
+    <section class="rounded-lg border border-line bg-white p-6">
+      <h3 class="text-lg font-semibold">{{ t('settings.verifactu.currentCertificate') }}</h3>
+      {% if certificate %}
+        <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt class="font-medium text-ink">{{ t('settings.verifactu.holder') }}</dt>
+            <dd class="text-muted">{{ certificate.holderName }}</dd>
+          </div>
+          <div>
+            <dt class="font-medium text-ink">{{ t('settings.verifactu.nif') }}</dt>
+            <dd class="text-muted">{{ certificate.holderNif or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="font-medium text-ink">{{ t('settings.verifactu.type') }}</dt>
+            <dd class="text-muted">{{ t('settings.verifactu.typeSeal') if certificate.isSeal else t('settings.verifactu.typePersonal') }}</dd>
+          </div>
+          <div>
+            <dt class="font-medium text-ink">{{ t('settings.verifactu.validUntil') }}</dt>
+            <dd class="text-muted">{{ certificate.validTo | date }}</dd>
+          </div>
+          <div>
+            <dt class="font-medium text-ink">{{ t('settings.verifactu.uploadedAt') }}</dt>
+            <dd class="text-muted">{{ certificate.updatedAt | date }}</dd>
+          </div>
+        </dl>
+        {% if certificateExpired %}
+          <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" data-verifactu-certificate-expired>{{ t('settings.verifactu.expired') }}</p>
+        {% endif %}
+        {% if nifMismatchMessage %}
+          <p class="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-700" data-verifactu-nif-mismatch>{{ nifMismatchMessage }}</p>
+        {% endif %}
+        <div class="mt-4">
+          <button class="btn btn-danger" type="button" data-dialog-open="remove-verifactu-certificate-dialog">{{ t('settings.verifactu.remove') }}</button>
+          {{ confirmDialog(
+            'remove-verifactu-certificate-dialog',
+            t('settings.verifactu.removeTitle'),
+            t('settings.verifactu.removeDescription'),
+            t('settings.verifactu.remove'),
+            t('common.actions.cancel'),
+            '/settings/verifactu/certificate/delete',
+            'post',
+            csrfToken,
+            true
+          ) }}
+        </div>
+      {% else %}
+        <p class="mt-2 text-sm text-muted" data-verifactu-no-certificate>{{ t('settings.verifactu.noCertificate') }}</p>
+      {% endif %}
+    </section>
+
+    <form method="post" action="/settings/verifactu/certificate" enctype="multipart/form-data" class="space-y-5 rounded-lg border border-line bg-white p-6">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <h3 class="text-lg font-semibold">{{ t('settings.verifactu.replaceTitle') if certificate else t('settings.verifactu.uploadTitle') }}</h3>
+
+      <div>
+        {{ labelField('certificate', t('settings.verifactu.certificate'), required=true) }}
+        {{ inputField('certificate', type='file', error=errors.certificate, required=true, help=t('settings.verifactu.certificateHelp'), attrs='accept=".p12,.pfx,application/x-pkcs12"') }}
+      </div>
+
+      <div>
+        {{ labelField('certificatePassword', t('settings.verifactu.certificatePassword'), required=true) }}
+        {{ inputField('certificatePassword', type='password', error=errors.certificatePassword, required=true, autocomplete='off') }}
+      </div>
+
+      <div class="flex justify-end">
+        <button class="btn btn-primary" type="submit">{{ t('settings.verifactu.upload') }}</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

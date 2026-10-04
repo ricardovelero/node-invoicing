@@ -208,17 +208,18 @@ export const submitPendingVerifactuBatch = async ({
 };
 
 // One pass over every organization with pending records. nextSubmissionAt keeps
-// each organization's AEAT wait window between passes.
+// each organization's AEAT wait window between passes. loadConfig returns the
+// SOAP config for an organization, with its own certificate.
 export const runVerifactuSubmissionPass = async ({
   client,
-  config,
+  loadConfig,
   nextSubmissionAt,
   transport = sendVerifactuSoapRequest,
   logger = console,
   now = () => Date.now(),
 }: {
   client: VerifactuSubmissionClient;
-  config: VerifactuSoapConfig;
+  loadConfig: (organizationId: string) => Promise<VerifactuSoapConfig>;
   nextSubmissionAt: Map<string, number>;
   transport?: VerifactuSoapTransport;
   logger?: Pick<Console, 'log' | 'error'>;
@@ -240,7 +241,7 @@ export const runVerifactuSubmissionPass = async ({
       const result = await submitPendingVerifactuBatch({
         client,
         organizationId,
-        config,
+        config: await loadConfig(organizationId),
         transport,
       });
 

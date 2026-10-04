@@ -3,11 +3,13 @@
   { label: t('settings.nav.organization'), href: "/settings/organization", key: "organization" },
   { label: t('settings.nav.localization'), href: "/settings/localization", key: "localization" },
   { label: t('settings.nav.security'), href: "/settings/security", key: "security" },
+  { label: t('settings.nav.verifactu'), href: "/settings/verifactu", key: "verifactu", spainOnly: true },
   { label: t('settings.nav.organizations'), href: "/settings/organizations", key: "organizations" }
 ] %}
 <nav aria-label="{{ t('settings.nav.label') }}" class="mb-6 border-b border-line">
   <ul class="-mb-px flex flex-wrap gap-1 text-sm">
     {% for tab in settingsTabs %}
+      {% if not tab.spainOnly or (currentOrganization and currentOrganization.countryCode == 'ES') %}
       <li>
         <a
           href="{{ tab.href }}"
@@ -15,6 +17,7 @@
           {% if activeSettingsPage == tab.key %}aria-current="page"{% endif %}
         >{{ tab.label }}</a>
       </li>
+      {% endif %}
     {% endfor %}
   </ul>
 </nav>

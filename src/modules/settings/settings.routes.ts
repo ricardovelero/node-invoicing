@@ -12,6 +12,8 @@ import {
   renderProfileSettings,
   renderSecuritySettings,
   renderSettingsOverview,
+  renderVerifactuSettings,
+  removeVerifactuCertificateController,
   revokeOtherSessionsController,
   revokeSessionController,
   switchOrganizationController,
@@ -20,6 +22,7 @@ import {
   updateOrganizationSettingsController,
   updatePasswordController,
   updateSecuritySettingsController,
+  uploadVerifactuCertificateController,
 } from "./settings.controller";
 
 export const settingsRouter = Router();
@@ -38,6 +41,9 @@ settingsRouter.get("/organization", renderOrganizationSettings);
 settingsRouter.post("/organization", updateOrganizationSettingsController);
 settingsRouter.get("/localization", renderLocalizationSettings);
 settingsRouter.post("/localization", updateLocalizationSettingsController);
+settingsRouter.get("/verifactu", renderVerifactuSettings);
+settingsRouter.post("/verifactu/certificate", uploadVerifactuCertificateController);
+settingsRouter.post("/verifactu/certificate/delete", removeVerifactuCertificateController);
 settingsRouter.get("/security", renderSecuritySettings);
 settingsRouter.post("/security", updateSecuritySettingsController);
 settingsRouter.post(

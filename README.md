@@ -87,6 +87,16 @@ VERIFACTU_TEST_ENDPOINT=""
 
 Leave these unset for ordinary local development unless you are testing AEAT preproduction SOAP calls.
 
+Each organization's own AEAT certificate, uploaded in **Settings → Veri*Factu**, is stored encrypted with a server key. Set it before uploading certificates, and keep it safe: losing or changing it means every organization has to upload its certificate again.
+
+```sh
+openssl rand -base64 32
+```
+
+```env
+VERIFACTU_CERT_ENCRYPTION_KEY="<the generated value>"
+```
+
 Run Prisma migrations:
 
 ```sh
@@ -163,7 +173,7 @@ pnpm job:verifactu-submit
 pnpm job:verifactu-submit -- --once
 ```
 
-Runs the compiled Veri*Factu submission worker against AEAT preproduction (same `VERIFACTU_*` settings as the test scripts). Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. Before sending, each record is checked against the AEAT XSD and its NIFs' control characters; failures are marked `PREFLIGHT_FAILED` with the reason in `preflightError` and left out of the request, so they don't fault the rest of the batch. Set a record back to `GENERATED` to retry it. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
+Runs the compiled Veri*Factu submission worker against AEAT preproduction (`VERIFACTU_AEAT_ENV=test`). Each organization submits with its own uploaded certificate, on AEAT's seal-certificate endpoint when it's a seal certificate; organizations without a valid certificate are skipped and logged. Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. Before sending, each record is checked against the AEAT XSD and its NIFs' control characters; failures are marked `PREFLIGHT_FAILED` with the reason in `preflightError` and left out of the request, so they don't fault the rest of the batch. Set a record back to `GENERATED` to retry it. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
 
 ```sh
 pnpm job:verifactu-reconcile
@@ -282,6 +292,18 @@ Veri*Factu support covers local record creation and AEAT preproduction testing f
 Spanish organizations. Issuing an invoice creates its local records; submission to
 AEAT is a separate, manual step.
 
+### Fiscal Regime And Certificates
+
+Spanish organizations choose their invoicing regime in the organization settings:
+
+- **Veri*Factu** (default): issued invoices create Veri*Factu records that are sent to AEAT with the organization's own certificate.
+- **SII**: invoices are issued without Veri*Factu records; the organization reports through SII itself.
+- **Basque Country or Navarra**: not supported (TicketBAI or Navarra's system is required), so issuing invoices is blocked.
+
+Organizations outside Spain invoice without Veri*Factu.
+
+OWNER and ADMIN users upload the organization's `.p12`/`.pfx` certificate and password in **Settings → Veri*Factu**. On upload the file is opened with the password, and expired files, files without a private key, and legacy RC2-encrypted files are rejected. The page shows the holder, NIF, certificate type and expiry, and warns when the certificate NIF differs from the organization's. The file and password are stored together, encrypted with AES-256-GCM, and never shown again. The invoice list warns Veri*Factu organizations that have no valid certificate.
+
 ### Local Fiscal Records
 
 Spanish organizations create fiscal evidence when invoices are issued or voided:
@@ -291,7 +313,7 @@ Spanish organizations create fiscal evidence when invoices are issued or voided:
 - fiscal records are organization-scoped and hash-chained
 - the chain can be verified with `pnpm job:verify-fiscal-chain`
 
-For Spanish organizations, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status. Voiding an invoice that has a Veri*Factu `ALTA` record creates a chained `ANULACION` Veri*Factu record.
+For Spanish organizations on the Veri*Factu regime, issuing also creates a persisted Veri*Factu record with the AEAT payload, XML, official huella, previous-record chain data, and local status. Voiding an invoice that has a Veri*Factu `ALTA` record creates a chained `ANULACION` Veri*Factu record.
 
 Invoices with a Veri*Factu `ALTA` record show the AEAT tax QR ("QR tributario:" / "VERI*FACTU") beside the seller and customer details on the print view, PDF, and public invoice link. The QR points to AEAT preproduction unless `VERIFACTU_AEAT_ENV=production`, and its amount is read from the registered record XML.
 

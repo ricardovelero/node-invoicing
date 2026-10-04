@@ -11,6 +11,15 @@
     <a href="/invoices/new" class="btn btn-primary">{{ t('invoices.actions.new') }}</a>
   </div>
 
+  {% if verifactuCertificateMissing %}
+    <div class="mb-4 flex flex-col gap-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-700 ring-1 ring-amber-200 sm:flex-row sm:items-center sm:justify-between" role="status" data-verifactu-certificate-banner>
+      <p>{{ t('invoices.verifactuCertificateBanner.message') }}</p>
+      {% if canManageSettings %}
+        <a class="btn btn-secondary shrink-0" href="/settings/verifactu">{{ t('invoices.verifactuCertificateBanner.action') }}</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
   <form class="mb-4 rounded-lg border border-line bg-white p-4" method="get" action="/invoices">
     <input type="hidden" name="page" value="1">
     <input type="hidden" name="sort" value="{{ filters.sort }}">

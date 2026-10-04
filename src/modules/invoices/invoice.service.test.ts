@@ -513,6 +513,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       addressLine1: "1 Seller St",
       city: "Madrid",
       countryCode: "ES",
+      fiscalRegime: "VERIFACTU",
     },
     snapshot: null,
     lines: [{
@@ -546,6 +547,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
           return {
             billingEmail: "billing@example.com",
             countryCode: "ES",
+            fiscalRegime: "VERIFACTU",
             legalForm: "other",
             withholdingEnabled: false,
             defaultWithholdingType: null,
@@ -672,6 +674,7 @@ test("createIssuedInvoiceRecord creates an issued unpaid invoice and captures a 
       select: {
         billingEmail: true,
         countryCode: true,
+        fiscalRegime: true,
         legalForm: true,
       withholdingEnabled: true,
       defaultWithholdingType: true,
@@ -1694,6 +1697,7 @@ const invoiceForStatusUpdate = {
     addressLine1: "1 Seller St",
     city: "Madrid",
     countryCode: "ES",
+    fiscalRegime: "VERIFACTU",
     paymentInstructions: "Organization default instructions.",
   },
   lines: [{
@@ -2046,6 +2050,7 @@ test("updateInvoiceStatus captures a snapshot and issues draft invoices in one t
           addressLine1: true,
           city: true,
           countryCode: true,
+          fiscalRegime: true,
         },
       },
       snapshot: {
@@ -2127,6 +2132,50 @@ test("updateInvoiceStatus creates a chained VerifactuRecord for the second issue
   assert.equal(data.previousSellerTaxId, "VAT123");
   assert.equal(data.previousInvoiceNumber, "INV-2026-0000");
   assert.equal(data.previousHuella, previousHuella);
+});
+
+test("updateInvoiceStatus follows the organization's fiscal regime when issuing", async () => {
+  const cases = [
+    { fiscalRegime: "VERIFACTU", result: { ok: true, status: "ISSUED" }, verifactuRecords: 1 },
+    { fiscalRegime: "SII", result: { ok: true, status: "ISSUED" }, verifactuRecords: 0 },
+    {
+      fiscalRegime: "FORAL",
+      result: { ok: false, reason: "unsupportedFiscalRegime" },
+      verifactuRecords: 0,
+    },
+  ];
+
+  for (const testCase of cases) {
+    let verifactuRecordCreates = 0;
+    let invoiceUpdates = 0;
+
+    mockStatusTransaction({
+      invoice: {
+        ...invoiceForStatusUpdate,
+        organization: {
+          ...invoiceForStatusUpdate.organization,
+          fiscalRegime: testCase.fiscalRegime,
+        },
+      },
+      onInvoiceUpdate: () => {
+        invoiceUpdates += 1;
+      },
+      onVerifactuRecordCreate: () => {
+        verifactuRecordCreates += 1;
+      },
+    });
+
+    const result = await updateInvoiceStatus(
+      "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+      "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c",
+      "user_1",
+      { action: "issue" },
+    );
+
+    assert.deepEqual(result, testCase.result, testCase.fiscalRegime);
+    assert.equal(verifactuRecordCreates, testCase.verifactuRecords, testCase.fiscalRegime);
+    assert.equal(invoiceUpdates, testCase.result.ok ? 1 : 0, testCase.fiscalRegime);
+  }
 });
 
 test("updateInvoiceStatus rejects missing default SIF config before partial records", async () => {

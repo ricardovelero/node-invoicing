@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import type { Request, Response } from "express";
 import { prisma } from "../../db/prisma";
@@ -21,6 +23,8 @@ import {
   renderProfileSettings,
   renderSecuritySettings,
   renderSettingsOverview,
+  renderVerifactuSettings,
+  removeVerifactuCertificateController,
   revokeOtherSessionsController,
   revokeSessionController,
   switchOrganizationController,
@@ -29,6 +33,7 @@ import {
   updatePasswordController,
   updateProfileSettingsController,
   updateSecuritySettingsController,
+  uploadVerifactuCertificateController,
 } from "./settings.controller";
 
 type MockRequest = Request & {
@@ -520,6 +525,7 @@ test("createOrganizationController creates without switching session and redirec
       city: "Manchester",
       countryCode: "GB",
       legalForm: "company",
+      fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: false,
       defaultWithholdingType: null,
@@ -641,6 +647,7 @@ test("renderOrganizationSettings renders current organization values", () => {
       city: "London",
       countryCode: "GB",
       legalForm: "company",
+      fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: "",
       defaultWithholdingType: "",
@@ -661,6 +668,11 @@ test("renderOrganizationSettings renders current organization values", () => {
       { value: "sole_trader", label: "Sole trader" },
       { value: "company", label: "Company" },
       { value: "other", label: "Other" },
+    ],
+    fiscalRegimeOptions: [
+      { value: "VERIFACTU", label: "Veri*Factu" },
+      { value: "SII", label: "SII (Immediate Supply of Information)" },
+      { value: "FORAL", label: "Basque Country or Navarra (not supported)" },
     ],
     errors: {},
   });
@@ -795,6 +807,7 @@ test("updateOrganizationSettingsController updates settings and redirects", asyn
       city: "London",
       countryCode: "GB",
       legalForm: "other",
+      fiscalRegime: "VERIFACTU",
       currency: "GBP",
       withholdingEnabled: false,
       defaultWithholdingType: null,
@@ -1192,4 +1205,187 @@ test("updateLocalizationSettingsController updates the locale and redirects", as
   });
   assert.deepEqual(req.flashMessages.success, ["Localisation settings updated."]);
   assert.equal(res.redirectedTo, "/settings/localization");
+});
+
+const verifactuCertificateMock = (prisma as unknown as {
+  verifactuCertificate: Record<string, unknown>;
+}).verifactuCertificate;
+const certificateFixture = (name: string) => readFileSync(
+  path.join(process.cwd(), "src", "modules", "verifactu", "fixtures", `${name}.p12`),
+);
+
+const withVerifactuCertificateMock = async (
+  methods: Record<string, unknown>,
+  run: () => Promise<void>,
+) => {
+  const originals = Object.fromEntries(
+    Object.keys(methods).map((name) => [name, verifactuCertificateMock[name]]),
+  );
+  const originalKey = process.env.VERIFACTU_CERT_ENCRYPTION_KEY;
+
+  Object.assign(verifactuCertificateMock, methods);
+  process.env.VERIFACTU_CERT_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
+
+  try {
+    await run();
+  } finally {
+    Object.assign(verifactuCertificateMock, originals);
+    process.env.VERIFACTU_CERT_ENCRYPTION_KEY = originalKey;
+  }
+};
+
+const certificateUpload = (name: string) => ({
+  name: `${name}.p12`,
+  type: "application/x-pkcs12",
+  data: certificateFixture(name),
+});
+
+test("uploadVerifactuCertificateController stores a valid certificate encrypted", async () => {
+  let upsertArgs: { where: unknown; create: Record<string, unknown> } | undefined;
+
+  await withVerifactuCertificateMock({
+    async upsert(args: { where: unknown; create: Record<string, unknown> }) {
+      upsertArgs = args;
+      return {};
+    },
+  }, async () => {
+    const req = createRequest({
+      certificate: certificateUpload("representative"),
+      certificatePassword: "test-password",
+    });
+    const res = createResponse();
+
+    await uploadVerifactuCertificateController(req, res, () => undefined);
+
+    assert.equal(res.redirectedTo, "/settings/verifactu");
+    assert.deepEqual(req.flashMessages.success, ["Certificate saved."]);
+    assert.deepEqual(upsertArgs!.where, {
+      organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab",
+    });
+    assert.equal(upsertArgs!.create.holderNif, "B12345674");
+    assert.equal(upsertArgs!.create.isSeal, false);
+    assert.ok(Buffer.isBuffer(upsertArgs!.create.encryptedPayload));
+    assert.equal(
+      (upsertArgs!.create.encryptedPayload as Buffer).includes("test-password"),
+      false,
+    );
+  });
+});
+
+test("uploadVerifactuCertificateController shows field errors without saving", async () => {
+  let upsertCalls = 0;
+
+  await withVerifactuCertificateMock({
+    async upsert() {
+      upsertCalls += 1;
+    },
+    async findUnique() {
+      return null;
+    },
+  }, async () => {
+    const cases = [
+      {
+        body: { certificatePassword: "test-password" },
+        errors: { certificate: ["Choose a .p12 or .pfx certificate file."] },
+      },
+      {
+        body: { certificate: certificateUpload("personal"), certificatePassword: "" },
+        errors: { certificatePassword: ["Enter the certificate password."] },
+      },
+      {
+        body: { certificate: certificateUpload("personal"), certificatePassword: "wrong" },
+        errors: { certificatePassword: ["The password isn't correct for this certificate."] },
+      },
+      {
+        body: {
+          certificate: certificateUpload("legacy-rc2"),
+          certificatePassword: "test-password",
+        },
+        errors: {
+          certificate: [
+            "This file uses old encryption that isn't supported. " +
+              "Export it again with AES-256 or TripleDES encryption.",
+          ],
+        },
+      },
+    ];
+
+    for (const { body, errors } of cases) {
+      const req = createRequest(body);
+      const res = createResponse();
+
+      await uploadVerifactuCertificateController(req, res, () => undefined);
+
+      const data = res.renderedData as { errors: Record<string, string[] | undefined> };
+
+      assert.equal(res.statusCode, 422);
+      assert.equal(res.renderedView, "pages/settings/verifactu.njk");
+      assert.deepEqual(
+        Object.fromEntries(Object.entries(data.errors).filter(([, value]) => value)),
+        errors,
+      );
+    }
+  });
+
+  assert.equal(upsertCalls, 0);
+});
+
+test("renderVerifactuSettings warns when the certificate NIF differs", async () => {
+  await withVerifactuCertificateMock({
+    async findUnique() {
+      return {
+        holderName: "EMPRESA PRUEBA SL",
+        holderNif: "B12345674",
+        isSeal: true,
+        validFrom: new Date("2026-01-01T00:00:00.000Z"),
+        validTo: new Date("2099-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-10-03T00:00:00.000Z"),
+      };
+    },
+  }, async () => {
+    const req = createRequest();
+    const res = createResponse();
+
+    req.auth.organization = {
+      ...req.auth.organization,
+      countryCode: "ES",
+      fiscalRegime: "VERIFACTU",
+      taxId: "ESB87654323",
+    };
+
+    await renderVerifactuSettings(req, res, () => undefined);
+
+    const data = res.renderedData as Record<string, unknown>;
+
+    assert.equal(data.usesVerifactu, true);
+    assert.equal(data.certificateExpired, false);
+    assert.equal(
+      data.nifMismatchMessage,
+      "The certificate's NIF (B12345674) doesn't match the organisation's NIF " +
+        "(ESB87654323). AEAT only accepts submissions if the holder can file on the " +
+        "organisation's behalf.",
+    );
+  });
+});
+
+test("removeVerifactuCertificateController deletes the organization certificate", async () => {
+  let deleteArgs: unknown;
+
+  await withVerifactuCertificateMock({
+    async deleteMany(args: unknown) {
+      deleteArgs = args;
+      return { count: 1 };
+    },
+  }, async () => {
+    const req = createRequest();
+    const res = createResponse();
+
+    await removeVerifactuCertificateController(req, res, () => undefined);
+
+    assert.deepEqual(deleteArgs, {
+      where: { organizationId: "5a87c29e-7f69-4ee0-b1c0-1478690fe5ab" },
+    });
+    assert.equal(res.redirectedTo, "/settings/verifactu");
+    assert.deepEqual(req.flashMessages.success, ["Certificate removed."]);
+  });
 });

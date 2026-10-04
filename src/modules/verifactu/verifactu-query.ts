@@ -234,6 +234,7 @@ export const queryVerifactuSoapRecord = async ({
     endpoint: config.endpoint,
     body: requestXml,
     certPath: config.certPath,
+    certificate: config.certificate,
     certPassphrase: config.certPassphrase,
   });
 

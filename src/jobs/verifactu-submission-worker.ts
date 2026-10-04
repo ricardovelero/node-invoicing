@@ -1,13 +1,17 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { prisma } from '../db/prisma';
+import { loadOrganizationVerifactuSoapConfig } from '../modules/verifactu/verifactu-certificate';
 import { runVerifactuSubmissionPass } from '../modules/verifactu/verifactu-submission';
-import { loadVerifactuSoapConfig } from '../modules/verifactu/verifactu-soap';
+import { loadVerifactuSoapEnvironment } from '../modules/verifactu/verifactu-soap';
 
 // Submits pending Veri*Factu records to AEAT. Runs continuously, polling every
 // VERIFACTU_WORKER_POLL_SECONDS (default 10). Pass --once to run a single pass,
 // e.g. from cron. Run one worker at a time: AEAT wait windows are kept in memory.
+// Each organization submits with its own uploaded certificate.
 const run = async () => {
-  const config = loadVerifactuSoapConfig();
+  const environment = loadVerifactuSoapEnvironment();
+  const loadConfig = (organizationId: string) =>
+    loadOrganizationVerifactuSoapConfig({ client: prisma, organizationId, environment });
   const once = process.argv.includes('--once');
   const pollSeconds = Number(process.env.VERIFACTU_WORKER_POLL_SECONDS) || 10;
   const nextSubmissionAt = new Map<string, number>();
@@ -17,7 +21,7 @@ const run = async () => {
   process.once('SIGTERM', () => stop.abort());
 
   do {
-    await runVerifactuSubmissionPass({ client: prisma, config, nextSubmissionAt });
+    await runVerifactuSubmissionPass({ client: prisma, loadConfig, nextSubmissionAt });
 
     if (!once) {
       await sleep(pollSeconds * 1000, undefined, { signal: stop.signal }).catch(() => {});

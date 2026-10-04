@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { UploadedFile } from '../../middleware/multipart';
 import { passwordRequirementsMessage } from '../auth/auth.schema';
 import { supportedOrganizationCountryCodes } from '../../lib/countries';
 import { defaultLocale, supportedLocales } from '../../lib/i18n';
@@ -21,6 +22,8 @@ import {
   rateToNumber,
   resolveWithholdingRateType,
 } from '../../lib/withholding';
+
+export const organizationFiscalRegimes = ['VERIFACTU', 'SII', 'FORAL'] as const;
 
 const optionalText = (maxLength: number, message: string) =>
   z.string().trim().max(maxLength, message).optional().default('');
@@ -108,6 +111,9 @@ export const organizationSettingsSchema = z.object({
   legalForm: z.enum(legalForms, {
     error: 'Choose a supported legal form.',
   }).default('other'),
+  fiscalRegime: z.enum(organizationFiscalRegimes, {
+    error: 'Choose a supported fiscal regime.',
+  }).default('VERIFACTU'),
   currency: z.enum(supportedCurrencies, {
     error: 'Choose a supported currency.',
   }),
@@ -251,6 +257,7 @@ export const createOrganizationSettingsValues = (
     city: sourceText(organization.city),
     countryCode: sourceText(organization.countryCode),
     legalForm: sourceText(organization.legalForm, 'other'),
+    fiscalRegime: sourceText(organization.fiscalRegime, 'VERIFACTU'),
     currency: sourceText(organization.currency, defaultCurrency),
     withholdingEnabled: organization.withholdingEnabled ? 'on' : '',
     defaultWithholdingType: sourceText(organization.defaultWithholdingType),
@@ -427,4 +434,20 @@ export type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 
 export type ChangePasswordErrors = Partial<
   Record<keyof ChangePasswordForm, string[]>
+>;
+
+const isUploadedFile = (value: unknown): value is UploadedFile =>
+  !!value &&
+  typeof value === 'object' &&
+  Buffer.isBuffer((value as UploadedFile).data) &&
+  (value as UploadedFile).data.length > 0;
+
+// Messages are settings.verifactu.errors keys, translated by the controller.
+export const verifactuCertificateSchema = z.object({
+  certificate: z.custom<UploadedFile>(isUploadedFile, 'certificateRequired'),
+  certificatePassword: stringInput(z.string().min(1, 'passwordRequired')),
+});
+
+export type VerifactuCertificateErrors = Partial<
+  Record<keyof z.infer<typeof verifactuCertificateSchema>, string[]>
 >;

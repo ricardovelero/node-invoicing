@@ -16,6 +16,7 @@ import { loadAuthContext, requireAuth } from './middleware/auth';
 import { csrfProtection } from './middleware/csrf';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { localeMiddleware } from './middleware/i18n';
+import { parseMultipartForm } from './middleware/multipart';
 import { captureSessionMetadata } from './middleware/session-metadata';
 import { authRouter } from './modules/auth/auth.routes';
 import { customerRouter } from './modules/customers/customer.routes';
@@ -60,6 +61,7 @@ export const createApp = () => {
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
+  app.use(parseMultipartForm);
   app.use('/webhooks', postmarkWebhookRouter);
   app.use(cookieParser());
   app.use(

@@ -28,6 +28,7 @@ const queryResponseXml = (estadoRegistro: string | null) =>
 
 type FakeRecord = {
   id: string;
+  organizationId: string;
   recordType: InvoiceFiscalRecordType;
   invoiceNumber: string;
   status: VerifactuRecordStatus;
@@ -37,7 +38,8 @@ const fakeRecord = (
   id: string,
   invoiceNumber: string,
   recordType: InvoiceFiscalRecordType = 'ALTA',
-): FakeRecord => ({ id, recordType, invoiceNumber, status: 'SUBMITTED' });
+  organizationId = 'org_1',
+): FakeRecord => ({ id, organizationId, recordType, invoiceNumber, status: 'SUBMITTED' });
 
 const fakeClient = (records: FakeRecord[]) => {
   const findManyCalls: Record<string, unknown>[] = [];
@@ -50,6 +52,7 @@ const fakeClient = (records: FakeRecord[]) => {
           .filter((record) => record.status === 'SUBMITTED')
           .map((record) => ({
             id: record.id,
+            organizationId: record.organizationId,
             sellerTaxId: 'B12345674',
             invoiceNumber: record.invoiceNumber,
             issueDate: new Date('2026-05-27T00:00:00.000Z'),
@@ -99,7 +102,7 @@ test('reconcileSubmittedVerifactuRecords stores the state AEAT registered', asyn
 
   const result = await reconcileSubmittedVerifactuRecords({
     client,
-    config,
+    loadConfig: async () => config,
     now: () => Date.parse('2026-05-27T12:00:00.000Z'),
     async transport(request) {
       requests.push(request);
@@ -144,7 +147,7 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
 
   const result = await reconcileSubmittedVerifactuRecords({
     client,
-    config,
+    loadConfig: async () => config,
     logger: { error: (...args: unknown[]) => errors.push(args) },
     async transport(request) {
       if (request.body.includes('INV-1')) {
@@ -171,4 +174,36 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
   );
   assert.equal(result.errorCount, 1);
   assert.equal(errors[0]![1], 'record_error');
+});
+
+test('reconcileSubmittedVerifactuRecords queries with each organization config', async () => {
+  const records = [
+    fakeRecord('record_1', 'INV-1', 'ALTA', 'org_1'),
+    fakeRecord('record_2', 'INV-2', 'ALTA', 'org_2'),
+    fakeRecord('record_3', 'INV-3', 'ALTA', 'org_1'),
+  ];
+  const { client } = fakeClient(records);
+  const loadedOrganizations: string[] = [];
+  const endpoints: string[] = [];
+
+  await reconcileSubmittedVerifactuRecords({
+    client,
+    async loadConfig(organizationId) {
+      loadedOrganizations.push(organizationId);
+
+      return { ...config, endpoint: `https://prewww1.aeat.es/${organizationId}` };
+    },
+    async transport(request) {
+      endpoints.push(request.endpoint);
+
+      return { status: 200, body: queryResponseXml('Correcto') };
+    },
+  });
+
+  assert.deepEqual(loadedOrganizations, ['org_1', 'org_2']);
+  assert.deepEqual(endpoints, [
+    'https://prewww1.aeat.es/org_1',
+    'https://prewww1.aeat.es/org_2',
+    'https://prewww1.aeat.es/org_1',
+  ]);
 });
