@@ -1,11 +1,21 @@
 import type {
   InvoiceEmailDeliveryStatus,
+  InvoiceFiscalRecordType,
   InvoiceStatus,
   PaymentStatus,
+  Prisma,
+  VerifactuRecordStatus,
 } from '@prisma/client';
 import type { Translate } from '../../lib/i18n';
 import type { VerifactuQr } from '../verifactu/verifactu-qr';
-import { canSubsanarVerifactuRecord } from '../verifactu/verifactu-record';
+import {
+  canSubsanarVerifactuRecord,
+  currentVerifactuAeatEnvironment,
+} from '../verifactu/verifactu-record';
+import {
+  verifactuCsvFromResult,
+  type verifactuStatusSelect,
+} from '../verifactu/verifactu-status';
 import { createCurrencyOptions, defaultCurrency } from '../../lib/currencies';
 import {
   formatRateLabel,
@@ -54,7 +64,8 @@ type BadgeVariant =
   | 'danger'
   | 'muted';
 
-type InvoiceDisplaySource = InvoiceDetails & {
+// Only the detail page shows the Veri*Factu history.
+type InvoiceDisplaySource = Omit<InvoiceDetails, 'fiscalRecords'> & {
   organization?: {
     locale: string;
   };
@@ -179,6 +190,76 @@ export const createInvoiceStatusBadges = (invoice: {
 
   return badges;
 };
+
+const verifactuStatusBadges: Record<
+  VerifactuRecordStatus,
+  { labelKey: string; variant: BadgeVariant }
+> = {
+  GENERATED: { labelKey: 'invoices.verifactu.statuses.pending', variant: 'warning' },
+  SUBMISSION_PENDING: { labelKey: 'invoices.verifactu.statuses.pending', variant: 'warning' },
+  SUBMITTED: { labelKey: 'invoices.verifactu.statuses.submitted', variant: 'info' },
+  ACCEPTED: { labelKey: 'invoices.verifactu.statuses.accepted', variant: 'success' },
+  ACCEPTED_WITH_ERRORS: {
+    labelKey: 'invoices.verifactu.statuses.acceptedWithErrors',
+    variant: 'warning',
+  },
+  REJECTED: { labelKey: 'invoices.verifactu.statuses.rejected', variant: 'danger' },
+  PREFLIGHT_FAILED: { labelKey: 'invoices.verifactu.statuses.preflightFailed', variant: 'danger' },
+};
+
+type VerifactuStatusRecord = Prisma.VerifactuRecordGetPayload<{
+  select: typeof verifactuStatusSelect;
+}>;
+
+// One Veri*Factu record as shown to users: its AEAT status, the error AEAT or
+// pre-flight validation reported, and AEAT's CSV receipt code.
+export const createVerifactuRecordDisplay = (fiscalRecord: {
+  type: InvoiceFiscalRecordType;
+  subsanacionNumber: number;
+  verifactuRecord: VerifactuStatusRecord;
+}) => {
+  const record = fiscalRecord.verifactuRecord;
+  let typeLabelKey = 'invoices.verifactu.types.anulacion';
+
+  if (fiscalRecord.type === 'ALTA') {
+    typeLabelKey = fiscalRecord.subsanacionNumber > 0
+      ? 'invoices.verifactu.types.subsanacion'
+      : 'invoices.verifactu.types.alta';
+  }
+
+  return {
+    id: record.id,
+    typeLabelKey,
+    statusBadge: verifactuStatusBadges[record.status],
+    errorCode: record.status === 'PREFLIGHT_FAILED' ? null : record.aeatCodigoErrorRegistro,
+    errorMessage: record.status === 'PREFLIGHT_FAILED'
+      ? record.preflightError
+      : record.aeatDescripcionErrorRegistro,
+    csv: verifactuCsvFromResult(record.aeatSubmissionResult),
+    isTestEnvironment: record.aeatEnvironment === 'TEST',
+    updatedAt: record.updatedAt,
+  };
+};
+
+export const verifactuIssuesView = (
+  issues: Array<{
+    invoiceId: string;
+    type: InvoiceFiscalRecordType;
+    subsanacionNumber: number;
+    invoice: { number: string | null; issueDate: Date };
+    verifactuRecord: VerifactuStatusRecord | null;
+  }>,
+) => ({
+  issues: issues.flatMap(({ invoiceId, invoice, verifactuRecord, ...fiscal }) =>
+    verifactuRecord
+      ? [{
+          invoiceId,
+          invoiceNumber: invoice.number,
+          issueDate: invoice.issueDate,
+          record: createVerifactuRecordDisplay({ ...fiscal, verifactuRecord }),
+        }]
+      : []),
+});
 
 export const createEmailDeliveryStatusBadge = (
   status: InvoiceEmailDeliveryStatus,
@@ -506,6 +587,11 @@ export const invoiceDetailView = (
       ...delivery,
       statusBadge: createEmailDeliveryStatusBadge(delivery.status),
     })),
+    verifactuRecords: (invoice.fiscalRecords ?? []).flatMap(({ verifactuRecord, ...fiscal }) =>
+      verifactuRecord ? [createVerifactuRecordDisplay({ ...fiscal, verifactuRecord })] : []),
+    canRetryVerifactu: (invoice.fiscalRecords ?? []).some(({ verifactuRecord }) =>
+      verifactuRecord?.status === 'PREFLIGHT_FAILED' &&
+      verifactuRecord.aeatEnvironment === currentVerifactuAeatEnvironment()),
   };
 };
 

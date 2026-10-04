@@ -20,6 +20,13 @@
     </div>
   {% endif %}
 
+  {% if verifactuIssueCount %}
+    <div class="mb-4 flex flex-col gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200 sm:flex-row sm:items-center sm:justify-between" role="status" data-verifactu-issues-banner>
+      <p>{{ t('invoices.verifactu.issuesBanner.message', { count: verifactuIssueCount }) }}</p>
+      <a class="btn btn-secondary shrink-0" href="/invoices/verifactu-issues">{{ t('invoices.verifactu.issuesBanner.action') }}</a>
+    </div>
+  {% endif %}
+
   <form class="mb-4 rounded-lg border border-line bg-white p-4" method="get" action="/invoices">
     <input type="hidden" name="page" value="1">
     <input type="hidden" name="sort" value="{{ filters.sort }}">

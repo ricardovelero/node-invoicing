@@ -143,3 +143,16 @@ test('invoice detail confirms Veri*Factu subsanación in a dialog before submitt
   assert.match(template, /t\('invoices\.dialogs\.subsanarVerifactu\.description'\)/);
   assert.match(template, /'\/invoices\/' ~ invoice\.id ~ '\/verifactu\/subsanacion'/);
 });
+
+test('invoice detail shows the Veri*Factu history and retry action', () => {
+  const template = readTemplate('detail.njk');
+
+  assert.match(template, /for record in verifactuRecords/);
+  assert.match(
+    template,
+    /badge\(t\(record\.statusBadge\.labelKey\), record\.statusBadge\.variant\)/,
+  );
+  assert.match(template, /record\.csv/);
+  assert.match(template, /if canRetryVerifactu/);
+  assert.match(template, /action="\/invoices\/{{ invoice\.id }}\/verifactu\/retry"/);
+});

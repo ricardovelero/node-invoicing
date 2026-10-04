@@ -22,7 +22,8 @@
     "retry": "Retry",
     "saveCatalogItem": "Save",
     "saveForFutureUse": "Save for future use?",
-    "subsanarVerifactu": "Correct Veri*Factu record"
+    "subsanarVerifactu": "Correct Veri*Factu record",
+    "retryVerifactu": "Retry sending to AEAT"
   },
   "dialogs": {
     "void": {
@@ -192,7 +193,8 @@
     "statusUpdated": "Invoice status updated.",
     "detailsUpdated": "Invoice details updated.",
     "paymentRecorded": "Payment recorded.",
-    "verifactuSubsanacionCreated": "Correction record generated. It will be sent to AEAT with the next submission."
+    "verifactuSubsanacionCreated": "Correction record generated. It will be sent to AEAT with the next submission.",
+    "verifactuRetried": "Record queued to be sent to AEAT again."
   },
   "errors": {
     "chooseCustomer": "Choose a customer.",
@@ -211,10 +213,41 @@
     "notEditable": "Only draft invoices can be edited.",
     "notFound": "Invoice Not Found",
     "verifactuSubsanacionNotAllowed": "This invoice has no Veri*Factu record that can be corrected.",
-    "unsupportedFiscalRegime": "Organisations in the Basque Country or Navarra aren't supported yet: they must use TicketBAI or Navarra's own system. Invoices can't be issued under this fiscal regime."
+    "unsupportedFiscalRegime": "Organisations in the Basque Country or Navarra aren't supported yet: they must use TicketBAI or Navarra's own system. Invoices can't be issued under this fiscal regime.",
+    "verifactuRetryNotAllowed": "This invoice has no Veri*Factu records with validation errors to retry."
   },
   "verifactuCertificateBanner": {
     "message": "Your organisation uses Veri*Factu but has no valid certificate, so your invoices' records aren't being sent to AEAT.",
     "action": "Upload certificate"
+  },
+  "verifactu": {
+    "title": "Veri*Factu",
+    "types": {
+      "alta": "Registration",
+      "subsanacion": "Corrected registration",
+      "anulacion": "Cancellation"
+    },
+    "statuses": {
+      "pending": "Waiting to be sent",
+      "submitted": "Sent, not yet confirmed",
+      "accepted": "Accepted",
+      "acceptedWithErrors": "Accepted with errors",
+      "rejected": "Rejected",
+      "preflightFailed": "Validation error"
+    },
+    "testEnvironment": "AEAT test environment",
+    "csv": "CSV",
+    "retryHelp": "Sends records that failed validation again. If the error is in the invoice data, correct it and use Subsanar instead.",
+    "issuesBanner": {
+      "message": "Invoices with Veri*Factu issues: {count}.",
+      "action": "View issues"
+    },
+    "issues": {
+      "title": "Veri*Factu issues",
+      "description": "Invoices whose latest Veri*Factu record AEAT rejected or accepted with errors, or that failed validation before sending. Open the invoice to correct it or retry.",
+      "record": "Record",
+      "error": "Error",
+      "empty": "No issues."
+    }
   }
 }

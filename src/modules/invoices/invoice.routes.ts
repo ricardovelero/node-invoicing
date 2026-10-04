@@ -4,10 +4,12 @@ import {
   downloadInvoicePdf,
   editInvoice,
   listInvoices,
+  listVerifactuIssues,
   printInvoice,
   recordInvoicePaymentController,
   renderEditInvoice,
   renderNewInvoice,
+  retryInvoiceVerifactuController,
   showInvoice,
   subsanarInvoiceVerifactuController,
   updateInvoiceMetadataController,
@@ -22,6 +24,7 @@ export const invoiceRouter = Router();
 
 invoiceRouter.get('/', listInvoices);
 invoiceRouter.get('/new', renderNewInvoice);
+invoiceRouter.get('/verifactu-issues', listVerifactuIssues);
 invoiceRouter.post('/', createInvoice);
 invoiceRouter.get('/:invoiceId/email', renderInvoiceEmailForm);
 invoiceRouter.post('/:invoiceId/email', sendInvoiceEmailController);
@@ -34,3 +37,4 @@ invoiceRouter.post('/:invoiceId/metadata', updateInvoiceMetadataController);
 invoiceRouter.post('/:invoiceId/status', updateInvoiceStatusController);
 invoiceRouter.post('/:invoiceId/payments', recordInvoicePaymentController);
 invoiceRouter.post('/:invoiceId/verifactu/subsanacion', subsanarInvoiceVerifactuController);
+invoiceRouter.post('/:invoiceId/verifactu/retry', retryInvoiceVerifactuController);

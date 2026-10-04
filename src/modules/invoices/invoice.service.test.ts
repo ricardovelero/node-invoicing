@@ -25,6 +25,7 @@ import {
   invoiceFiscalRecordHashVersion,
 } from "./invoice-fiscal-records";
 import { VerifactuPayloadValidationError } from "../verifactu/verifactu-payload";
+import { verifactuHistoryInclude } from "../verifactu/verifactu-status";
 
 const prismaMock = prisma as unknown as {
   $transaction: unknown;
@@ -1388,6 +1389,7 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
         },
         take: 1,
       },
+      fiscalRecords: verifactuHistoryInclude,
     },
   });
 });
