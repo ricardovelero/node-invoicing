@@ -3,7 +3,7 @@
 A server-rendered invoicing application built with Node.js, Express, TypeScript, Prisma, PostgreSQL, Nunjucks, Tailwind CSS, and a small CSP-safe frontend bundle.
 
 For Spanish organizations, the app includes Veri*Factu fiscal records, chained hashes
-(huellas), and SOAP submission/query tools for AEAT preproduction. See
+(huellas), and SOAP submission/query to AEAT preproduction or production. See
 [Veri*Factu support and current scope](#fiscal-records-and-verifactu).
 
 The app supports a multi-organization invoicing workflow with:
@@ -76,7 +76,7 @@ SESSION_SECRET="replace-this-in-production"
 NODE_ENV="development"
 ```
 
-AEAT Veri*Factu preproduction scripts use optional certificate settings when you run them:
+AEAT Veri*Factu jobs and preproduction scripts use these settings when you run them:
 
 ```env
 VERIFACTU_AEAT_ENV="test"
@@ -85,6 +85,8 @@ VERIFACTU_CERT_PASSPHRASE=""
 VERIFACTU_TEST_ENDPOINT=""
 VERIFACTU_TEST_SEAL_ENDPOINT=""
 ```
+
+`VERIFACTU_AEAT_ENV` is `test` for AEAT preproduction or `production` for real submissions. In production the jobs always use AEAT's production endpoints from the WSDL and ignore the test endpoint overrides.
 
 `VERIFACTU_TEST_ENDPOINT` overrides the preproduction endpoint used with personal and representative certificates, and `VERIFACTU_TEST_SEAL_ENDPOINT` the one used with seal certificates. Both default to the endpoints in the AEAT WSDL.
 
@@ -176,7 +178,7 @@ pnpm job:verifactu-submit
 pnpm job:verifactu-submit -- --once
 ```
 
-Runs the compiled Veri*Factu submission worker against AEAT preproduction (`VERIFACTU_AEAT_ENV=test`). Each organization submits with its own uploaded certificate, on AEAT's seal-certificate endpoint when it's a seal certificate; organizations without a valid certificate are skipped and logged. Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. Before sending, each record is checked against the AEAT XSD and its NIFs' control characters; failures are marked `PREFLIGHT_FAILED` with the reason in `preflightError` and left out of the request, so they don't fault the rest of the batch. Set a record back to `GENERATED` to retry it. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
+Runs the compiled Veri*Factu submission worker against the AEAT environment set in `VERIFACTU_AEAT_ENV`. Each organization submits with its own uploaded certificate, on AEAT's seal-certificate endpoint when it's a seal certificate; organizations without a valid certificate are skipped and logged. Each organization's `GENERATED` and `SUBMISSION_PENDING` records are sent in fiscal-chain order, up to 100 per request, and each record's status is updated from its own response line. The worker waits AEAT's `TiempoEsperaEnvio` between an organization's requests and backs off 60 seconds after SOAP faults or network errors, leaving those records pending for retry. Before sending, each record is checked against the AEAT XSD and its NIFs' control characters; failures are marked `PREFLIGHT_FAILED` with the reason in `preflightError` and left out of the request, so they don't fault the rest of the batch. Set a record back to `GENERATED` to retry it. It polls every `VERIFACTU_WORKER_POLL_SECONDS` (default 10); `--once` runs a single pass for cron. Run a single worker instance: wait windows are kept in memory.
 
 ```sh
 pnpm job:verifactu-reconcile
@@ -191,7 +193,7 @@ pnpm verifactu:submit-test <verifactuRecordId>
 pnpm verifactu:query-test <verifactuRecordId>
 ```
 
-Submits or queries a single persisted Veri*Factu record against AEAT preproduction. These scripts require a prior `pnpm build`, `VERIFACTU_AEAT_ENV=test`, and a client certificate path. They log the SOAP endpoint, request XML, HTTP status, response XML, parsed result, and persisted status.
+Submits or queries a single persisted Veri*Factu record against AEAT preproduction. These scripts require a prior `pnpm build`, `VERIFACTU_AEAT_ENV=test`, and a client certificate path; they refuse to run in production, where only the worker and reconciliation job talk to AEAT. They log the SOAP endpoint, request XML, HTTP status, response XML, parsed result, and persisted status.
 
 ```sh
 pnpm prisma:generate
@@ -291,9 +293,9 @@ The invoice detail page shows paid and outstanding totals and hides the payment 
 
 ## Fiscal Records And Veri*Factu
 
-Veri*Factu support covers local record creation and AEAT preproduction testing for
-Spanish organizations. Issuing an invoice creates its local records; submission to
-AEAT is a separate, manual step.
+Veri*Factu support covers local record creation and AEAT submission for Spanish
+organizations. Issuing an invoice creates its local records; the submission worker
+sends them to AEAT.
 
 ### Fiscal Regime And Certificates
 
@@ -324,7 +326,7 @@ Veri*Factu software/SIF metadata is stored globally in `VerifactuSoftwareConfig`
 
 ### AEAT Preproduction Testing
 
-The current AEAT integration is deliberately limited to preproduction scripts:
+The manual test scripts only run against AEAT preproduction:
 
 - `pnpm verifactu:submit-test <verifactuRecordId>` sends one persisted record to AEAT preproduction.
 - `pnpm verifactu:query-test <verifactuRecordId>` queries one persisted record in AEAT preproduction.
@@ -333,13 +335,12 @@ The current AEAT integration is deliberately limited to preproduction scripts:
 - Accepted records are not downgraded by later submission or query responses.
 - A query only sets or keeps local `ACCEPTED` when AEAT returns `ConDatos` with `EstadoRegistro=Correcto`.
 - `SinDatos` and SOAP faults are stored as evidence but do not mark the record rejected.
-- Known production AEAT endpoints are blocked by the SOAP config guard.
+- The test endpoint overrides can't point to AEAT production endpoints.
 
 ### Current Limitations
 
-AEAT submission and queries currently run manually through these scripts. Production
-submission, background retries, reconciliation, and a Veri*Factu UI workflow are not
-implemented.
+Production submission is available with `VERIFACTU_AEAT_ENV=production` but has not been
+run against AEAT yet.
 
 ## Snapshots And Printing
 
@@ -466,7 +467,7 @@ docs/
 - Preserve strict CSP; use frontend `data-*` hooks instead of inline handlers.
 - Run `pnpm test` before committing auth, session, validation, invoice, payment, or template changes.
 - Run `pnpm test` before committing fiscal-record or Veri*Factu changes.
-- Keep AEAT production behavior explicit; current Veri*Factu SOAP scripts are preproduction-only.
+- Keep AEAT production behavior explicit; the Veri*Factu test scripts are preproduction-only.
 
 ## Roadmap
 

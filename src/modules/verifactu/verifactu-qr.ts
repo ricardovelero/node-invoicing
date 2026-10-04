@@ -35,8 +35,7 @@ export type VerifactuQr = {
   svg: string;
 };
 
-// Records are only submitted to preproduction today, so the QR points there
-// unless production is configured explicitly.
+// The QR points to the AEAT environment records are submitted to.
 export const verifactuQrBaseUrl = (envSource: NodeJS.ProcessEnv = process.env) =>
   envSource.VERIFACTU_AEAT_ENV === 'production'
     ? verifactuQrBaseUrls.production

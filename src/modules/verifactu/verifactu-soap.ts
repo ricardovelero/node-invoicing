@@ -12,7 +12,7 @@ const productionHosts = new Set([
   'www10.agenciatributaria.gob.es',
 ]);
 
-type VerifactuSoapEnvironment = 'test';
+type VerifactuSoapEnvironment = 'test' | 'production';
 
 // The client certificate is either a file (certPath) or PKCS#12 contents held
 // in memory (certificate), as loaded from an organization's stored certificate.
@@ -104,19 +104,19 @@ export const readVerifactuWsdl = () => readFileSync(
   'utf8',
 );
 
-export const getVerifactuTestEndpointFromWsdl = (
+export const getVerifactuEndpointFromWsdl = (
   wsdl: string,
   portName = 'SistemaVerifactuPruebas',
 ) => {
-  const testPort = wsdl.match(new RegExp(
+  const port = wsdl.match(new RegExp(
     `<wsdl:port\\s+name="${portName}"[\\s\\S]*?<soap:address\\s+location="([^"]+)"`,
   ));
 
-  if (!testPort?.[1]) {
-    throw new Error('Could not find AEAT Veri*Factu preproduction endpoint in WSDL.');
+  if (!port?.[1]) {
+    throw new Error(`Could not find AEAT Veri*Factu ${portName} endpoint in WSDL.`);
   }
 
-  return testPort[1];
+  return port[1];
 };
 
 export const buildVerifactuSoapEnvelope = (regFactuXml: string) => {
@@ -139,7 +139,7 @@ const validateTestEndpoint = (endpoint: string, name = 'VERIFACTU_TEST_ENDPOINT'
   }
 
   if (productionHosts.has(parsedEndpoint.hostname)) {
-    throw new Error('Production AEAT Veri*Factu endpoints are disabled in this test spike.');
+    throw new Error(`${name} can't point to AEAT production; use VERIFACTU_AEAT_ENV=production.`);
   }
 
   return endpoint;
@@ -151,20 +151,29 @@ export const loadVerifactuSoapEnvironment = (
 ): VerifactuSoapEnvironmentConfig => {
   const env = envSource.VERIFACTU_AEAT_ENV;
 
+  // Production always uses AEAT's endpoints from the WSDL; overrides are test-only.
+  if (env === 'production') {
+    return {
+      env,
+      endpoint: getVerifactuEndpointFromWsdl(wsdl, 'SistemaVerifactu'),
+      sealEndpoint: getVerifactuEndpointFromWsdl(wsdl, 'SistemaVerifactuSello'),
+    };
+  }
+
   if (env !== 'test') {
-    throw new Error('VERIFACTU_AEAT_ENV must be set to test for this preproduction spike.');
+    throw new Error('VERIFACTU_AEAT_ENV must be set to test or production.');
   }
 
   return {
     env,
     endpoint: validateTestEndpoint(
       envSource.VERIFACTU_TEST_ENDPOINT?.trim() ||
-        getVerifactuTestEndpointFromWsdl(wsdl) ||
+        getVerifactuEndpointFromWsdl(wsdl) ||
         defaultTestEndpoint,
     ),
     sealEndpoint: validateTestEndpoint(
       envSource.VERIFACTU_TEST_SEAL_ENDPOINT?.trim() ||
-        getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+        getVerifactuEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
       'VERIFACTU_TEST_SEAL_ENDPOINT',
     ),
   };
@@ -172,12 +181,13 @@ export const loadVerifactuSoapEnvironment = (
 
 // Uses the single certificate file from VERIFACTU_CERT_PATH, as the manual test
 // scripts do. The worker and reconciliation job use each organization's own.
+// The scripts bypass the worker's ordering, so they only run in preproduction.
 export const loadVerifactuSoapConfig = (
   envSource: NodeJS.ProcessEnv = process.env,
   wsdl = readVerifactuWsdl(),
 ): VerifactuSoapConfig => {
   if (envSource.VERIFACTU_AEAT_ENV !== 'test') {
-    throw new Error('VERIFACTU_AEAT_ENV must be set to test for this preproduction spike.');
+    throw new Error('The Veri*Factu test scripts require VERIFACTU_AEAT_ENV=test.');
   }
 
   const certPath = envSource.VERIFACTU_CERT_PATH?.trim();
