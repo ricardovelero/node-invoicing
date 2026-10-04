@@ -9,63 +9,42 @@ import {
 
 const organizationId = '5a87c29e-7f69-4ee0-b1c0-1478690fe5ab';
 
-const fiscalRecord = (
-  invoiceId: string,
-  status: VerifactuRecordStatus,
-  type: 'ALTA' | 'ANULACION' = 'ALTA',
-) => ({
-  invoiceId,
-  type,
-  subsanacionNumber: 0,
-  invoice: { number: invoiceId.toUpperCase(), issueDate: new Date('2026-10-01') },
-  verifactuRecord: { id: `${invoiceId}_${status}`, status },
-});
-
-test('getVerifactuIssues lists invoices whose latest record needs attention', async () => {
-  const calls: Record<string, unknown>[] = [];
+test('getVerifactuIssues loads only the latest failing record of each invoice', async () => {
+  const calls: Record<string, unknown> = {};
   const client = {
-    verifactuRecord: {
-      async findMany(args: Record<string, unknown>) {
-        calls.push(args);
+    async $queryRaw(strings: TemplateStringsArray, ...values: unknown[]) {
+      calls.sql = strings.join('?');
+      calls.values = values;
 
-        return [{ invoiceId: 'inv_rejected' }, { invoiceId: 'inv_fixed' }];
-      },
+      return [{ id: 'record_rejected' }];
     },
     invoiceFiscalRecord: {
-      async findMany(args: Record<string, unknown>) {
-        calls.push(args);
+      async findMany(args: unknown) {
+        calls.findMany = args;
 
-        // Newest first: inv_fixed was corrected by a later, accepted subsanación.
-        return [
-          fiscalRecord('inv_fixed', 'ACCEPTED'),
-          fiscalRecord('inv_rejected', 'REJECTED'),
-          fiscalRecord('inv_fixed', 'REJECTED'),
-        ];
+        return [];
       },
     },
   };
 
-  const issues = await getVerifactuIssues(client as never, organizationId);
+  await getVerifactuIssues(client as never, organizationId);
 
-  assert.deepEqual(issues.map((issue) => issue.invoiceId), ['inv_rejected']);
-  assert.deepEqual((calls[0] as { where: unknown }).where, {
+  // The latest record per invoice is picked in the database, among invoices
+  // that ever had a failing record in the current AEAT environment.
+  assert.match(calls.sql as string, /DISTINCT ON \(vr\."invoiceId"\)/);
+  assert.match(calls.sql as string, /ORDER BY vr\."invoiceId", fr\."sequenceNumber" DESC/);
+  assert.ok((calls.values as unknown[]).includes('TEST'));
+  assert.ok((calls.values as unknown[]).includes(organizationId));
+  assert.deepEqual((calls.findMany as { where: unknown }).where, {
     organizationId,
-    aeatEnvironment: 'TEST',
-    status: { in: ['ACCEPTED_WITH_ERRORS', 'REJECTED', 'PREFLIGHT_FAILED'] },
-  });
-  assert.deepEqual((calls[1] as { where: unknown }).where, {
-    organizationId,
-    invoiceId: { in: ['inv_rejected', 'inv_fixed'] },
-    verifactuRecord: { is: { aeatEnvironment: 'TEST' } },
+    verifactuRecord: { is: { id: { in: ['record_rejected'] } } },
   });
 });
 
-test('getVerifactuIssues skips the history query without failed records', async () => {
+test('getVerifactuIssues skips the history query without failing records', async () => {
   const client = {
-    verifactuRecord: {
-      async findMany() {
-        return [];
-      },
+    async $queryRaw() {
+      return [];
     },
     invoiceFiscalRecord: {
       async findMany() {

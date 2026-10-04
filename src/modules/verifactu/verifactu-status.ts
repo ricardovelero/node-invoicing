@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   currentVerifactuAeatEnvironment,
   verifactuSubsanableStatuses,
@@ -6,7 +6,7 @@ import {
 
 type VerifactuStatusClient = Pick<
   Prisma.TransactionClient,
-  'invoiceFiscalRecord' | 'verifactuRecord'
+  '$queryRaw' | 'invoiceFiscalRecord' | 'verifactuRecord'
 >;
 
 export const verifactuStatusSelect = {
@@ -42,29 +42,48 @@ export const verifactuCsvFromResult = (result: Prisma.JsonValue | null) =>
     ? result.csv
     : null;
 
-// Invoices whose latest Veri*Factu record in the current AEAT environment was
-// rejected, accepted with errors or failed pre-flight validation.
+// Ids of the records that make an invoice an issue: its latest Veri*Factu record
+// in the current AEAT environment was rejected, accepted with errors or failed
+// pre-flight validation. Only invoices that ever had such a record are checked,
+// and the latest record per invoice is picked in the database.
+export const getVerifactuIssueRecordIds = async (
+  client: Pick<VerifactuStatusClient, '$queryRaw'>,
+  organizationId: string,
+) => {
+  const aeatEnvironment = currentVerifactuAeatEnvironment();
+  const statuses = Prisma.sql`${verifactuSubsanableStatuses}::"VerifactuRecordStatus"[]`;
+  const rows = await client.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM (
+      SELECT DISTINCT ON (vr."invoiceId") vr."id", vr."status"
+      FROM "VerifactuRecord" vr
+      JOIN "InvoiceFiscalRecord" fr ON fr."id" = vr."invoiceFiscalRecordId"
+      WHERE vr."aeatEnvironment" = ${aeatEnvironment}::"VerifactuAeatEnvironment"
+        AND vr."invoiceId" IN (
+          SELECT "invoiceId" FROM "VerifactuRecord"
+          WHERE "organizationId" = ${organizationId}::uuid
+            AND "aeatEnvironment" = ${aeatEnvironment}::"VerifactuAeatEnvironment"
+            AND "status" = ANY(${statuses})
+        )
+      ORDER BY vr."invoiceId", fr."sequenceNumber" DESC
+    ) latest
+    WHERE latest."status" = ANY(${statuses})
+  `;
+
+  return rows.map((row) => row.id);
+};
+
 export const getVerifactuIssues = async (
   client: VerifactuStatusClient,
   organizationId: string,
 ) => {
-  const aeatEnvironment = currentVerifactuAeatEnvironment();
-  const candidates = await client.verifactuRecord.findMany({
-    where: { organizationId, aeatEnvironment, status: { in: verifactuSubsanableStatuses } },
-    distinct: ['invoiceId'],
-    select: { invoiceId: true },
-  });
+  const recordIds = await getVerifactuIssueRecordIds(client, organizationId);
 
-  if (!candidates.length) {
+  if (!recordIds.length) {
     return [];
   }
 
-  const records = await client.invoiceFiscalRecord.findMany({
-    where: {
-      organizationId,
-      invoiceId: { in: candidates.map((candidate) => candidate.invoiceId) },
-      verifactuRecord: { is: { aeatEnvironment } },
-    },
+  return client.invoiceFiscalRecord.findMany({
+    where: { organizationId, verifactuRecord: { is: { id: { in: recordIds } } } },
     orderBy: { sequenceNumber: 'desc' },
     select: {
       invoiceId: true,
@@ -74,23 +93,12 @@ export const getVerifactuIssues = async (
       verifactuRecord: { select: verifactuStatusSelect },
     },
   });
-  const seenInvoiceIds = new Set<string>();
-
-  return records.filter((record) => {
-    if (seenInvoiceIds.has(record.invoiceId)) {
-      return false;
-    }
-
-    seenInvoiceIds.add(record.invoiceId);
-
-    return !!record.verifactuRecord &&
-      verifactuSubsanableStatuses.includes(record.verifactuRecord.status);
-  });
 };
 
 // Sends an invoice's latest record again when it failed pre-flight validation,
 // as after a validator fix. Earlier failures were superseded by a later record,
 // such as a subsanación, and records AEAT rejected need a subsanación instead.
+// Run it holding the invoice's row lock, as subsanaciones are created under it.
 export const retryVerifactuPreflightFailures = async (
   client: VerifactuStatusClient,
   organizationId: string,

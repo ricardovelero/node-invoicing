@@ -27,6 +27,7 @@ import {
   createInvoiceRecord,
   getInvoiceDetails,
   getInvoiceFormOptions,
+  countOrganizationVerifactuIssues,
   getInvoices,
   getOrganizationVerifactuIssues,
   isVerifactuCertificateMissing,
@@ -202,7 +203,7 @@ export const listInvoices: RequestHandler = async (req, res) => {
     ...invoiceIndexView(invoices, req.t),
     title: req.t('invoices.title'),
     verifactuCertificateMissing: await isVerifactuCertificateMissing(req.auth!.organization),
-    verifactuIssueCount: (await getOrganizationVerifactuIssues(req.auth!.organization)).length,
+    verifactuIssueCount: await countOrganizationVerifactuIssues(req.auth!.organization),
     canManageSettings: req.auth!.role !== 'MEMBER',
   });
 };

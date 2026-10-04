@@ -2062,25 +2062,35 @@ test("subsanarInvoiceVerifactuController handles missing and blocked invoices", 
 
 test("retryInvoiceVerifactuController requeues pre-flight failures", async () => {
   const invoiceId = "5c4a11e6-daa1-48c0-8fd5-ed4ca6d0d75c";
-  const verifactuRecordMock = prisma.verifactuRecord as unknown as Record<string, unknown>;
-  const fiscalRecordMock = prisma.invoiceFiscalRecord as unknown as Record<string, unknown>;
-  const originalUpdateMany = verifactuRecordMock.updateMany;
-  const originalFindFirst = fiscalRecordMock.findFirst;
   const responses = [];
 
-  try {
-    for (const status of ["PREFLIGHT_FAILED", "ACCEPTED"]) {
-      fiscalRecordMock.findFirst = async () => ({ verifactuRecord: { id: "record_1", status } });
-      verifactuRecordMock.updateMany = async () => ({ count: 1 });
-      const req = createRequest({}, { invoiceId });
-      const res = createResponse();
+  for (const status of ["PREFLIGHT_FAILED", "ACCEPTED"]) {
+    let lockSql = "";
 
-      await retryInvoiceVerifactuController(req, res, () => undefined);
-      responses.push({ req, res });
-    }
-  } finally {
-    verifactuRecordMock.updateMany = originalUpdateMany;
-    fiscalRecordMock.findFirst = originalFindFirst;
+    // The retry runs under the same invoice lock as subsanaciones.
+    prismaMock.$transaction = async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        async $queryRaw(strings: TemplateStringsArray) {
+          lockSql = strings.join("?");
+          return [];
+        },
+        invoiceFiscalRecord: {
+          async findFirst() {
+            assert.match(lockSql, /FOR UPDATE/);
+            return { verifactuRecord: { id: "record_1", status } };
+          },
+        },
+        verifactuRecord: {
+          async updateMany() {
+            return { count: 1 };
+          },
+        },
+      });
+    const req = createRequest({}, { invoiceId });
+    const res = createResponse();
+
+    await retryInvoiceVerifactuController(req, res, () => undefined);
+    responses.push({ req, res });
   }
 
   assert.deepEqual(responses[0]!.req.flashMessages.success, [
