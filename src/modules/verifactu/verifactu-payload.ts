@@ -444,17 +444,28 @@ export const resolvePreviousVerifactuRecord = async (
 
 const aeatRegisteredStatuses: VerifactuRecordStatus[] = ['ACCEPTED', 'ACCEPTED_WITH_ERRORS'];
 
+type InvoiceSnapshotRecord = InvoiceFiscalRecordWithInvoiceSnapshot['invoice'];
+
 // Picks the AEAT operation for an ALTA de subsanación from the invoice's earlier
 // ALTA records: X when AEAT never registered the invoice (rejected or never sent),
 // S when it did but the last subsanación was rejected, and none otherwise.
+// Only records with the current seller NIF, number and date count, since a
+// changed organization NIF makes it a different invoice for AEAT.
 export const resolveVerifactuRechazoPrevio = async (
   client: VerifactuPayloadClient,
-  record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'invoiceId' | 'sequenceNumber'>,
+  record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'invoiceId' | 'sequenceNumber'> & {
+    invoice: Pick<InvoiceSnapshotRecord, 'number' | 'issueDate'> & {
+      snapshot: Pick<NonNullable<InvoiceSnapshotRecord['snapshot']>, 'sellerTaxId'> | null;
+    };
+  },
 ): Promise<VerifactuRechazoPrevio | null> => {
   const earlierRecords = await client.verifactuRecord.findMany({
     where: {
       invoiceId: record.invoiceId,
       recordType: 'ALTA',
+      sellerTaxId: requiredText(record.invoice.snapshot?.sellerTaxId, 'a seller tax ID'),
+      invoiceNumber: requiredText(record.invoice.number, 'an invoice number'),
+      issueDate: record.invoice.issueDate,
       invoiceFiscalRecord: { sequenceNumber: { lt: record.sequenceNumber } },
     },
     orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },

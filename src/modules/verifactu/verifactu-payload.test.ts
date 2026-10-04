@@ -545,13 +545,22 @@ test('resolveVerifactuRechazoPrevio picks the AEAT subsanación operation', asyn
     const result = await resolveVerifactuRechazoPrevio(client as never, {
       invoiceId,
       sequenceNumber: 9,
+      invoice: {
+        number: ' F-0009 ',
+        issueDate: new Date('2026-05-27T00:00:00.000Z'),
+        snapshot: { sellerTaxId: ' B87654321 ' },
+      },
     });
 
     assert.equal(result, expected, statuses.join(','));
+    // Records sent under an earlier organization NIF are a different invoice for AEAT.
     assert.deepEqual(findManyArgs, {
       where: {
         invoiceId,
         recordType: 'ALTA',
+        sellerTaxId: 'B87654321',
+        invoiceNumber: 'F-0009',
+        issueDate: new Date('2026-05-27T00:00:00.000Z'),
         invoiceFiscalRecord: { sequenceNumber: { lt: 9 } },
       },
       orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },
