@@ -20,6 +20,9 @@ test('resolveVerifactuCountryCode matches free-text country names and codes', ()
     ['Germany', 'DE'],
     ['Alemania', 'DE'],
     ['Grecia', 'GR'],
+    ['XX', null],
+    ['XK', null],
+    ['Kosovo', null],
     ['  ', null],
     [null, null],
   ] as const) {
@@ -40,10 +43,25 @@ test('buildVerifactuRecipientId sends Spanish customers as NIF', () => {
     nif: 'ES5671234890',
     idOtro: null,
   });
+  assert.deepEqual(buildVerifactuRecipientId('XX123', 'XX'), {
+    nif: 'XX123',
+    idOtro: null,
+  });
 });
 
-test('buildVerifactuRecipientId sends EU customers as NIF-IVA in IDOtro', () => {
-  assert.deepEqual(buildVerifactuRecipientId('FR 123.456.789-01', 'France'), {
+test('buildVerifactuRecipientId sends foreign residents with a Spanish NIF as NIF', () => {
+  assert.deepEqual(buildVerifactuRecipientId('B12345674', 'France'), {
+    nif: 'B12345674',
+    idOtro: null,
+  });
+  assert.deepEqual(buildVerifactuRecipientId('es12345678z', 'United States'), {
+    nif: '12345678Z',
+    idOtro: null,
+  });
+});
+
+test('buildVerifactuRecipientId sends EU VAT numbers as NIF-IVA in IDOtro', () => {
+  assert.deepEqual(buildVerifactuRecipientId('fr 123.456.789-01', 'France'), {
     nif: null,
     idOtro: { codigoPais: 'FR', idType: '02', id: 'FR12345678901' },
   });
@@ -51,9 +69,20 @@ test('buildVerifactuRecipientId sends EU customers as NIF-IVA in IDOtro', () => 
     nif: null,
     idOtro: { codigoPais: 'DE', idType: '02', id: 'DE123456789' },
   });
-  assert.deepEqual(buildVerifactuRecipientId('123456789', 'Greece'), {
+  assert.deepEqual(buildVerifactuRecipientId('EL123456789', 'Greece'), {
     nif: null,
     idOtro: { codigoPais: 'GR', idType: '02', id: 'EL123456789' },
+  });
+});
+
+test('buildVerifactuRecipientId keeps EU IDs without a VAT prefix as national IDs', () => {
+  assert.deepEqual(buildVerifactuRecipientId('123 456 789 01', 'France'), {
+    nif: null,
+    idOtro: { codigoPais: 'FR', idType: '04', id: '123 456 789 01' },
+  });
+  assert.deepEqual(buildVerifactuRecipientId('GR123456789', 'Greece'), {
+    nif: null,
+    idOtro: { codigoPais: 'GR', idType: '04', id: 'GR123456789' },
   });
 });
 
