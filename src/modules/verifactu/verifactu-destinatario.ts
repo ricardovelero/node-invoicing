@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { isValidSpanishNif } from './verifactu-nif';
 
 // AEAT IDOtro identification types used for invoice recipients.
@@ -48,6 +50,27 @@ const countryCodesByName = new Map<string, string>(
   }),
 );
 
+let aeatCountryCodes: Set<string> | undefined;
+
+// CodigoPais must be one of the codes in the XSD's CountryType2 enumeration.
+const getAeatCountryCodes = () => {
+  if (aeatCountryCodes) {
+    return aeatCountryCodes;
+  }
+
+  const xsd = readFileSync(
+    path.join(process.cwd(), 'vendor', 'aeat', 'verifactu', 'xsd', 'SuministroInformacion.xsd'),
+    'utf8',
+  );
+  const countryType = xsd.match(/<simpleType name="CountryType2">[\s\S]*?<\/simpleType>/u)?.[0];
+
+  aeatCountryCodes = new Set(
+    [...(countryType ?? '').matchAll(/value="([A-Z]{2})"/gu)].map(([, code]) => code),
+  );
+
+  return aeatCountryCodes;
+};
+
 export const resolveVerifactuCountryCode = (value: string | null | undefined) => {
   const name = normalizeCountryName(value ?? '');
 
@@ -55,41 +78,40 @@ export const resolveVerifactuCountryCode = (value: string | null | undefined) =>
     return null;
   }
 
-  return countryCodeAliases[name] ??
+  const code = countryCodeAliases[name] ??
     countryCodesByName.get(name) ??
     (/^[a-z]{2}$/u.test(name) ? name.toUpperCase() : null);
+
+  return code && getAeatCountryCodes().has(code) ? code : null;
 };
 
 // Greece uses EL as its VAT prefix.
 const vatPrefix = (countryCode: string) => countryCode === 'GR' ? 'EL' : countryCode;
 
-// Spanish recipients, or recipients without a recognisable country, are sent as
-// NIF. EU recipients are sent as NIF-IVA and the rest by their national tax ID.
+// Recipients with a Spanish NIF, wherever they reside, and recipients without a
+// recognisable country are sent as NIF. EU VAT numbers are sent as NIF-IVA and
+// any other ID as the national tax ID of the country of residence.
 export const buildVerifactuRecipientId = (
   taxId: string,
   country: string | null | undefined,
 ): VerifactuRecipientId => {
   const countryCode = resolveVerifactuCountryCode(country);
   const id = taxId.trim().toUpperCase();
+  const withoutPrefix = id.replace(/^ES/u, '');
 
-  if (!countryCode || countryCode === 'ES') {
-    const withoutPrefix = id.replace(/^ES/u, '');
-
-    return { nif: isValidSpanishNif(withoutPrefix) ? withoutPrefix : id, idOtro: null };
+  if (isValidSpanishNif(withoutPrefix)) {
+    return { nif: withoutPrefix, idOtro: null };
   }
 
-  if (euCountryCodes.has(countryCode)) {
-    const vatNumber = id.replace(/[\s.-]/gu, '');
-    const prefix = vatPrefix(countryCode);
+  if (!countryCode || countryCode === 'ES') {
+    return { nif: id, idOtro: null };
+  }
 
-    return {
-      nif: null,
-      idOtro: {
-        codigoPais: countryCode,
-        idType: '02',
-        id: vatNumber.startsWith(prefix) ? vatNumber : `${prefix}${vatNumber}`,
-      },
-    };
+  const vatNumber = id.replace(/[\s.-]/gu, '');
+
+  // Only IDs that already carry the VAT prefix are known to be VAT numbers.
+  if (euCountryCodes.has(countryCode) && vatNumber.startsWith(vatPrefix(countryCode))) {
+    return { nif: null, idOtro: { codigoPais: countryCode, idType: '02', id: vatNumber } };
   }
 
   return { nif: null, idOtro: { codigoPais: countryCode, idType: '04', id } };
