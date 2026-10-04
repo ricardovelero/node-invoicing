@@ -10,6 +10,8 @@ test('isValidSpanishNif accepts valid DNI, NIE, K/L/M and entity NIFs', () => {
     'Y1234567X',
     'Z1234567R',
     'K1234567L',
+    'M12AB567C',
+    'L1234X67Q',
     'B12345674',
     'A87654323',
     'Q2826000H',
@@ -25,6 +27,9 @@ test('isValidSpanishNif rejects wrong control characters and formats', () => {
   for (const nif of [
     '12345678A',
     'X1234567A',
+    'K1234567A',
+    'M12AB5671',
+    'M12-B567C',
     'B12345678',
     'B1234567D',
     'Q28260008',
