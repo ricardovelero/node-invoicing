@@ -138,6 +138,7 @@ type FakeRecord = {
   invoiceNumber: string;
   issueDate: Date;
   status: VerifactuRecordStatus;
+  aeatEnvironment: 'TEST' | 'PRODUCTION';
   preflightError?: string;
 };
 
@@ -155,6 +156,7 @@ const fakeRecord = (
   invoiceNumber: payload.invoiceNumber,
   issueDate: new Date(payload.issueDate),
   status: 'GENERATED',
+  aeatEnvironment: 'TEST',
 });
 
 const fakeClient = (records: FakeRecord[]) => {
@@ -163,9 +165,12 @@ const fakeClient = (records: FakeRecord[]) => {
     record.status === 'GENERATED' || record.status === 'SUBMISSION_PENDING';
   const client = {
     verifactuRecord: {
-      async findMany(args: Record<string, unknown> & { where: { organizationId?: string } }) {
+      async findMany(args: Record<string, unknown> & {
+        where: { organizationId?: string; aeatEnvironment: string };
+      }) {
         findManyCalls.push(args);
-        const pending = records.filter(isPending);
+        const pending = records.filter((record) =>
+          isPending(record) && record.aeatEnvironment === args.where.aeatEnvironment);
 
         if (args.distinct) {
           return [...new Set(pending.map((record) => record.organizationId))]
@@ -256,6 +261,7 @@ test('runVerifactuSubmissionPass submits pending records in chain order as one b
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt,
     logger: silentLogger,
@@ -290,6 +296,44 @@ test('runVerifactuSubmissionPass submits pending records in chain order as one b
   assert.deepEqual(findManyCalls[1]?.orderBy, { invoiceFiscalRecord: { sequenceNumber: 'asc' } });
   assert.equal(findManyCalls[1]?.take, verifactuSubmissionBatchSize);
   assert.equal(nextSubmissionAt.get('org_1'), 1_000 + 30_000);
+});
+
+test('runVerifactuSubmissionPass only sends records for its AEAT environment', async () => {
+  const records = [
+    fakeRecord('test_record', 1, altaPayload('INV-2026-0001')),
+    {
+      ...fakeRecord('production_record', 2, altaPayload('INV-2026-0002')),
+      aeatEnvironment: 'PRODUCTION' as const,
+    },
+  ];
+  const { client } = fakeClient(records);
+  const requests: VerifactuSoapTransportRequest[] = [];
+
+  const result = await runVerifactuSubmissionPass({
+    client,
+    aeatEnvironment: 'PRODUCTION',
+    loadConfig: async () => config,
+    nextSubmissionAt: new Map(),
+    logger: silentLogger,
+    async transport(request) {
+      requests.push(request);
+
+      return {
+        status: 200,
+        body: responseXml([responseLine('INV-2026-0002', 'Alta', 'Correcto')]),
+      };
+    },
+  });
+
+  assert.deepEqual(result, { organizationCount: 1, submittedCount: 1 });
+  assert.deepEqual(
+    [...requests[0]!.body.matchAll(/<sf:NumSerieFactura>([^<]+)</g)].map((match) => match[1]),
+    ['INV-2026-0002'],
+  );
+  assert.deepEqual(
+    Object.fromEntries(records.map((record) => [record.id, record.status])),
+    { test_record: 'GENERATED', production_record: 'ACCEPTED' },
+  );
 });
 
 test('preflightVerifactuRecordXml flags invalid NIFs and XSD errors', async () => {
@@ -327,6 +371,7 @@ test('runVerifactuSubmissionPass leaves pre-flight failures out of the batch', a
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt: new Map(),
     logger: silentLogger,
@@ -365,6 +410,7 @@ test('runVerifactuSubmissionPass skips AEAT when every record fails pre-flight',
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt: new Map(),
     logger: silentLogger,
@@ -388,6 +434,7 @@ test('runVerifactuSubmissionPass waits for the AEAT TiempoEsperaEnvio window', a
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt: new Map([['org_1', 61_000]]),
     logger: silentLogger,
@@ -411,6 +458,7 @@ test('runVerifactuSubmissionPass keeps records pending on SOAP faults and backs 
 
   await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt,
     logger: silentLogger,
@@ -432,6 +480,7 @@ test('runVerifactuSubmissionPass keeps records pending on unrecognized responses
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt,
     logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
@@ -458,6 +507,7 @@ test('runVerifactuSubmissionPass isolates transport errors per organization', as
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     nextSubmissionAt,
     logger: { log() {}, error: (...args: unknown[]) => errors.push(args) },
@@ -495,6 +545,7 @@ test('runVerifactuSubmissionPass skips organizations without a usable certificat
 
   const result = await runVerifactuSubmissionPass({
     client,
+    aeatEnvironment: 'TEST',
     async loadConfig(organizationId) {
       if (organizationId === 'org_1') {
         throw new Error('Organization org_1 has no Veri*Factu certificate.');

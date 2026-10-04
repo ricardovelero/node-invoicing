@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { InvoiceFiscalRecordType, Prisma, VerifactuRecordStatus } from '@prisma/client';
 import {
-  getVerifactuTestEndpointFromWsdl,
+  getVerifactuEndpointFromWsdl,
   loadVerifactuSoapConfig,
   readVerifactuWsdl,
   sendVerifactuSoapRequest,
@@ -140,7 +140,7 @@ const issuePeriod = (issueDate: Date) => ({
   month: String(issueDate.getUTCMonth() + 1).padStart(2, '0'),
 });
 
-export const getVerifactuQueryTestEndpointFromWsdl = getVerifactuTestEndpointFromWsdl;
+export const getVerifactuQueryTestEndpointFromWsdl = getVerifactuEndpointFromWsdl;
 
 export const loadVerifactuQuerySoapConfig = loadVerifactuSoapConfig;
 

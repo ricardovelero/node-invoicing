@@ -22,6 +22,7 @@ export const queryVerifactuRecordInAeatTest = async ({
     where: { id: recordId },
     select: {
       id: true,
+      aeatEnvironment: true,
       sellerTaxId: true,
       invoiceNumber: true,
       issueDate: true,
@@ -40,6 +41,11 @@ export const queryVerifactuRecordInAeatTest = async ({
 
   if (!record) {
     throw new Error(`VerifactuRecord not found: ${recordId}`);
+  }
+
+  // Preproduction answers must never change the status of a production record.
+  if (record.aeatEnvironment !== 'TEST') {
+    throw new Error(`VerifactuRecord ${record.id} was generated for AEAT production.`);
   }
 
   const sellerLegalName = record.invoice.snapshot?.sellerLegalName ||

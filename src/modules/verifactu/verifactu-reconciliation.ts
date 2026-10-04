@@ -1,4 +1,4 @@
-import type { VerifactuRecordStatus } from '@prisma/client';
+import type { VerifactuAeatEnvironment, VerifactuRecordStatus } from '@prisma/client';
 import type { prisma } from '../../db/prisma';
 import { persistVerifactuQueryResponse, queryVerifactuSoapRecord } from './verifactu-query';
 import {
@@ -16,14 +16,17 @@ export const verifactuReconciliationBatchSize = 100;
 // Queries AEAT for SUBMITTED records and stores their registered state. Records
 // AEAT has not registered go back to GENERATED for the submission worker.
 // loadConfig returns the SOAP config for an organization, with its certificate.
+// Only records generated for aeatEnvironment are queried.
 export const reconcileSubmittedVerifactuRecords = async ({
   client,
+  aeatEnvironment,
   loadConfig,
   transport = sendVerifactuSoapRequest,
   logger = console,
   now = () => Date.now(),
 }: {
   client: typeof prisma;
+  aeatEnvironment: VerifactuAeatEnvironment;
   loadConfig: (organizationId: string) => Promise<VerifactuSoapConfig>;
   transport?: VerifactuSoapTransport;
   logger?: Pick<Console, 'error'>;
@@ -32,6 +35,7 @@ export const reconcileSubmittedVerifactuRecords = async ({
   const records = await client.verifactuRecord.findMany({
     where: {
       status: 'SUBMITTED',
+      aeatEnvironment,
       updatedAt: { lt: new Date(now() - verifactuReconciliationMinAgeMinutes * 60_000) },
     },
     orderBy: { updatedAt: 'asc' },

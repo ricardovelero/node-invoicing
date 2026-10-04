@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma';
 import { loadOrganizationVerifactuSoapConfig } from '../modules/verifactu/verifactu-certificate';
 import { reconcileSubmittedVerifactuRecords } from '../modules/verifactu/verifactu-reconciliation';
+import { currentVerifactuAeatEnvironment } from '../modules/verifactu/verifactu-record';
 import { loadVerifactuSoapEnvironment } from '../modules/verifactu/verifactu-soap';
 
 // Asks AEAT for the state of Veri*Factu records left SUBMITTED by the submission
@@ -9,6 +10,7 @@ const run = async () => {
   const environment = loadVerifactuSoapEnvironment();
   const result = await reconcileSubmittedVerifactuRecords({
     client: prisma,
+    aeatEnvironment: currentVerifactuAeatEnvironment(),
     loadConfig: (organizationId) =>
       loadOrganizationVerifactuSoapConfig({ client: prisma, organizationId, environment }),
   });

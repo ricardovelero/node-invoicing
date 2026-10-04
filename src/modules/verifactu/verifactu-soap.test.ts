@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   buildVerifactuSoapEnvelope,
-  getVerifactuTestEndpointFromWsdl,
+  getVerifactuEndpointFromWsdl,
   loadVerifactuSoapConfig,
   loadVerifactuSoapEnvironment,
   parseVerifactuSoapSubmissionResponse,
@@ -100,9 +100,9 @@ test('buildVerifactuSoapEnvelope wraps RegFactuSistemaFacturacion in SOAP body',
   assert.equal(envelope.match(/<\?xml/g)?.length, 1);
 });
 
-test('getVerifactuTestEndpointFromWsdl reads the AEAT preproduction endpoint', () => {
+test('getVerifactuEndpointFromWsdl reads the AEAT preproduction endpoint', () => {
   assert.equal(
-    getVerifactuTestEndpointFromWsdl(readVerifactuWsdl()),
+    getVerifactuEndpointFromWsdl(readVerifactuWsdl()),
     'https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
   );
 });
@@ -110,7 +110,33 @@ test('getVerifactuTestEndpointFromWsdl reads the AEAT preproduction endpoint', (
 test('loadVerifactuSoapConfig accepts only the test environment', () => {
   assert.throws(
     () => loadVerifactuSoapConfig({ VERIFACTU_AEAT_ENV: 'production' }, readVerifactuWsdl()),
-    /VERIFACTU_AEAT_ENV must be set to test/,
+    /require VERIFACTU_AEAT_ENV=test/,
+  );
+});
+
+test('loadVerifactuSoapEnvironment uses the AEAT production endpoints', () => {
+  const wsdl = readVerifactuWsdl();
+
+  assert.deepEqual(
+    loadVerifactuSoapEnvironment(
+      {
+        VERIFACTU_AEAT_ENV: 'production',
+        VERIFACTU_TEST_ENDPOINT: 'https://example.test/VerifactuSOAP',
+        VERIFACTU_TEST_SEAL_ENDPOINT: 'https://example.test/VerifactuSelloSOAP',
+      },
+      wsdl,
+    ),
+    {
+      env: 'production',
+      endpoint:
+        'https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
+      sealEndpoint:
+        'https://www10.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP',
+    },
+  );
+  assert.throws(
+    () => loadVerifactuSoapEnvironment({}, wsdl),
+    /VERIFACTU_AEAT_ENV must be set to test or production/,
   );
 });
 
@@ -147,7 +173,7 @@ test('loadVerifactuSoapEnvironment applies endpoint overrides to both certificat
 
   assert.equal(
     defaults.sealEndpoint,
-    getVerifactuTestEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
+    getVerifactuEndpointFromWsdl(wsdl, 'SistemaVerifactuSelloPruebas'),
   );
   assert.deepEqual(
     loadVerifactuSoapEnvironment(
@@ -201,7 +227,7 @@ test('loadVerifactuSoapConfig rejects known AEAT production endpoints', () => {
       },
       readVerifactuWsdl(),
     ),
-    /Production AEAT Veri\*Factu endpoints are disabled/,
+    /VERIFACTU_TEST_ENDPOINT can't point to AEAT production/,
   );
 });
 

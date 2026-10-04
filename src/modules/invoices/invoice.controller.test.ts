@@ -271,6 +271,7 @@ const printableSnapshot = {
 
 const printableInvoice = {
   verifactuRecords: [] as Array<{
+    aeatEnvironment: "TEST" | "PRODUCTION";
     sellerTaxId: string;
     invoiceNumber: string;
     issueDate: Date;
@@ -1611,6 +1612,7 @@ test("printInvoice renders the VERI*FACTU QR for registered invoices", async () 
   prismaMock.invoice.findFirst = async () => ({
     ...printableInvoice,
     verifactuRecords: [{
+      aeatEnvironment: "TEST",
       sellerTaxId: "B12345678",
       invoiceNumber: "INV-2026-0001",
       issueDate: new Date("2026-05-27T00:00:00.000Z"),

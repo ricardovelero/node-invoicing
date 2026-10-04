@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   buildVerifactuRecordData,
+  canSubsanarVerifactuRecord,
+  currentVerifactuAeatEnvironment,
   persistVerifactuSoapSubmissionResponse,
 } from './verifactu-record';
 import type { VerifactuAltaPayload } from './verifactu-payload';
@@ -123,14 +125,40 @@ const payload = (): VerifactuAltaPayload => ({
   internalHash: 'internal-not-official',
 });
 
+test('currentVerifactuAeatEnvironment is production only when configured', () => {
+  assert.equal(currentVerifactuAeatEnvironment({ VERIFACTU_AEAT_ENV: 'production' }), 'PRODUCTION');
+  assert.equal(currentVerifactuAeatEnvironment({ VERIFACTU_AEAT_ENV: 'test' }), 'TEST');
+  assert.equal(currentVerifactuAeatEnvironment({}), 'TEST');
+});
+
+test('canSubsanarVerifactuRecord only corrects records of the current AEAT environment', () => {
+  const production = { VERIFACTU_AEAT_ENV: 'production' };
+
+  assert.equal(
+    canSubsanarVerifactuRecord({ status: 'REJECTED', aeatEnvironment: 'PRODUCTION' }, production),
+    true,
+  );
+  assert.equal(
+    canSubsanarVerifactuRecord({ status: 'REJECTED', aeatEnvironment: 'TEST' }, production),
+    false,
+  );
+  assert.equal(
+    canSubsanarVerifactuRecord({ status: 'ACCEPTED', aeatEnvironment: 'PRODUCTION' }, production),
+    false,
+  );
+  assert.equal(canSubsanarVerifactuRecord(null, production), false);
+});
+
 test('buildVerifactuRecordData maps payload and XML to persistent record data', () => {
   const data = buildVerifactuRecordData({
     payload: payload(),
     xml: '<xml />',
+    aeatEnvironment: 'PRODUCTION',
     previousVerifactuRecordId: '7d099fc2-225e-4f00-b35a-b1fdc1b62d4e',
   });
 
   assert.equal(data.invoiceFiscalRecordId, payload().fiscalRecordId);
+  assert.equal(data.aeatEnvironment, 'PRODUCTION');
   assert.equal(data.invoiceId, payload().invoiceId);
   assert.equal(data.organizationId, payload().organizationId);
   assert.equal(data.recordType, 'ALTA');

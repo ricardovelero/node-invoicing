@@ -1379,6 +1379,7 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
         where: { recordType: "ALTA" },
         orderBy: { invoiceFiscalRecord: { sequenceNumber: "desc" } },
         select: {
+          aeatEnvironment: true,
           sellerTaxId: true,
           invoiceNumber: true,
           issueDate: true,
@@ -2495,6 +2496,8 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
 });
 
 test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a registered invoice", async () => {
+  // The ALTA was sent to production while this process is configured for test,
+  // as during a rollback: the cancellation still goes to production.
   let verifactuRecordCreateArgs: unknown;
   const altaHuella = "B".repeat(64);
 
@@ -2521,6 +2524,7 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
     },
     previousVerifactuRecord: {
       id: "alta_verifactu_record_1",
+      aeatEnvironment: "PRODUCTION",
       sellerTaxId: "VAT123",
       invoiceNumber: "INV-2026-0001",
       issueDate: new Date("2026-05-27T00:00:00.000Z"),
@@ -2542,6 +2546,7 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
 
   assert.deepEqual(result, { ok: true, status: "VOID" });
   assert.equal(data.recordType, "ANULACION");
+  assert.equal(data.aeatEnvironment, "PRODUCTION");
   assert.equal(data.invoiceNumber, "INV-2026-0001");
   assert.equal(data.previousVerifactuRecordId, "alta_verifactu_record_1");
   assert.equal(data.previousHuella, altaHuella);
@@ -2551,10 +2556,12 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
 const mockSubsanacionTransaction = ({
   invoiceStatus = "ISSUED",
   latestAltaStatus,
+  latestAltaEnvironment = "TEST",
   earlierAltaStatuses = [latestAltaStatus],
 }: {
   invoiceStatus?: InvoiceStatus;
   latestAltaStatus: string | null;
+  latestAltaEnvironment?: "TEST" | "PRODUCTION";
   earlierAltaStatuses?: Array<string | null>;
 }) => {
   const calls = {
@@ -2617,7 +2624,9 @@ const mockSubsanacionTransaction = ({
                 id: "fiscal_record_11",
                 hash: "previous-internal-hash",
                 subsanacionNumber: 0,
-                verifactuRecord: latestAltaStatus ? { status: latestAltaStatus } : null,
+                verifactuRecord: latestAltaStatus
+                  ? { status: latestAltaStatus, aeatEnvironment: latestAltaEnvironment }
+                  : null,
               };
         },
         async findUnique() {
@@ -2710,6 +2719,8 @@ test("subsanarInvoiceVerifactuRecord rejects invoices without a correctable reco
     { latestAltaStatus: "GENERATED" },
     { latestAltaStatus: null },
     { invoiceStatus: "VOID", latestAltaStatus: "REJECTED" },
+    // Preproduction records can't be corrected once VERIFACTU_AEAT_ENV is production.
+    { latestAltaStatus: "REJECTED", latestAltaEnvironment: "PRODUCTION" },
   ];
 
   for (const options of cases) {

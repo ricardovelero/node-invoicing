@@ -469,8 +469,11 @@ test('buildVerifactuPayloadForFiscalRecord resolves the previous valid record', 
     issueDate: '2026-05-26T00:00:00.000Z',
     huella: previousHuella,
   });
+  // New records default to preproduction when VERIFACTU_AEAT_ENV isn't production.
+  assert.equal(result.aeatEnvironment, 'TEST');
   assert.deepEqual(previousWhere, {
     organizationId,
+    aeatEnvironment: 'TEST',
     invoiceFiscalRecord: {
       sequenceNumber: {
         lt: 7,
@@ -503,11 +506,13 @@ test('resolvePreviousVerifactuRecord uses the accepted latest record after dupli
   const result = await resolvePreviousVerifactuRecord(client as never, {
     organizationId,
     sequenceNumber: 8,
-  });
+  }, 'PRODUCTION');
 
   assert.equal(result.previousVerifactuRecordId, acceptedDuplicateRecordId);
+  // Production starts its own chain rather than continuing preproduction's.
   assert.deepEqual(previousWhere, {
     organizationId,
+    aeatEnvironment: 'PRODUCTION',
     invoiceFiscalRecord: {
       sequenceNumber: {
         lt: 8,
@@ -550,7 +555,7 @@ test('resolveVerifactuRechazoPrevio picks the AEAT subsanación operation', asyn
         issueDate: new Date('2026-05-27T00:00:00.000Z'),
         snapshot: { sellerTaxId: ' B87654321 ' },
       },
-    });
+    }, 'TEST');
 
     assert.equal(result, expected, statuses.join(','));
     // Records sent under an earlier organization NIF are a different invoice for AEAT.
@@ -558,6 +563,7 @@ test('resolveVerifactuRechazoPrevio picks the AEAT subsanación operation', asyn
       where: {
         invoiceId,
         recordType: 'ALTA',
+        aeatEnvironment: 'TEST',
         sellerTaxId: 'B87654321',
         invoiceNumber: 'F-0009',
         issueDate: new Date('2026-05-27T00:00:00.000Z'),

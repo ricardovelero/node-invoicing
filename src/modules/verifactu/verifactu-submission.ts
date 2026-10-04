@@ -1,4 +1,8 @@
-import type { InvoiceFiscalRecordType, VerifactuRecordStatus } from '@prisma/client';
+import type {
+  InvoiceFiscalRecordType,
+  VerifactuAeatEnvironment,
+  VerifactuRecordStatus,
+} from '@prisma/client';
 import type { prisma } from '../../db/prisma';
 import { formatVerifactuDate } from './verifactu-huella';
 import { isValidSpanishNif } from './verifactu-nif';
@@ -122,9 +126,10 @@ const waitSecondsFromResponse = (parsed: ParsedVerifactuSoapSubmission) => {
 const loadPendingBatch = async (
   client: VerifactuSubmissionClient,
   organizationId: string,
+  aeatEnvironment: VerifactuAeatEnvironment,
 ) => {
   const records = await client.verifactuRecord.findMany({
-    where: { organizationId, status: { in: pendingStatuses } },
+    where: { organizationId, aeatEnvironment, status: { in: pendingStatuses } },
     orderBy: { invoiceFiscalRecord: { sequenceNumber: 'asc' } },
     take: verifactuSubmissionBatchSize,
     select: {
@@ -162,18 +167,26 @@ const loadPendingBatch = async (
   };
 };
 
+// Only records generated for aeatEnvironment are sent, so preproduction records
+// never reach AEAT production.
 export const submitPendingVerifactuBatch = async ({
   client,
   organizationId,
+  aeatEnvironment,
   config,
   transport = sendVerifactuSoapRequest,
 }: {
   client: VerifactuSubmissionClient;
   organizationId: string;
+  aeatEnvironment: VerifactuAeatEnvironment;
   config: VerifactuSoapConfig;
   transport?: VerifactuSoapTransport;
 }) => {
-  const { records, preflightFailedCount } = await loadPendingBatch(client, organizationId);
+  const { records, preflightFailedCount } = await loadPendingBatch(
+    client,
+    organizationId,
+    aeatEnvironment,
+  );
 
   if (!records.length) {
     return { submittedCount: 0, waitSeconds: 0, faulted: false, preflightFailedCount };
@@ -219,6 +232,7 @@ export const submitPendingVerifactuBatch = async ({
 // SOAP config for an organization, with its own certificate.
 export const runVerifactuSubmissionPass = async ({
   client,
+  aeatEnvironment,
   loadConfig,
   nextSubmissionAt,
   transport = sendVerifactuSoapRequest,
@@ -226,6 +240,7 @@ export const runVerifactuSubmissionPass = async ({
   now = () => Date.now(),
 }: {
   client: VerifactuSubmissionClient;
+  aeatEnvironment: VerifactuAeatEnvironment;
   loadConfig: (organizationId: string) => Promise<VerifactuSoapConfig>;
   nextSubmissionAt: Map<string, number>;
   transport?: VerifactuSoapTransport;
@@ -233,7 +248,7 @@ export const runVerifactuSubmissionPass = async ({
   now?: () => number;
 }) => {
   const organizations = await client.verifactuRecord.findMany({
-    where: { status: { in: pendingStatuses } },
+    where: { aeatEnvironment, status: { in: pendingStatuses } },
     distinct: ['organizationId'],
     select: { organizationId: true },
   });
@@ -248,6 +263,7 @@ export const runVerifactuSubmissionPass = async ({
       const result = await submitPendingVerifactuBatch({
         client,
         organizationId,
+        aeatEnvironment,
         config: await loadConfig(organizationId),
         transport,
       });
