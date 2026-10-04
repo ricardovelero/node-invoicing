@@ -82,6 +82,11 @@ export const reconcileSubmittedVerifactuRecords = async ({
         responseXml: result.responseXml,
       });
 
+      // Faults and unrecognized bodies are stored but leave the record SUBMITTED.
+      if (persisted.parsed.kind === 'fault' || !persisted.parsed.resultadoConsulta) {
+        throw new Error(`AEAT query failed (HTTP ${result.httpStatus}).`);
+      }
+
       statuses[persisted.record.status] = (statuses[persisted.record.status] ?? 0) + 1;
     } catch (error) {
       errorCount += 1;
