@@ -1,4 +1,9 @@
-import type { InvoiceStatus, PaymentStatus, Prisma } from '@prisma/client';
+import type {
+  InvoiceStatus,
+  PaymentStatus,
+  Prisma,
+  VerifactuAeatEnvironment,
+} from '@prisma/client';
 import { prisma } from '../../db/prisma';
 import { getOrganizationCountryLabel } from '../../lib/countries';
 import { calculateInvoiceTotals } from '../../lib/money';
@@ -6,7 +11,6 @@ import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
 import {
   buildVerifactuRecordData,
   canSubsanarVerifactuRecord,
-  currentVerifactuAeatEnvironment,
 } from '../verifactu/verifactu-record';
 import { buildVerifactuXml } from '../verifactu/verifactu-xml';
 import { getOrganizationVerifactuCertificate } from '../verifactu/verifactu-certificate';
@@ -264,6 +268,7 @@ const findOrganizationInvoiceSettings = (
 const createVerifactuRecordForFiscalRecord = async (
   tx: Prisma.TransactionClient,
   fiscalRecordId: string,
+  aeatEnvironment?: VerifactuAeatEnvironment,
 ) => {
   const existingRecord = await tx.verifactuRecord.findUnique({
     where: { invoiceFiscalRecordId: fiscalRecordId },
@@ -274,13 +279,14 @@ const createVerifactuRecordForFiscalRecord = async (
     return existingRecord;
   }
 
-  const { payload, aeatEnvironment, previousVerifactuRecordId } =
-    await buildVerifactuPayloadForFiscalRecord(tx, fiscalRecordId);
+  const generated =
+    await buildVerifactuPayloadForFiscalRecord(tx, fiscalRecordId, aeatEnvironment);
+  const { payload, previousVerifactuRecordId } = generated;
 
   return tx.verifactuRecord.create({
     data: buildVerifactuRecordData({
       payload,
-      aeatEnvironment,
+      aeatEnvironment: generated.aeatEnvironment,
       previousVerifactuRecordId,
       xml: buildVerifactuXml(payload),
     }),
@@ -980,20 +986,25 @@ export const updateInvoiceStatus = async (
         type: 'ANULACION',
         createdByUserId,
       });
-      // Only invoices registered with an ALTA VerifactuRecord in the current AEAT
-      // environment can be cancelled there.
+      // Only invoices registered with an ALTA VerifactuRecord can be cancelled in
+      // AEAT. The cancellation goes to the ALTA's AEAT environment, whatever the
+      // current one, so a void is never lost when the setting changes.
       const altaVerifactuRecord = await tx.verifactuRecord.findFirst({
         where: {
           invoiceId: lockedInvoice.id,
           organizationId,
           recordType: 'ALTA',
-          aeatEnvironment: currentVerifactuAeatEnvironment(),
         },
-        select: { id: true },
+        orderBy: { invoiceFiscalRecord: { sequenceNumber: 'desc' } },
+        select: { id: true, aeatEnvironment: true },
       });
 
       if (altaVerifactuRecord) {
-        await createVerifactuRecordForFiscalRecord(tx, fiscalRecord.id);
+        await createVerifactuRecordForFiscalRecord(
+          tx,
+          fiscalRecord.id,
+          altaVerifactuRecord.aeatEnvironment,
+        );
       }
     }
 

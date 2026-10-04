@@ -88,7 +88,7 @@ VERIFACTU_TEST_SEAL_ENDPOINT=""
 
 `VERIFACTU_AEAT_ENV` is `test` for AEAT preproduction or `production` for real submissions. In production the jobs always use AEAT's production endpoints from the WSDL and ignore the test endpoint overrides.
 
-Each Veri*Factu record is tagged with the AEAT environment it was generated for, and is only sent, queried, chained and corrected within that environment. Set `VERIFACTU_AEAT_ENV` on the web app as well as on the jobs: the web app tags new records, and records it generates without the setting are preproduction records that the production worker never sends. After going live, preproduction records stay in the database but are never sent to AEAT production, each organization's first production record starts a new chain, and their invoices keep a preproduction QR.
+Each Veri*Factu record is tagged with the AEAT environment it was generated for, and is only sent, queried, chained and corrected within that environment. Set `VERIFACTU_AEAT_ENV` on the web app as well as on the jobs: the web app tags new records, and records it generates without the setting are preproduction records that the production worker never sends. After going live, preproduction records stay in the database but are never sent to AEAT production, each organization's first production record starts a new chain, and their invoices keep a preproduction QR. Voiding an invoice always generates its cancellation for the environment of its ALTA record, so a void made while the setting points elsewhere isn't lost.
 
 `VERIFACTU_TEST_ENDPOINT` overrides the preproduction endpoint used with personal and representative certificates, and `VERIFACTU_TEST_SEAL_ENDPOINT` the one used with seal certificates. Both default to the endpoints in the AEAT WSDL.
 

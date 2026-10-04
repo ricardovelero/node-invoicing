@@ -2496,6 +2496,8 @@ test("updateInvoiceStatus applies non-issuing status transitions without snapsho
 });
 
 test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a registered invoice", async () => {
+  // The ALTA was sent to production while this process is configured for test,
+  // as during a rollback: the cancellation still goes to production.
   let verifactuRecordCreateArgs: unknown;
   const altaHuella = "B".repeat(64);
 
@@ -2522,6 +2524,7 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
     },
     previousVerifactuRecord: {
       id: "alta_verifactu_record_1",
+      aeatEnvironment: "PRODUCTION",
       sellerTaxId: "VAT123",
       invoiceNumber: "INV-2026-0001",
       issueDate: new Date("2026-05-27T00:00:00.000Z"),
@@ -2543,6 +2546,7 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
 
   assert.deepEqual(result, { ok: true, status: "VOID" });
   assert.equal(data.recordType, "ANULACION");
+  assert.equal(data.aeatEnvironment, "PRODUCTION");
   assert.equal(data.invoiceNumber, "INV-2026-0001");
   assert.equal(data.previousVerifactuRecordId, "alta_verifactu_record_1");
   assert.equal(data.previousHuella, altaHuella);

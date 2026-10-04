@@ -610,10 +610,12 @@ export const buildVerifactuPayload = (
   throw new Error(`Unsupported VERI*FACTU fiscal record type: ${record.type}.`);
 };
 
+// aeatEnvironment overrides the configured one for new records, as for a
+// cancellation, which belongs to the environment of the invoice's ALTA.
 export const buildVerifactuPayloadForFiscalRecord = async (
   client: VerifactuPayloadClient,
   fiscalRecordId: string,
-  envSource: NodeJS.ProcessEnv = process.env,
+  aeatEnvironment?: VerifactuAeatEnvironment,
 ) => {
   const record = await client.invoiceFiscalRecord.findUnique({
     where: { id: fiscalRecordId },
@@ -624,12 +626,13 @@ export const buildVerifactuPayloadForFiscalRecord = async (
     throw new Error('Unable to load invoice fiscal record for VERI*FACTU payload.');
   }
 
-  const aeatEnvironment = record.verifactuRecord?.aeatEnvironment ??
-    currentVerifactuAeatEnvironment(envSource);
-  const previous = await resolvePreviousVerifactuRecord(client, record, aeatEnvironment);
+  const recordEnvironment = record.verifactuRecord?.aeatEnvironment ??
+    aeatEnvironment ??
+    currentVerifactuAeatEnvironment();
+  const previous = await resolvePreviousVerifactuRecord(client, record, recordEnvironment);
   const softwareConfig = await resolveDefaultVerifactuSoftwareConfig(client);
   const rechazoPrevio = record.type === 'ALTA' && record.subsanacionNumber > 0
-    ? await resolveVerifactuRechazoPrevio(client, record, aeatEnvironment)
+    ? await resolveVerifactuRechazoPrevio(client, record, recordEnvironment)
     : null;
   const payload = buildVerifactuPayload(record, {
     previousRecord: previous.previousRecord,
@@ -642,7 +645,7 @@ export const buildVerifactuPayloadForFiscalRecord = async (
 
   return {
     payload,
-    aeatEnvironment,
+    aeatEnvironment: recordEnvironment,
     previousVerifactuRecordId: previous.previousVerifactuRecordId,
   };
 };
