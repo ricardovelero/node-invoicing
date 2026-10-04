@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type VerifactuAeatEnvironment } from '@prisma/client';
 import QRCode from 'qrcode';
 import { formatVerifactuDate } from './verifactu-huella';
 
@@ -11,6 +11,7 @@ const verifactuQrBaseUrls = {
 } as const;
 
 export const verifactuQrSourceSelect = Prisma.validator<Prisma.VerifactuRecordSelect>()({
+  aeatEnvironment: true,
   sellerTaxId: true,
   invoiceNumber: true,
   issueDate: true,
@@ -35,9 +36,9 @@ export type VerifactuQr = {
   svg: string;
 };
 
-// The QR points to the AEAT environment records are submitted to.
-export const verifactuQrBaseUrl = (envSource: NodeJS.ProcessEnv = process.env) =>
-  envSource.VERIFACTU_AEAT_ENV === 'production'
+// The QR points to the AEAT environment the record was generated for.
+export const verifactuQrBaseUrl = (aeatEnvironment: VerifactuAeatEnvironment) =>
+  aeatEnvironment === 'PRODUCTION'
     ? verifactuQrBaseUrls.production
     : verifactuQrBaseUrls.test;
 
@@ -52,10 +53,7 @@ const importeTotalFromXml = (xml: string) => {
   return importeTotal;
 };
 
-export const buildVerifactuQrUrl = (
-  record: VerifactuQrSource,
-  envSource: NodeJS.ProcessEnv = process.env,
-) => {
+export const buildVerifactuQrUrl = (record: VerifactuQrSource) => {
   const params = new URLSearchParams({
     nif: record.sellerTaxId,
     numserie: record.invoiceNumber,
@@ -63,18 +61,17 @@ export const buildVerifactuQrUrl = (
     importe: importeTotalFromXml(record.xml),
   });
 
-  return `${verifactuQrBaseUrl(envSource)}?${params.toString()}`;
+  return `${verifactuQrBaseUrl(record.aeatEnvironment)}?${params.toString()}`;
 };
 
 export const buildVerifactuQr = async (
   record: VerifactuQrSource | null | undefined,
-  envSource: NodeJS.ProcessEnv = process.env,
 ): Promise<VerifactuQr | null> => {
   if (!record) {
     return null;
   }
 
-  const url = buildVerifactuQrUrl(record, envSource);
+  const url = buildVerifactuQrUrl(record);
   // The quiet zone is drawn by the template so its size can be set in millimetres.
   const svg = await QRCode.toString(url, {
     type: 'svg',

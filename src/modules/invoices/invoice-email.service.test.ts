@@ -381,6 +381,7 @@ test("getPublicInvoiceByToken looks up invoices by token hash", async () => {
             where: { recordType: "ALTA" },
             orderBy: { invoiceFiscalRecord: { sequenceNumber: "desc" } },
             select: {
+              aeatEnvironment: true,
               sellerTaxId: true,
               invoiceNumber: true,
               issueDate: true,

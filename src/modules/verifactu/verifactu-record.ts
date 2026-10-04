@@ -1,4 +1,8 @@
-import type { Prisma, VerifactuRecordStatus } from '@prisma/client';
+import type {
+  Prisma,
+  VerifactuAeatEnvironment,
+  VerifactuRecordStatus,
+} from '@prisma/client';
 import type { VerifactuPayload } from './verifactu-payload';
 import {
   parseVerifactuSoapSubmissionResponse,
@@ -13,17 +17,34 @@ const verifactuSubsanableStatuses: VerifactuRecordStatus[] = [
   'PREFLIGHT_FAILED',
 ];
 
-export const canSubsanarVerifactuRecord = (status: VerifactuRecordStatus | null | undefined) =>
-  !!status && verifactuSubsanableStatuses.includes(status);
+// The AEAT environment new records are generated for. Anything but production
+// is preproduction, so a missing setting never sends records for real.
+export const currentVerifactuAeatEnvironment = (
+  envSource: NodeJS.ProcessEnv = process.env,
+): VerifactuAeatEnvironment =>
+  envSource.VERIFACTU_AEAT_ENV === 'production' ? 'PRODUCTION' : 'TEST';
+
+// Records from another AEAT environment, such as preproduction records after
+// going live, can't be corrected: AEAT in this environment never received them.
+export const canSubsanarVerifactuRecord = (
+  record: { status: VerifactuRecordStatus; aeatEnvironment: VerifactuAeatEnvironment } |
+    null | undefined,
+  envSource: NodeJS.ProcessEnv = process.env,
+) =>
+  !!record &&
+  record.aeatEnvironment === currentVerifactuAeatEnvironment(envSource) &&
+  verifactuSubsanableStatuses.includes(record.status);
 
 export const buildVerifactuRecordData = ({
   payload,
   xml,
+  aeatEnvironment,
   previousVerifactuRecordId = null,
   status = 'GENERATED',
 }: {
   payload: VerifactuPayload;
   xml: string;
+  aeatEnvironment: VerifactuAeatEnvironment;
   previousVerifactuRecordId?: string | null;
   status?: VerifactuRecordStatus;
 }): Prisma.VerifactuRecordUncheckedCreateInput => ({
@@ -31,6 +52,7 @@ export const buildVerifactuRecordData = ({
   invoiceId: payload.invoiceId,
   organizationId: payload.organizationId,
   recordType: payload.recordType,
+  aeatEnvironment,
   sellerTaxId: payload.sellerTaxId,
   invoiceNumber: payload.invoiceNumber,
   issueDate: new Date(payload.issueDate),

@@ -1379,6 +1379,7 @@ test("getInvoiceDetails scopes invoice lookup by organization", async () => {
         where: { recordType: "ALTA" },
         orderBy: { invoiceFiscalRecord: { sequenceNumber: "desc" } },
         select: {
+          aeatEnvironment: true,
           sellerTaxId: true,
           invoiceNumber: true,
           issueDate: true,
@@ -2551,10 +2552,12 @@ test("updateInvoiceStatus creates an ANULACION VerifactuRecord when voiding a re
 const mockSubsanacionTransaction = ({
   invoiceStatus = "ISSUED",
   latestAltaStatus,
+  latestAltaEnvironment = "TEST",
   earlierAltaStatuses = [latestAltaStatus],
 }: {
   invoiceStatus?: InvoiceStatus;
   latestAltaStatus: string | null;
+  latestAltaEnvironment?: "TEST" | "PRODUCTION";
   earlierAltaStatuses?: Array<string | null>;
 }) => {
   const calls = {
@@ -2617,7 +2620,9 @@ const mockSubsanacionTransaction = ({
                 id: "fiscal_record_11",
                 hash: "previous-internal-hash",
                 subsanacionNumber: 0,
-                verifactuRecord: latestAltaStatus ? { status: latestAltaStatus } : null,
+                verifactuRecord: latestAltaStatus
+                  ? { status: latestAltaStatus, aeatEnvironment: latestAltaEnvironment }
+                  : null,
               };
         },
         async findUnique() {
@@ -2710,6 +2715,8 @@ test("subsanarInvoiceVerifactuRecord rejects invoices without a correctable reco
     { latestAltaStatus: "GENERATED" },
     { latestAltaStatus: null },
     { invoiceStatus: "VOID", latestAltaStatus: "REJECTED" },
+    // Preproduction records can't be corrected once VERIFACTU_AEAT_ENV is production.
+    { latestAltaStatus: "REJECTED", latestAltaEnvironment: "PRODUCTION" },
   ];
 
   for (const options of cases) {

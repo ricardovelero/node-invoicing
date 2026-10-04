@@ -12,6 +12,7 @@ const recordXml = (importeTotal: string) =>
   '</sf:RegistroAlta></sfLR:RegistroFactura></sfLR:RegFactuSistemaFacturacion>';
 
 const record = (overrides: Partial<Parameters<typeof buildVerifactuQrUrl>[0]> = {}) => ({
+  aeatEnvironment: 'TEST' as const,
   sellerTaxId: '89890001K',
   invoiceNumber: '12345678&G33',
   issueDate: new Date('2024-01-01T00:00:00.000Z'),
@@ -19,22 +20,25 @@ const record = (overrides: Partial<Parameters<typeof buildVerifactuQrUrl>[0]> = 
   ...overrides,
 });
 
-test('verifactuQrBaseUrl uses preproduction unless production is configured', () => {
-  assert.equal(verifactuQrBaseUrl({}), 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR');
+test('verifactuQrBaseUrl uses the record AEAT environment', () => {
+  assert.equal(verifactuQrBaseUrl('TEST'), 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR');
   assert.equal(
-    verifactuQrBaseUrl({ VERIFACTU_AEAT_ENV: 'test' }),
-    'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR',
-  );
-  assert.equal(
-    verifactuQrBaseUrl({ VERIFACTU_AEAT_ENV: 'production' }),
+    verifactuQrBaseUrl('PRODUCTION'),
     'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR',
+  );
+});
+
+test('buildVerifactuQrUrl points production records to AEAT production', () => {
+  assert.match(
+    buildVerifactuQrUrl(record({ aeatEnvironment: 'PRODUCTION' })),
+    /^https:\/\/www2\.agenciatributaria\.gob\.es\//,
   );
 });
 
 test('buildVerifactuQrUrl matches the AEAT URL encoding example', () => {
   // DetalleEspecificacTecnCodigoQRfactura v0.5.0, section 4.
   assert.equal(
-    buildVerifactuQrUrl(record(), {}),
+    buildVerifactuQrUrl(record()),
     'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=89890001K' +
       '&numserie=12345678%26G33&fecha=01-01-2024&importe=241.4',
   );
@@ -45,7 +49,7 @@ test('buildVerifactuQrUrl uses the ImporteTotal registered in the record XML', (
     invoiceNumber: 'INV-2026-0033',
     issueDate: new Date('2026-06-24T00:00:00.000Z'),
     xml: recordXml('114.95'),
-  }), {}));
+  })));
 
   assert.equal(url.searchParams.get('numserie'), 'INV-2026-0033');
   assert.equal(url.searchParams.get('fecha'), '24-06-2026');
@@ -55,20 +59,20 @@ test('buildVerifactuQrUrl uses the ImporteTotal registered in the record XML', (
 
 test('buildVerifactuQrUrl rejects record XML without ImporteTotal', () => {
   assert.throws(
-    () => buildVerifactuQrUrl(record({ xml: '<sf:RegistroAnulacion />' }), {}),
+    () => buildVerifactuQrUrl(record({ xml: '<sf:RegistroAnulacion />' })),
     /ImporteTotal/,
   );
 });
 
 test('buildVerifactuQr returns null without a registered record', async () => {
-  assert.equal(await buildVerifactuQr(undefined, {}), null);
+  assert.equal(await buildVerifactuQr(undefined), null);
 });
 
 test('buildVerifactuQr renders the URL as an SVG QR code', async () => {
-  const qr = await buildVerifactuQr(record(), {});
+  const qr = await buildVerifactuQr(record());
 
   assert.ok(qr);
-  assert.equal(qr.url, buildVerifactuQrUrl(record(), {}));
+  assert.equal(qr.url, buildVerifactuQrUrl(record()));
   assert.match(qr.svg, /^<svg[^>]*viewBox="0 0 \d+ \d+"/);
   assert.doesNotMatch(qr.svg, /<script/);
 });

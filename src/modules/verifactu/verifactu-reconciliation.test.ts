@@ -32,6 +32,7 @@ type FakeRecord = {
   recordType: InvoiceFiscalRecordType;
   invoiceNumber: string;
   status: VerifactuRecordStatus;
+  aeatEnvironment: 'TEST' | 'PRODUCTION';
 };
 
 const fakeRecord = (
@@ -39,17 +40,26 @@ const fakeRecord = (
   invoiceNumber: string,
   recordType: InvoiceFiscalRecordType = 'ALTA',
   organizationId = 'org_1',
-): FakeRecord => ({ id, organizationId, recordType, invoiceNumber, status: 'SUBMITTED' });
+): FakeRecord => ({
+  id,
+  organizationId,
+  recordType,
+  invoiceNumber,
+  status: 'SUBMITTED',
+  aeatEnvironment: 'TEST',
+});
 
 const fakeClient = (records: FakeRecord[]) => {
   const findManyCalls: Record<string, unknown>[] = [];
   const client = {
     verifactuRecord: {
-      async findMany(args: Record<string, unknown>) {
+      async findMany(args: Record<string, unknown> & { where: { aeatEnvironment: string } }) {
         findManyCalls.push(args);
 
         return records
-          .filter((record) => record.status === 'SUBMITTED')
+          .filter((record) =>
+            record.status === 'SUBMITTED' &&
+            record.aeatEnvironment === args.where.aeatEnvironment)
           .map((record) => ({
             id: record.id,
             organizationId: record.organizationId,
@@ -102,6 +112,7 @@ test('reconcileSubmittedVerifactuRecords stores the state AEAT registered', asyn
 
   const result = await reconcileSubmittedVerifactuRecords({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     now: () => Date.parse('2026-05-27T12:00:00.000Z'),
     async transport(request) {
@@ -131,6 +142,7 @@ test('reconcileSubmittedVerifactuRecords stores the state AEAT registered', asyn
   });
   assert.deepEqual(findManyCalls[0]?.where, {
     status: 'SUBMITTED',
+    aeatEnvironment: 'TEST',
     updatedAt: { lt: new Date('2026-05-27T11:45:00.000Z') },
   });
   assert.equal(findManyCalls[0]?.take, verifactuReconciliationBatchSize);
@@ -148,6 +160,7 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
 
   const result = await reconcileSubmittedVerifactuRecords({
     client,
+    aeatEnvironment: 'TEST',
     loadConfig: async () => config,
     logger: { error: (...args: unknown[]) => errors.push(args) },
     async transport(request) {
@@ -190,6 +203,29 @@ test('reconcileSubmittedVerifactuRecords keeps records SUBMITTED on failures', a
   );
 });
 
+test('reconcileSubmittedVerifactuRecords leaves records of other AEAT environments', async () => {
+  const records = [fakeRecord('test_record', 'INV-1')];
+  const { client } = fakeClient(records);
+  let requestCount = 0;
+
+  // AEAT production has no trace of preproduction records, so querying them
+  // there would send them back to GENERATED for resubmission.
+  const result = await reconcileSubmittedVerifactuRecords({
+    client,
+    aeatEnvironment: 'PRODUCTION',
+    loadConfig: async () => config,
+    async transport() {
+      requestCount += 1;
+
+      return { status: 200, body: queryResponseXml(null) };
+    },
+  });
+
+  assert.equal(requestCount, 0);
+  assert.equal(records[0]!.status, 'SUBMITTED');
+  assert.equal(result.checkedCount, 0);
+});
+
 test('reconcileSubmittedVerifactuRecords queries with each organization config', async () => {
   const records = [
     fakeRecord('record_1', 'INV-1', 'ALTA', 'org_1'),
@@ -202,6 +238,7 @@ test('reconcileSubmittedVerifactuRecords queries with each organization config',
 
   await reconcileSubmittedVerifactuRecords({
     client,
+    aeatEnvironment: 'TEST',
     async loadConfig(organizationId) {
       loadedOrganizations.push(organizationId);
 

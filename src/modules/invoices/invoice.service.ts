@@ -6,6 +6,7 @@ import { rateToNumber, resolveInvoiceWithholding } from '../../lib/withholding';
 import {
   buildVerifactuRecordData,
   canSubsanarVerifactuRecord,
+  currentVerifactuAeatEnvironment,
 } from '../verifactu/verifactu-record';
 import { buildVerifactuXml } from '../verifactu/verifactu-xml';
 import { getOrganizationVerifactuCertificate } from '../verifactu/verifactu-certificate';
@@ -273,12 +274,13 @@ const createVerifactuRecordForFiscalRecord = async (
     return existingRecord;
   }
 
-  const { payload, previousVerifactuRecordId } =
+  const { payload, aeatEnvironment, previousVerifactuRecordId } =
     await buildVerifactuPayloadForFiscalRecord(tx, fiscalRecordId);
 
   return tx.verifactuRecord.create({
     data: buildVerifactuRecordData({
       payload,
+      aeatEnvironment,
       previousVerifactuRecordId,
       xml: buildVerifactuXml(payload),
     }),
@@ -978,12 +980,14 @@ export const updateInvoiceStatus = async (
         type: 'ANULACION',
         createdByUserId,
       });
-      // Only invoices registered with an ALTA VerifactuRecord can be cancelled in AEAT.
+      // Only invoices registered with an ALTA VerifactuRecord in the current AEAT
+      // environment can be cancelled there.
       const altaVerifactuRecord = await tx.verifactuRecord.findFirst({
         where: {
           invoiceId: lockedInvoice.id,
           organizationId,
           recordType: 'ALTA',
+          aeatEnvironment: currentVerifactuAeatEnvironment(),
         },
         select: { id: true },
       });
@@ -1024,14 +1028,14 @@ export const subsanarInvoiceVerifactuRecord = async (
       orderBy: { sequenceNumber: 'desc' },
       select: {
         subsanacionNumber: true,
-        verifactuRecord: { select: { status: true } },
+        verifactuRecord: { select: { status: true, aeatEnvironment: true } },
       },
     });
 
     if (
       lockedInvoice.status !== 'ISSUED' ||
       !latestAlta ||
-      !canSubsanarVerifactuRecord(latestAlta.verifactuRecord?.status)
+      !canSubsanarVerifactuRecord(latestAlta.verifactuRecord)
     ) {
       return { ok: false as const, reason: 'notSubsanable' as const };
     }

@@ -478,7 +478,7 @@ export const invoiceDetailView = (
     canEditInvoice: canEditInvoice(invoice.status),
     canSubsanarVerifactu:
       invoice.status === 'ISSUED' &&
-      canSubsanarVerifactuRecord(invoice.verifactuRecords[0]?.status),
+      canSubsanarVerifactuRecord(invoice.verifactuRecords[0]),
     canRecordPayment:
       canRecordInvoicePayment(invoice.status) &&
       paymentSummary.outstandingCents > 0,

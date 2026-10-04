@@ -33,6 +33,13 @@ enum VerifactuRecordStatus {
   PREFLIGHT_FAILED
 }
 
+// AEAT environment a Veri*Factu record was generated for. Records are only sent,
+// queried and chained within their own environment.
+enum VerifactuAeatEnvironment {
+  TEST
+  PRODUCTION
+}
+
 // Spanish invoicing regime. Only VERIFACTU organizations in Spain send records
 // to AEAT; SII organizations are outside the SIF rules; FORAL (Basque Country,
 // Navarra) needs TicketBAI or Navarra's system, which isn't supported.
@@ -344,6 +351,7 @@ model VerifactuRecord {
   invoiceId                      String                  @db.Uuid
   organizationId                 String                  @db.Uuid
   recordType                     InvoiceFiscalRecordType
+  aeatEnvironment                VerifactuAeatEnvironment @default(TEST)
   sellerTaxId                    String
   invoiceNumber                  String
   issueDate                      DateTime

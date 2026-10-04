@@ -2,6 +2,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { prisma } from '../db/prisma';
 import { loadOrganizationVerifactuSoapConfig } from '../modules/verifactu/verifactu-certificate';
 import { runVerifactuSubmissionPass } from '../modules/verifactu/verifactu-submission';
+import { currentVerifactuAeatEnvironment } from '../modules/verifactu/verifactu-record';
 import { loadVerifactuSoapEnvironment } from '../modules/verifactu/verifactu-soap';
 
 // Submits pending Veri*Factu records to AEAT. Runs continuously, polling every
@@ -10,6 +11,7 @@ import { loadVerifactuSoapEnvironment } from '../modules/verifactu/verifactu-soa
 // Each organization submits with its own uploaded certificate.
 const run = async () => {
   const environment = loadVerifactuSoapEnvironment();
+  const aeatEnvironment = currentVerifactuAeatEnvironment();
   const loadConfig = (organizationId: string) =>
     loadOrganizationVerifactuSoapConfig({ client: prisma, organizationId, environment });
   const once = process.argv.includes('--once');
@@ -21,7 +23,12 @@ const run = async () => {
   process.once('SIGTERM', () => stop.abort());
 
   do {
-    await runVerifactuSubmissionPass({ client: prisma, loadConfig, nextSubmissionAt });
+    await runVerifactuSubmissionPass({
+      client: prisma,
+      aeatEnvironment,
+      loadConfig,
+      nextSubmissionAt,
+    });
 
     if (!once) {
       await sleep(pollSeconds * 1000, undefined, { signal: stop.signal }).catch(() => {});

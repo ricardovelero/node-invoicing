@@ -1,9 +1,14 @@
-import { Prisma, type VerifactuRecordStatus } from '@prisma/client';
+import {
+  Prisma,
+  type VerifactuAeatEnvironment,
+  type VerifactuRecordStatus,
+} from '@prisma/client';
 import {
   buildVerifactuRecipientId,
   type VerifactuRecipientId,
 } from './verifactu-destinatario';
 import { calculateVerifactuHuella } from './verifactu-huella';
+import { currentVerifactuAeatEnvironment } from './verifactu-record';
 
 export const verifactuPayloadVersion = '1.0';
 
@@ -47,6 +52,7 @@ export const verifactuPayloadFiscalRecordSelect =
     verifactuRecord: {
       select: {
         generationDateTimeWithTimezone: true,
+        aeatEnvironment: true,
       },
     },
     invoiceType: true,
@@ -415,13 +421,17 @@ const buildPreviousRecordIdentity = (
     }
   : null;
 
+// Each AEAT environment has its own chain, so an organization's first production
+// record starts a new one after its preproduction records.
 export const resolvePreviousVerifactuRecord = async (
   client: VerifactuPayloadClient,
   record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'organizationId' | 'sequenceNumber'>,
+  aeatEnvironment: VerifactuAeatEnvironment,
 ) => {
   const previousRecord = await client.verifactuRecord.findFirst({
     where: {
       organizationId: record.organizationId,
+      aeatEnvironment,
       invoiceFiscalRecord: {
         sequenceNumber: {
           lt: record.sequenceNumber,
@@ -450,7 +460,8 @@ type InvoiceSnapshotRecord = InvoiceFiscalRecordWithInvoiceSnapshot['invoice'];
 // ALTA records: X when AEAT never registered the invoice (rejected or never sent),
 // S when it did but the last subsanación was rejected, and none otherwise.
 // Only records with the current seller NIF, number and date count, since a
-// changed organization NIF makes it a different invoice for AEAT.
+// changed organization NIF makes it a different invoice for AEAT, and only
+// records for the same AEAT environment.
 export const resolveVerifactuRechazoPrevio = async (
   client: VerifactuPayloadClient,
   record: Pick<InvoiceFiscalRecordWithInvoiceSnapshot, 'invoiceId' | 'sequenceNumber'> & {
@@ -458,11 +469,13 @@ export const resolveVerifactuRechazoPrevio = async (
       snapshot: Pick<NonNullable<InvoiceSnapshotRecord['snapshot']>, 'sellerTaxId'> | null;
     };
   },
+  aeatEnvironment: VerifactuAeatEnvironment,
 ): Promise<VerifactuRechazoPrevio | null> => {
   const earlierRecords = await client.verifactuRecord.findMany({
     where: {
       invoiceId: record.invoiceId,
       recordType: 'ALTA',
+      aeatEnvironment,
       sellerTaxId: requiredText(record.invoice.snapshot?.sellerTaxId, 'a seller tax ID'),
       invoiceNumber: requiredText(record.invoice.number, 'an invoice number'),
       issueDate: record.invoice.issueDate,
@@ -600,6 +613,7 @@ export const buildVerifactuPayload = (
 export const buildVerifactuPayloadForFiscalRecord = async (
   client: VerifactuPayloadClient,
   fiscalRecordId: string,
+  envSource: NodeJS.ProcessEnv = process.env,
 ) => {
   const record = await client.invoiceFiscalRecord.findUnique({
     where: { id: fiscalRecordId },
@@ -610,10 +624,12 @@ export const buildVerifactuPayloadForFiscalRecord = async (
     throw new Error('Unable to load invoice fiscal record for VERI*FACTU payload.');
   }
 
-  const previous = await resolvePreviousVerifactuRecord(client, record);
+  const aeatEnvironment = record.verifactuRecord?.aeatEnvironment ??
+    currentVerifactuAeatEnvironment(envSource);
+  const previous = await resolvePreviousVerifactuRecord(client, record, aeatEnvironment);
   const softwareConfig = await resolveDefaultVerifactuSoftwareConfig(client);
   const rechazoPrevio = record.type === 'ALTA' && record.subsanacionNumber > 0
-    ? await resolveVerifactuRechazoPrevio(client, record)
+    ? await resolveVerifactuRechazoPrevio(client, record, aeatEnvironment)
     : null;
   const payload = buildVerifactuPayload(record, {
     previousRecord: previous.previousRecord,
@@ -626,6 +642,7 @@ export const buildVerifactuPayloadForFiscalRecord = async (
 
   return {
     payload,
+    aeatEnvironment,
     previousVerifactuRecordId: previous.previousVerifactuRecordId,
   };
 };
