@@ -179,7 +179,8 @@
       "unsupportedFormat": "This file uses old encryption that isn't supported. Export it again with AES-256 or TripleDES encryption.",
       "missingPrivateKey": "The file doesn't include the private key. Export the certificate together with its private key.",
       "invalidFile": "The certificate couldn't be read. Check it's a .p12 or .pfx file.",
-      "expired": "The certificate has expired."
+      "expired": "The certificate has expired.",
+      "notYetValid": "This certificate is not valid yet. Upload it once its validity period has started."
     },
     "uploaded": "Certificate saved.",
     "removed": "Certificate removed."

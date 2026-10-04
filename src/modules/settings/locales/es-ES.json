@@ -179,7 +179,8 @@
       "unsupportedFormat": "Este archivo usa un cifrado antiguo que no se admite. Vuelve a exportarlo con cifrado AES-256 o TripleDES.",
       "missingPrivateKey": "El archivo no incluye la clave privada. Exporta el certificado junto con su clave privada.",
       "invalidFile": "No se pudo leer el certificado. Comprueba que es un archivo .p12 o .pfx.",
-      "expired": "El certificado ha caducado."
+      "expired": "El certificado ha caducado.",
+      "notYetValid": "El certificado aún no es válido. Súbelo cuando empiece su periodo de validez."
     },
     "uploaded": "Certificado guardado.",
     "removed": "Certificado eliminado."

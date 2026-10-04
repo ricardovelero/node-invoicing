@@ -12,6 +12,7 @@ export type VerifactuCertificateErrorReason =
   | 'missingPrivateKey'
   | 'invalidFile'
   | 'expired'
+  | 'notYetValid'
   | 'missing';
 
 export class VerifactuCertificateError extends Error {
@@ -84,7 +85,16 @@ export const inspectVerifactuCertificate = (
   const subject = parseSubject(certificate.subject);
   const organizationIdentifier = subject.get('organizationIdentifier');
   const serialNumber = subject.get('serialNumber');
+  const validFrom = new Date(certificate.validFrom);
   const validTo = new Date(certificate.validTo);
+
+  // Rejected rather than stored, so it can't replace a certificate that works today.
+  if (validFrom > now) {
+    throw new VerifactuCertificateError(
+      'notYetValid',
+      `Certificate is not valid until ${certificate.validFrom}.`,
+    );
+  }
 
   if (validTo <= now) {
     throw new VerifactuCertificateError(
@@ -99,7 +109,7 @@ export const inspectVerifactuCertificate = (
       serialNumber?.replace(/^IDC[A-Z]{2}-/u, '') ??
       null,
     isSeal: !!organizationIdentifier && !subject.has('GN') && !subject.has('SN'),
-    validFrom: new Date(certificate.validFrom),
+    validFrom,
     validTo,
   };
 };

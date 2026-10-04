@@ -70,6 +70,14 @@ test('inspectVerifactuCertificate rejects unusable certificates', () => {
     ),
     'expired',
   );
+  assertCertificateError(
+    () => inspectVerifactuCertificate(
+      fixture('personal'),
+      passphrase,
+      new Date('1900-01-01T00:00:00.000Z'),
+    ),
+    'notYetValid',
+  );
 });
 
 test('encryptVerifactuCertificate round-trips only for the same organization', () => {
